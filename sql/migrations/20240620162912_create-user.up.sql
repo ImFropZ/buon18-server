@@ -1,0 +1,1 @@
+CREATE USER app_user PASSWORD 'dev_only_password';

@@ -1,0 +1,1 @@
+DROP DATABASE IF EXISTS app_db;
