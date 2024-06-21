@@ -8,8 +8,6 @@ CREATE TABLE "user" (
 
     -- Auth
     pwd VARCHAR(256),
-    pwd_salt uuid NOT NULL DEFAULT gen_random_uuid(),
-    token_salt uuid NOT NULL DEFAULT gen_random_uuid(),
 
     -- Flags
     typ user_typ NOT NULL DEFAULT 'User',
