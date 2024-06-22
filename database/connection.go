@@ -15,7 +15,9 @@ func ConnectDB() {
 	connectionString := config.Env("DB_CONNECTION_STRING")
 
 	var err error
-	DB, err = gorm.Open(postgres.Open(connectionString), &gorm.Config{})
+	DB, err = gorm.Open(postgres.Open(connectionString), &gorm.Config{
+		TranslateError: true,
+	})
 	if err != nil {
 		log.Fatalf("Error connecting to database: %v\n", err)
 	}

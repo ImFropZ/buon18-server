@@ -1,7 +1,10 @@
 package controllers
 
 import (
+	"errors"
+	"fmt"
 	"server/models"
+	"server/utils"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
@@ -18,6 +21,13 @@ type UserResponse struct {
 	Name  string `json:"name"`
 	Email string `json:"email"`
 	Role  string `json:"role"`
+}
+
+type CreateUserRequest struct {
+	Name     string `json:"name" binding:"required"`
+	Email    string `json:"email" binding:"required"`
+	Password string `json:"password" binding:"required"`
+	Role     string `json:"role" binding:"required"`
 }
 
 type UserHandler struct {
@@ -54,5 +64,94 @@ func (handler *UserHandler) List(c *gin.Context) {
 
 	c.JSON(200, gin.H{
 		"users": users,
+	})
+}
+
+func (handler *UserHandler) Create(c *gin.Context) {
+	// -- Get email
+	email, _ := c.Get("email")
+	if email == nil {
+		c.JSON(500, gin.H{
+			"error": "internal server error",
+		})
+		return
+	}
+
+	// -- Bind request
+	var request CreateUserRequest
+	if err := c.ShouldBindJSON(&request); err != nil {
+		c.JSON(400, gin.H{
+			"error": err.Error(),
+		})
+		return
+	}
+
+	// -- Validate role
+	role, ok := utils.ValidateRole(request.Role)
+	if !ok {
+		c.JSON(400, gin.H{
+			"error": "invalid role",
+		})
+		return
+	}
+
+	// -- Hash password
+	hashedPwd, err := utils.HashPwd(request.Password)
+	if err != nil {
+		c.JSON(500, gin.H{
+			"error": "internal server error",
+		})
+		return
+	}
+
+	// -- Prepare user model
+	user := models.User{
+		Name:  request.Name,
+		Email: request.Email,
+		Pwd:   hashedPwd,
+		Role:  role,
+	}
+
+	// -- Query user by email
+	var existingUser models.User
+	result := handler.DB.Where("email = ?", email).First(&existingUser)
+	if result.Error != nil {
+		fmt.Printf("existingUser: %v\n", result.Error)
+		c.JSON(400, gin.H{
+			"error": "email already exists",
+		})
+		return
+	}
+
+	// -- Prepare for create
+	if err := user.PrepareForCreate(existingUser.ID, existingUser.ID); err != nil {
+		c.JSON(500, gin.H{
+			"error": "internal server error",
+		})
+		return
+	}
+
+	// -- Create user
+	result = handler.DB.Create(&user)
+	if result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrDuplicatedKey) {
+			c.JSON(400, gin.H{
+				"error": "email already exists",
+			})
+			return
+		}
+		c.JSON(500, gin.H{
+			"error": "internal server error",
+		})
+		return
+	}
+
+	c.JSON(201, gin.H{
+		"user": UserResponse{
+			ID:    user.ID,
+			Name:  user.Name,
+			Email: user.Email,
+			Role:  user.Role,
+		},
 	})
 }

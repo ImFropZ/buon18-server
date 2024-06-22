@@ -6,7 +6,7 @@ CREATE TABLE "user" (
 
     -- Personal information
     name VARCHAR(64) NOT NULL,
-    email VARCHAR(64) NOT NULL,
+    email VARCHAR(64) NOT NULL UNIQUE,
 
     -- Auth
     pwd VARCHAR(256),
