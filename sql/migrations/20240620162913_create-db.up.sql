@@ -1,1 +1,0 @@
-CREATE DATABASE app_db OWNER app_user ENCODING 'UTF8';
