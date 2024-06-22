@@ -2,7 +2,6 @@ package controllers
 
 import (
 	"errors"
-	"fmt"
 	"server/models"
 	"server/utils"
 
@@ -18,6 +17,11 @@ type LoginRequest struct {
 
 type RefreshTokenRequest struct {
 	RefreshToken string `json:"refresh_token" binding:"required"`
+}
+
+type UpdatePasswordRequest struct {
+	OldPassword string `json:"old_password" binding:"required"`
+	NewPassword string `json:"new_password" binding:"required"`
 }
 
 type AuthHandler struct {
@@ -36,14 +40,7 @@ func (handler *AuthHandler) Login(c *gin.Context) {
 	var user models.User
 	handler.DB.First(&user)
 
-	// -- Hash password
-	hashPwd, err := utils.HashPwd(req.Password)
-	if err != nil {
-		c.JSON(500, gin.H{"error": err.Error()})
-		return
-	}
-
-	if user.Email != req.Email || (user.Pwd != hashPwd && user.Pwd != "") {
+	if user.Email != req.Email || (!utils.ComparePwd(req.Password, user.Pwd) && user.Pwd != "") {
 		c.JSON(401, gin.H{"error": "Invalid email or password"})
 		return
 	}
@@ -94,7 +91,6 @@ func (handler *AuthHandler) RefreshToken(c *gin.Context) {
 		if errors.Is(err, jwt.ErrTokenExpired) {
 			refreshClaims, refreshErr := utils.ValidateRefreshToken(req.RefreshToken)
 			if refreshErr != nil {
-				fmt.Printf("Error parsing token: %v\n", refreshErr)
 				c.JSON(401, gin.H{"error": refreshErr.Error()})
 				return
 			}
@@ -138,4 +134,48 @@ func (handler *AuthHandler) RefreshToken(c *gin.Context) {
 	c.JSON(200, gin.H{
 		"token": token,
 	})
+}
+
+func (handler *AuthHandler) UpdatePassword(c *gin.Context) {
+	// -- Parse request
+	var req UpdatePasswordRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(400, gin.H{"error": err.Error()})
+		return
+	}
+
+	// -- Get email
+	email, _ := c.Get("email")
+
+	// -- Get user from db
+	var user models.User
+	result := handler.DB.First(&user, "email = ?", email)
+	if result.RowsAffected == 0 {
+		c.JSON(404, gin.H{"error": "user doesn't existed"})
+		return
+	}
+
+	// -- Update Pwd if user in db doesn't have pwd
+	if user.Pwd != "" {
+		// -- Compare pwd
+		if ok := utils.ComparePwd(req.OldPassword, user.Pwd); !ok {
+			c.JSON(400, gin.H{
+				"error": "incorrect old password",
+			})
+			return
+		}
+	}
+
+	// -- Update pwd
+	if hashedPwd, err := utils.HashPwd(req.NewPassword); err == nil {
+		user.Pwd = hashedPwd
+		handler.DB.Save(&user)
+		c.JSON(200, gin.H{
+			"message": "successfully updated",
+		})
+	} else {
+		c.JSON(500, gin.H{
+			"error": "unavailable to handle this action",
+		})
+	}
 }

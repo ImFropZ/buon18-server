@@ -5,8 +5,7 @@ import (
 )
 
 func HashPwd(rawPwd string) (string, error) {
-	rawPwdBytes := []byte(rawPwd)
-	hashedPwd, err := bcrypt.GenerateFromPassword(rawPwdBytes, bcrypt.DefaultCost)
+	hashedPwd, err := bcrypt.GenerateFromPassword([]byte(rawPwd), bcrypt.DefaultCost)
 	if err != nil {
 		return "", err
 	}
@@ -14,8 +13,6 @@ func HashPwd(rawPwd string) (string, error) {
 }
 
 func ComparePwd(rawPwd, hashedPwd string) bool {
-	rawPwdBytes := []byte(rawPwd)
-	hashedPwdBytes := []byte(hashedPwd)
-	err := bcrypt.CompareHashAndPassword(hashedPwdBytes, rawPwdBytes)
+	err := bcrypt.CompareHashAndPassword([]byte(hashedPwd), []byte(rawPwd))
 	return err == nil
 }
