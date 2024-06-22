@@ -28,6 +28,29 @@ type AuthHandler struct {
 	DB *gorm.DB
 }
 
+func (handler *AuthHandler) Me(c *gin.Context) {
+	email, ok := c.Get("email")
+	if !ok {
+		c.JSON(500, gin.H{"error": "email not found"})
+		return
+	}
+
+	// -- Get user from db
+	var user models.User
+	result := handler.DB.First(&user, "email = ?", email)
+
+	if result.RowsAffected == 0 {
+		c.JSON(404, gin.H{"error": "user doesn't existed"})
+		return
+	}
+
+	c.JSON(200, gin.H{
+		"name":  user.Name,
+		"email": user.Email,
+		"role":  user.Role,
+	})
+}
+
 func (handler *AuthHandler) Login(c *gin.Context) {
 	// -- Parse request
 	var req LoginRequest
@@ -48,7 +71,7 @@ func (handler *AuthHandler) Login(c *gin.Context) {
 	// -- Generate token
 	token, err := utils.GenerateWebToken(utils.WebTokenClaims{
 		Email: user.Email,
-		Role:  "admin",
+		Role:  user.Role,
 	})
 
 	if err != nil {
@@ -107,7 +130,7 @@ func (handler *AuthHandler) RefreshToken(c *gin.Context) {
 			// -- Generate new token
 			token, err := utils.GenerateWebToken(utils.WebTokenClaims{
 				Email: user.Email,
-				Role:  "admin",
+				Role:  user.Role,
 			})
 			if err != nil {
 				c.JSON(500, gin.H{"error": err.Error()})
