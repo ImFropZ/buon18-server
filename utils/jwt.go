@@ -8,20 +8,37 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 )
 
-type Claims struct {
+type WebTokenClaims struct {
 	Email string `json:"email"`
 	Role  string `json:"role"`
 	jwt.Claims
 }
 
-func GenerateWebToken(c Claims) (string, error) {
+type RefreshTokenClaims struct {
+	Email string `json:"email"`
+	jwt.Claims
+}
+
+func RemoveBearer(token string) (string, error) {
+	const BEARER_SCHEMA = "Bearer "
+	if token == "" {
+		return "", fmt.Errorf("token is required")
+	}
+
+	// Remove Bearer schema
+	token = token[len(BEARER_SCHEMA):]
+
+	return token, nil
+}
+
+func GenerateWebToken(c WebTokenClaims) (string, error) {
 	config := config.GetAuthConfigInstance()
 
 	// Create the Claims
 	claims := &jwt.MapClaims{
-		"Email": c.Email,
-		"Role":  c.Role,
-		"Exp":   time.Now().Add(time.Second * time.Duration(config.TOKEN_DURATION_SEC)).Unix(),
+		"email": c.Email,
+		"role":  c.Role,
+		"exp":   time.Now().Add(time.Second * time.Duration(config.TOKEN_DURATION_SEC)).Unix(),
 	}
 
 	// Generate token
@@ -36,35 +53,64 @@ func GenerateWebToken(c Claims) (string, error) {
 	return tokenString, nil
 }
 
-func ValidateWebToken(token string) (Claims, error) {
+func GenerateRefreshToken(c RefreshTokenClaims) (string, error) {
 	config := config.GetAuthConfigInstance()
 
-	tokenBytes, err := jwt.Parse(token, func(token *jwt.Token) (interface{}, error) {
-		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-			return nil, fmt.Errorf("unexpected signing method")
-		}
+	// Create the Claims
+	claims := &jwt.MapClaims{
+		"email": c.Email,
+		"exp":   time.Now().Add(time.Duration(config.REFRESH_TOKEN_SEC) * time.Second).Unix(),
+	}
 
+	// Generate token
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+
+	// Sign token
+	tokenString, err := token.SignedString([]byte(config.REFRESH_TOKEN_KEY))
+	if err != nil {
+		return "", err
+	}
+
+	return tokenString, nil
+}
+
+func ValidateWebToken(tokenString string) (WebTokenClaims, error) {
+	config := config.GetAuthConfigInstance()
+
+	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
 		return []byte(config.TOKEN_KEY), nil
 	})
+
 	if err != nil {
-		return Claims{}, err
+		return WebTokenClaims{}, err
 	}
 
-	if claims, ok := tokenBytes.Claims.(jwt.MapClaims); !ok && !tokenBytes.Valid {
-		return Claims{}, fmt.Errorf("invalid token")
-	} else {
-		// -- Show human readable time
-		expTime := time.Unix(int64(claims["Exp"].(float64)), 0)
-		currentTime := time.Now()
-		fmt.Println(expTime, currentTime)
-
-		if expTime.Sub(currentTime) < 0 {
-			return Claims{}, fmt.Errorf("token expired")
-		}
-
-		return Claims{
-			Email: claims["Email"].(string),
-			Role:  claims["Role"].(string),
+	if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
+		return WebTokenClaims{
+			Email: claims["email"].(string),
+			Role:  claims["role"].(string),
 		}, nil
 	}
+
+	return WebTokenClaims{}, fmt.Errorf("invalid token")
+}
+
+func ValidateRefreshToken(tokenString string) (RefreshTokenClaims, error) {
+	config := config.GetAuthConfigInstance()
+
+	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+		return []byte(config.REFRESH_TOKEN_KEY), nil
+	})
+
+	if err != nil {
+		return RefreshTokenClaims{}, err
+	}
+
+	if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
+		return RefreshTokenClaims{
+			Email: claims["email"].(string),
+		}, nil
+	}
+
+	return RefreshTokenClaims{}, fmt.Errorf("invalid token")
 }
