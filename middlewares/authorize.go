@@ -1,6 +1,7 @@
 package middlewares
 
 import (
+	"server/utils"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -21,7 +22,7 @@ func Authorize(role Role) gin.HandlerFunc {
 
 		// -- Compare role
 		if convertRole(userRole) > role {
-			c.JSON(401, gin.H{"error": "Unauthorized"})
+			c.JSON(401, utils.NewErrorResponse(401, "unauthorized"))
 			c.Abort()
 			return
 		}

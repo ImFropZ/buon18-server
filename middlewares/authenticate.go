@@ -14,7 +14,7 @@ func Authenticate() gin.HandlerFunc {
 		// -- Remove Bearer schema
 		token, err := utils.RemoveBearer(token)
 		if err != nil {
-			c.JSON(401, gin.H{"error": err.Error()})
+			c.JSON(401, utils.NewErrorResponse(401, "token is required"))
 			c.Abort()
 			return
 		}
@@ -22,7 +22,7 @@ func Authenticate() gin.HandlerFunc {
 		// -- Validate token
 		claims, err := utils.ValidateWebToken(token)
 		if err != nil {
-			c.JSON(401, gin.H{"error": err.Error()})
+			c.JSON(401, utils.NewErrorResponse(401, "invalid token"))
 			c.Abort()
 			return
 		}

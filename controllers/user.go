@@ -3,6 +3,7 @@ package controllers
 import (
 	"errors"
 	"fmt"
+	"log"
 	"server/models"
 	"server/utils"
 	"strconv"
@@ -38,6 +39,7 @@ func (handler *UserHandler) First(c *gin.Context) {
 	var user UserResponse
 	result := handler.DB.Model(&models.User{}).First(&user)
 	if result.Error != nil {
+		log.Printf("Error finding users in database: %v\n", result.Error)
 		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
 		return
 	}
@@ -67,51 +69,42 @@ func (handler *UserHandler) List(c *gin.Context) {
 	var users []UserResponse
 	result := handler.DB.Model(&models.User{}).Limit(queryParams.Limit).Offset(queryParams.Offset).Find(&users)
 	if result.Error != nil {
-		c.JSON(500, gin.H{
-			"error": "internal server error",
-		})
+		log.Printf("Error finding users in database: %v\n", result.Error)
+		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
 		return
 	}
 
-	c.JSON(200, gin.H{
-		"users": users,
-	})
+	c.JSON(200, utils.NewResponse(200, "success", users))
 }
 
 func (handler *UserHandler) Create(c *gin.Context) {
 	// -- Get email
 	email, _ := c.Get("email")
 	if email == nil {
-		c.JSON(500, gin.H{
-			"error": "internal server error",
-		})
+		log.Printf("Error getting email from context: %v\n", errors.New("email not found in context"))
+		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
 		return
 	}
 
 	// -- Bind request
 	var request CreateUserRequest
 	if err := c.ShouldBindJSON(&request); err != nil {
-		c.JSON(400, gin.H{
-			"error": err.Error(),
-		})
+		c.JSON(400, utils.NewErrorResponse(400, "invalid request. request should contain name, email, password, and role fields"))
 		return
 	}
 
 	// -- Validate role
 	role, ok := utils.ValidateRole(request.Role)
 	if !ok {
-		c.JSON(400, gin.H{
-			"error": "invalid role",
-		})
+		c.JSON(400, utils.NewErrorResponse(400, "invalid role"))
 		return
 	}
 
 	// -- Hash password
 	hashedPwd, err := utils.HashPwd(request.Password)
 	if err != nil {
-		c.JSON(500, gin.H{
-			"error": "internal server error",
-		})
+		log.Printf("Error hashing password: %v\n", err)
+		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
 		return
 	}
 
@@ -127,18 +120,15 @@ func (handler *UserHandler) Create(c *gin.Context) {
 	var existingUser models.User
 	result := handler.DB.Where("email = ?", email).First(&existingUser)
 	if result.Error != nil {
-		fmt.Printf("existingUser: %v\n", result.Error)
-		c.JSON(400, gin.H{
-			"error": "email already exists",
-		})
+		log.Printf("Error finding matched email in database: %v\n", result.Error)
+		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
 		return
 	}
 
 	// -- Prepare for create
 	if err := user.PrepareForCreate(existingUser.ID, existingUser.ID); err != nil {
-		c.JSON(500, gin.H{
-			"error": "internal server error",
-		})
+		log.Printf("Error preparing create fields for user: %v\n", err)
+		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
 		return
 	}
 
@@ -146,43 +136,35 @@ func (handler *UserHandler) Create(c *gin.Context) {
 	result = handler.DB.Create(&user)
 	if result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrDuplicatedKey) {
-			c.JSON(400, gin.H{
-				"error": "email already exists",
-			})
+			c.JSON(400, utils.NewErrorResponse(400, "email already exists"))
 			return
 		}
-		c.JSON(500, gin.H{
-			"error": "internal server error",
-		})
+		log.Printf("Error creating new user: %v\n", result.Error)
+		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
 		return
 	}
 
-	c.JSON(201, gin.H{
-		"user": UserResponse{
-			ID:    user.ID,
-			Name:  user.Name,
-			Email: user.Email,
-			Role:  user.Role,
-		},
-	})
+	c.JSON(201, utils.NewResponse(201, "user created", &UserResponse{
+		ID:    user.ID,
+		Name:  user.Name,
+		Email: user.Email,
+		Role:  user.Role,
+	}))
 }
 
 func (handler *UserHandler) Delete(c *gin.Context) {
 	// -- Get email
 	email, _ := c.Get("email")
 	if email == nil {
-		c.JSON(500, gin.H{
-			"error": "internal server error",
-		})
+		log.Printf("Error getting email from context: %v\n", errors.New("email not found in context"))
+		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
 		return
 	}
 
 	// -- Get user ID
 	userID, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
-		c.JSON(400, gin.H{
-			"error": "invalid user ID",
-		})
+		c.JSON(400, utils.NewErrorResponse(400, "invalid user ID. user ID should be an integer"))
 		return
 	}
 
@@ -190,25 +172,19 @@ func (handler *UserHandler) Delete(c *gin.Context) {
 	var user models.User
 	result := handler.DB.Where("id = ?", userID).First(&user)
 	if result.Error != nil {
-		c.JSON(404, gin.H{
-			"error": "user not found",
-		})
+		c.JSON(404, utils.NewErrorResponse(404, "user not found"))
 		return
 	}
 
 	// -- Check if user is deleting itself
 	if user.Email == email {
-		c.JSON(400, gin.H{
-			"error": "cannot delete yourself",
-		})
+		c.JSON(400, utils.NewErrorResponse(400, "user cannot delete itself"))
 		return
 	}
 
 	// -- Check if user already deleted
 	if user.Deleted {
-		c.JSON(400, gin.H{
-			"error": "user already deleted",
-		})
+		c.JSON(400, utils.NewErrorResponse(400, "user already deleted"))
 		return
 	}
 
@@ -216,15 +192,12 @@ func (handler *UserHandler) Delete(c *gin.Context) {
 	var count int64
 	result = handler.DB.Model(&models.User{}).Where("role = ?", "Admin").Count(&count)
 	if result.Error != nil {
-		c.JSON(500, gin.H{
-			"error": "internal server error",
-		})
+		log.Printf("Error finding admin role in database: %v\n", result.Error)
+		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
 		return
 	}
 	if count < 2 && user.Role == "Admin" {
-		c.JSON(400, gin.H{
-			"error": "cannot delete the only admin",
-		})
+		c.JSON(400, utils.NewErrorResponse(400, "cannot delete the only admin"))
 		return
 	}
 
@@ -232,17 +205,15 @@ func (handler *UserHandler) Delete(c *gin.Context) {
 	var currentUser models.User
 	result = handler.DB.Where("email = ?", email).First(&currentUser)
 	if result.Error != nil {
-		c.JSON(500, gin.H{
-			"error": "internal server error",
-		})
+		log.Printf("Error finding matched email in database: %v\n", result.Error)
+		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
 		return
 	}
 
 	// -- Prepare for update
 	if err := user.PrepareForUpdate(currentUser.ID); err != nil {
-		c.JSON(500, gin.H{
-			"error": "internal server error",
-		})
+		log.Printf("Error preparing update fields for user: %v\n", err)
+		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
 		return
 	}
 
@@ -250,13 +221,10 @@ func (handler *UserHandler) Delete(c *gin.Context) {
 	user.Deleted = true
 	result = handler.DB.Save(&user)
 	if result.Error != nil {
-		c.JSON(500, gin.H{
-			"error": "internal server error",
-		})
+		log.Printf("Error saving into database: %v\n", result.Error)
+		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
 		return
 	}
 
-	c.JSON(200, gin.H{
-		"message": fmt.Sprintf("user %d deleted", userID),
-	})
+	c.JSON(200, utils.NewResponse(200, fmt.Sprintf("user %d deleted", user.ID), nil))
 }
