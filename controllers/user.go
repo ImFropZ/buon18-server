@@ -34,6 +34,17 @@ type UserHandler struct {
 	DB *gorm.DB
 }
 
+func (handler *UserHandler) First(c *gin.Context) {
+	var user UserResponse
+	result := handler.DB.Model(&models.User{}).First(&user)
+	if result.Error != nil {
+		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
+		return
+	}
+
+	c.JSON(200, utils.NewResponse(200, "success", user))
+}
+
 func (handler *UserHandler) List(c *gin.Context) {
 	queryParams := PaginationQueryParams{
 		Offset: 0,
