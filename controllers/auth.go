@@ -63,7 +63,12 @@ func (handler *AuthHandler) Login(c *gin.Context) {
 
 	// -- Validate user
 	var user models.User
-	handler.DB.First(&user)
+	handler.DB.First(&user, "email = ?", req.Email)
+
+	if user.Deleted {
+		c.JSON(401, gin.H{"error": "Your account has been deleted"})
+		return
+	}
 
 	if user.Email != req.Email || (!utils.ComparePwd(req.Password, user.Pwd) && user.Pwd != "") {
 		c.JSON(401, gin.H{"error": "Invalid email or password"})
