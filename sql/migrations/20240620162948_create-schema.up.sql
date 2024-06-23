@@ -14,6 +14,7 @@ CREATE TABLE "user" (
     -- Flags
     typ user_typ NOT NULL DEFAULT 'User',
     role user_role NOT NULL DEFAULT 'User',
+    deleted BOOLEAN NOT NULL DEFAULT FALSE,
 
     -- Timestamps
     cid bigint NOT NULL,

@@ -155,3 +155,97 @@ func (handler *UserHandler) Create(c *gin.Context) {
 		},
 	})
 }
+
+func (handler *UserHandler) Delete(c *gin.Context) {
+	// -- Get email
+	email, _ := c.Get("email")
+	if email == nil {
+		c.JSON(500, gin.H{
+			"error": "internal server error",
+		})
+		return
+	}
+
+	// -- Get user ID
+	userID, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		c.JSON(400, gin.H{
+			"error": "invalid user ID",
+		})
+		return
+	}
+
+	// -- Query user by ID
+	var user models.User
+	result := handler.DB.Where("id = ?", userID).First(&user)
+	if result.Error != nil {
+		c.JSON(404, gin.H{
+			"error": "user not found",
+		})
+		return
+	}
+
+	// -- Check if user is deleting itself
+	if user.Email == email {
+		c.JSON(400, gin.H{
+			"error": "cannot delete yourself",
+		})
+		return
+	}
+
+	// -- Check if user already deleted
+	if user.Deleted {
+		c.JSON(400, gin.H{
+			"error": "user already deleted",
+		})
+		return
+	}
+
+	// -- Check if user is deleting an only admin
+	var count int64
+	result = handler.DB.Model(&models.User{}).Where("role = ?", "Admin").Count(&count)
+	if result.Error != nil {
+		c.JSON(500, gin.H{
+			"error": "internal server error",
+		})
+		return
+	}
+	if count < 2 && user.Role == "Admin" {
+		c.JSON(400, gin.H{
+			"error": "cannot delete the only admin",
+		})
+		return
+	}
+
+	// -- Query updated user by ID
+	var currentUser models.User
+	result = handler.DB.Where("email = ?", email).First(&currentUser)
+	if result.Error != nil {
+		c.JSON(500, gin.H{
+			"error": "internal server error",
+		})
+		return
+	}
+
+	// -- Prepare for update
+	if err := user.PrepareForUpdate(currentUser.ID); err != nil {
+		c.JSON(500, gin.H{
+			"error": "internal server error",
+		})
+		return
+	}
+
+	// -- Delete user
+	user.Deleted = true
+	result = handler.DB.Save(&user)
+	if result.Error != nil {
+		c.JSON(500, gin.H{
+			"error": "internal server error",
+		})
+		return
+	}
+
+	c.JSON(200, gin.H{
+		"message": fmt.Sprintf("user %d deleted", userID),
+	})
+}

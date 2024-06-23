@@ -15,5 +15,6 @@ func User(e *gin.Engine, db *gorm.DB) {
 	{
 		router.GET("/", middlewares.Authorize(middlewares.Editor), handler.List)
 		router.POST("/", middlewares.Authorize(middlewares.Admin), handler.Create)
+		router.DELETE("/:id", middlewares.Authorize(middlewares.Admin), handler.Delete)
 	}
 }
