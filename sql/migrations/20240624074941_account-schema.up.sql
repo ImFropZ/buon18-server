@@ -1,4 +1,4 @@
-CREATE TYPE gender_type AS ENUM ('M', 'F', 'U'); 
+CREATE TYPE gender_typ AS ENUM ('M', 'F', 'U'); 
 -- M = Male
 -- F = Female
 -- U = Unknown
@@ -9,11 +9,11 @@ CREATE TABLE "account" (
     -- Personal information
     code VARCHAR(32) NOT NULL UNIQUE,
     name VARCHAR(64) NOT NULL,
-    email VARCHAR(64) UNIQUE,
-    gender gender_type NOT NULL DEFAULT 'U',
+    email VARCHAR(64),
+    gender gender_typ NOT NULL DEFAULT 'U',
     address VARCHAR(256),
     phone VARCHAR(16) NOT NULL UNIQUE,
-    secondary_phone VARCHAR(16) UNIQUE,
+    secondary_phone VARCHAR(16),
 
     -- Flags
     deleted BOOLEAN NOT NULL DEFAULT FALSE,
