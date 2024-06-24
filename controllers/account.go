@@ -21,6 +21,7 @@ type AccountResponse struct {
 	Phone          string `json:"phone"`
 	SecondaryPhone string `json:"secondary_phone"`
 	SocialMedias   []struct {
+		ID       uint   `json:"id"`
 		Platform string `json:"platform"`
 		URL      string `json:"url"`
 	} `json:"social_medias"`
@@ -35,11 +36,14 @@ func (r *AccountResponse) FromModel(account models.Account, socialMedias []model
 	r.Phone = account.Phone
 	r.SecondaryPhone = account.SecondaryPhone
 	r.SocialMedias = make([]struct {
+		ID       uint   `json:"id"`
 		Platform string `json:"platform"`
 		URL      string `json:"url"`
 	}, len(socialMedias))
 
+	// -- Assign social medias
 	for i, sm := range socialMedias {
+		r.SocialMedias[i].ID = sm.ID
 		r.SocialMedias[i].Platform = sm.Platform
 		r.SocialMedias[i].URL = sm.URL
 	}
