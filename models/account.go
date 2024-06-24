@@ -20,7 +20,7 @@ type Account struct {
 	MTime          time.Time `json:"mtime" gorm:"column:mtime"`
 
 	// -- Associations
-	SocialMedias []SocialMedia `json:"social_medias" gorm:"foreignKey:account_id"`
+	SocialMedias []SocialMedia `json:"social_medias" gorm:"foreignKey:AccountID"`
 }
 
 func (Account) TableName() string {

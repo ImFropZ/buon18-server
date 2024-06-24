@@ -40,9 +40,20 @@ type UserHandler struct {
 }
 
 func (handler *UserHandler) First(c *gin.Context) {
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		c.JSON(400, utils.NewErrorResponse(400, "invalid user ID. user ID should be an integer"))
+		return
+	}
+
 	var user UserResponse
-	result := handler.DB.Model(&models.User{}).First(&user)
+	result := handler.DB.Model(&models.User{}).Where("id = ?", id).First(&user)
 	if result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			c.JSON(404, utils.NewErrorResponse(404, "user not found"))
+			return
+		}
+
 		log.Printf("Error finding users in database: %v\n", result.Error)
 		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
 		return

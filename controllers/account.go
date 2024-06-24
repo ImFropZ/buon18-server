@@ -5,6 +5,7 @@ import (
 	"log"
 	"server/models"
 	"server/utils"
+	"strconv"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -12,44 +13,28 @@ import (
 )
 
 type AccountResponse struct {
-	ID             uint   `json:"id"`
-	Code           string `json:"code"`
-	Name           string `json:"name"`
-	Gender         string `json:"gender"`
-	Email          string `json:"email"`
-	Address        string `json:"address"`
-	Phone          string `json:"phone"`
-	SecondaryPhone string `json:"secondary_phone"`
-	SocialMedias   []struct {
-		ID       uint   `json:"id"`
-		Platform string `json:"platform"`
-		URL      string `json:"url"`
-	} `json:"social_medias"`
+	ID             uint                  `json:"id"`
+	Code           string                `json:"code"`
+	Name           string                `json:"name"`
+	Gender         string                `json:"gender"`
+	Email          string                `json:"email"`
+	Address        string                `json:"address"`
+	Phone          string                `json:"phone"`
+	SecondaryPhone string                `json:"secondary_phone"`
+	SocialMedias   []SocialMediaResponse `json:"social_medias" gorm:"foreignKey:AccountID"`
 }
 
-func (r *AccountResponse) FromModel(account models.Account, socialMedias []models.SocialMedia) {
-	r.ID = account.ID
-	r.Code = account.Code
-	r.Name = account.Name
-	r.Email = account.Email
-	r.Address = account.Address
-	r.Phone = account.Phone
-	r.SecondaryPhone = account.SecondaryPhone
-	r.SocialMedias = make([]struct {
-		ID       uint   `json:"id"`
-		Platform string `json:"platform"`
-		URL      string `json:"url"`
-	}, len(socialMedias))
+type SocialMediaResponse struct {
+	ID       uint   `json:"id"`
+	Platform string `json:"platform"`
+	URL      string `json:"url"`
 
-	// -- Assign social medias
-	for i, sm := range socialMedias {
-		r.SocialMedias[i].ID = sm.ID
-		r.SocialMedias[i].Platform = sm.Platform
-		r.SocialMedias[i].URL = sm.URL
-	}
+	// -- Foreign key
+	AccountID uint `json:"-"`
+}
 
-	// -- Deserialize
-	r.Gender = utils.DeserializeGender(r.Gender)
+func (SocialMediaResponse) TableName() string {
+	return "social_media"
 }
 
 type CreateSocialMediaRequest struct {
@@ -72,6 +57,29 @@ type AccountHandler struct {
 	DB *gorm.DB
 }
 
+func (handler *AccountHandler) First(c *gin.Context) {
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		c.JSON(400, utils.NewErrorResponse(400, "invalid user ID. user ID should be an integer"))
+		return
+	}
+
+	var account AccountResponse
+	result := handler.DB.Model(&models.Account{}).Where("id = ?", id).Preload("SocialMedias").First(&account)
+	if result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			c.JSON(404, utils.NewErrorResponse(404, "account not found"))
+			return
+		}
+
+		log.Printf("Error finding account in database: %v\n", result.Error)
+		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
+		return
+	}
+
+	c.JSON(200, utils.NewResponse(200, "success", account))
+}
+
 func (handler *AccountHandler) List(c *gin.Context) {
 	paginationQueryParams := utils.PaginationQueryParams{
 		Offset: 0,
@@ -82,22 +90,14 @@ func (handler *AccountHandler) List(c *gin.Context) {
 	paginationQueryParams.Parse(c)
 
 	// -- Query accounts
-	var accounts []models.Account
-	if err := handler.DB.Limit(paginationQueryParams.Limit).Offset(paginationQueryParams.Offset).Preload("SocialMedias").Find(&accounts).Error; err != nil {
+	var accounts []AccountResponse
+	if err := handler.DB.Model(&models.Account{}).Limit(paginationQueryParams.Limit).Offset(paginationQueryParams.Offset).Preload("SocialMedias").Find(&accounts).Error; err != nil {
 		log.Printf("Error getting accounts from db: %v\n", err)
 		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
 		return
 	}
 
-	// -- Prepare response
-	var response []AccountResponse
-	for _, account := range accounts {
-		var accountResponse AccountResponse
-		accountResponse.FromModel(account, account.SocialMedias)
-		response = append(response, accountResponse)
-	}
-
-	c.JSON(200, utils.NewResponse(200, "success", response))
+	c.JSON(200, utils.NewResponse(200, "success", accounts))
 }
 
 func (handler *AccountHandler) Create(c *gin.Context) {
@@ -182,14 +182,13 @@ func (handler *AccountHandler) Create(c *gin.Context) {
 	}
 
 	// -- Get account from db
-	result := handler.DB.Preload("SocialMedias").Where("id = ?", account.ID).First(&account)
+	var response AccountResponse
+	result := handler.DB.Model(&models.Account{}).Preload("SocialMedias").Where("id = ?", account.ID).First(&response)
 	if result.Error != nil {
 		log.Printf("Error getting account from db: %v\n", result.Error)
 		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
 		return
 	}
 
-	var response AccountResponse
-	response.FromModel(account, account.SocialMedias)
 	c.JSON(201, utils.NewResponse(201, "account created", response))
 }
