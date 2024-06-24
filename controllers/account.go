@@ -72,6 +72,34 @@ type AccountHandler struct {
 	DB *gorm.DB
 }
 
+func (handler *AccountHandler) List(c *gin.Context) {
+	paginationQueryParams := utils.PaginationQueryParams{
+		Offset: 0,
+		Limit:  10,
+	}
+
+	// -- Parse query params
+	paginationQueryParams.Parse(c)
+
+	// -- Query accounts
+	var accounts []models.Account
+	if err := handler.DB.Limit(paginationQueryParams.Limit).Offset(paginationQueryParams.Offset).Preload("SocialMedias").Find(&accounts).Error; err != nil {
+		log.Printf("Error getting accounts from db: %v\n", err)
+		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
+		return
+	}
+
+	// -- Prepare response
+	var response []AccountResponse
+	for _, account := range accounts {
+		var accountResponse AccountResponse
+		accountResponse.FromModel(account, account.SocialMedias)
+		response = append(response, accountResponse)
+	}
+
+	c.JSON(200, utils.NewResponse(200, "success", response))
+}
+
 func (handler *AccountHandler) Create(c *gin.Context) {
 	// -- Get email
 	email, _ := c.Get("email")

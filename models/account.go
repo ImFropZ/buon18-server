@@ -1,6 +1,8 @@
 package models
 
-import "time"
+import (
+	"time"
+)
 
 type Account struct {
 	ID             uint      `json:"id" gorm:"primaryKey"`
@@ -16,6 +18,9 @@ type Account struct {
 	CTime          time.Time `json:"ctime" gorm:"column:ctime"`
 	MID            uint      `json:"mid" gorm:"column:mid"`
 	MTime          time.Time `json:"mtime" gorm:"column:mtime"`
+
+	// -- Associations
+	SocialMedias []SocialMedia `json:"social_medias" gorm:"foreignKey:account_id"`
 }
 
 func (Account) TableName() string {

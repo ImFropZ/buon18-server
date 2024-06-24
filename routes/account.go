@@ -13,6 +13,7 @@ func Account(e *gin.Engine, db *gorm.DB) {
 
 	account := e.Group("/accounts", middlewares.Authenticate())
 	{
+		account.GET("/", middlewares.Authorize(middlewares.User), handler.List)
 		account.POST("/", middlewares.Authorize(middlewares.Editor), handler.Create)
 	}
 }
