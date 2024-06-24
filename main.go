@@ -18,6 +18,7 @@ func main() {
 
 	routes.Auth(router, database.DB)
 	routes.User(router, database.DB)
+	routes.Account(router, database.DB)
 
 	router.Routes()
 	router.Run() // listen and serve on 0.0.0.0:8080 (for windows "localhost:8080")
