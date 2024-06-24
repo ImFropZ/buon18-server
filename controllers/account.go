@@ -181,15 +181,15 @@ func (handler *AccountHandler) Create(c *gin.Context) {
 		}
 	}
 
-	// -- Query social medias
-	var socialMedias []models.SocialMedia
-	if err := handler.DB.Where("account_id = ?", account.ID).Find(&socialMedias).Error; err != nil {
-		log.Printf("Error getting social medias from db: %v\n", err)
+	// -- Get account from db
+	result := handler.DB.Preload("SocialMedias").Where("id = ?", account.ID).First(&account)
+	if result.Error != nil {
+		log.Printf("Error getting account from db: %v\n", result.Error)
 		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
 		return
 	}
 
 	var response AccountResponse
-	response.FromModel(account, socialMedias)
+	response.FromModel(account, account.SocialMedias)
 	c.JSON(201, utils.NewResponse(201, "account created", response))
 }
