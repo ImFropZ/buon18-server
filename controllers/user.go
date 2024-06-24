@@ -13,11 +13,6 @@ import (
 	"gorm.io/gorm"
 )
 
-type PaginationQueryParams struct {
-	Offset int
-	Limit  int
-}
-
 type UserResponse struct {
 	ID    uint   `json:"id"`
 	Name  string `json:"name"`
@@ -57,26 +52,16 @@ func (handler *UserHandler) First(c *gin.Context) {
 }
 
 func (handler *UserHandler) List(c *gin.Context) {
-	queryParams := PaginationQueryParams{
+	paginationQueryParams := utils.PaginationQueryParams{
 		Offset: 0,
 		Limit:  10,
 	}
 
-	if offset, err := strconv.Atoi(c.Query("offset")); err == nil {
-		if offset < 0 {
-			offset = 0
-		}
-		queryParams.Offset = offset
-	}
-	if limit, err := strconv.Atoi(c.Query("limit")); err == nil {
-		if limit < 1 {
-			limit = 10
-		}
-		queryParams.Limit = limit
-	}
+	// -- Parse query params
+	paginationQueryParams.Parse(c)
 
 	var users []UserResponse
-	result := handler.DB.Model(&models.User{}).Limit(queryParams.Limit).Offset(queryParams.Offset).Find(&users)
+	result := handler.DB.Model(&models.User{}).Limit(paginationQueryParams.Limit).Offset(paginationQueryParams.Offset).Find(&users)
 	if result.Error != nil {
 		log.Printf("Error finding users in database: %v\n", result.Error)
 		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
