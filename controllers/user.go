@@ -1,20 +1,23 @@
 package controllers
 
 import (
+	"database/sql"
 	"errors"
 	"fmt"
 	"log"
+	"server/database"
 	"server/models"
 	"server/utils"
 	"strconv"
 	"strings"
 
 	"github.com/gin-gonic/gin"
-	"gorm.io/gorm"
+	"github.com/lib/pq"
+	"github.com/nullism/bqb"
 )
 
 type UserResponse struct {
-	ID    uint   `json:"id"`
+	Id    uint   `json:"id"`
 	Name  string `json:"name"`
 	Email string `json:"email"`
 	Role  string `json:"role"`
@@ -36,25 +39,36 @@ type UpdateUserRequest struct {
 }
 
 type UserHandler struct {
-	DB *gorm.DB
+	DB *sql.DB
 }
 
 func (handler *UserHandler) First(c *gin.Context) {
 	id, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
-		c.JSON(400, utils.NewErrorResponse(400, "invalid user ID. user ID should be an integer"))
+		c.JSON(400, utils.NewErrorResponse(400, "invalid user Id. user Id should be an integer"))
+		return
+	}
+
+	// -- Prepare sql query
+	query, params, err := bqb.New("SELECT id, name, email, role FROM \"user\" WHERE id = ?", id).ToPgsql()
+	if err != nil {
+		log.Printf("Error preparing sql query: %v\n", err)
+		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
 		return
 	}
 
 	var user UserResponse
-	result := handler.DB.Model(&models.User{}).Where("id = ?", id).First(&user)
-	if result.Error != nil {
-		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+	if row := handler.DB.QueryRow(query, params...); row.Err() != nil {
+		log.Printf("Error finding user in database: %v\n", row.Err())
+		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
+		return
+	} else if err := row.Scan(&user.Id, &user.Name, &user.Email, &user.Role); err != nil {
+		if err == sql.ErrNoRows {
 			c.JSON(404, utils.NewErrorResponse(404, "user not found"))
 			return
 		}
 
-		log.Printf("Error finding users in database: %v\n", result.Error)
+		log.Printf("Error scanning user from database: %v\n", err)
 		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
 		return
 	}
@@ -71,12 +85,30 @@ func (handler *UserHandler) List(c *gin.Context) {
 	// -- Parse query params
 	paginationQueryParams.Parse(c)
 
-	var users []UserResponse
-	result := handler.DB.Model(&models.User{}).Limit(paginationQueryParams.Limit).Offset(paginationQueryParams.Offset).Find(&users)
-	if result.Error != nil {
-		log.Printf("Error finding users in database: %v\n", result.Error)
+	// -- Prepare sql query
+	query, params, err := bqb.New("SELECT id, name, email, role FROM \"user\" ORDER BY id LIMIT ? OFFSET ?", paginationQueryParams.Limit, paginationQueryParams.Offset).ToPgsql()
+	if err != nil {
+		log.Printf("Error preparing sql query: %v\n", err)
 		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
 		return
+	}
+
+	// -- Query users from database
+	var users []UserResponse = make([]UserResponse, 0)
+	if rows, err := handler.DB.Query(query, params...); err != nil {
+		log.Printf("Error finding users in database: %v\n", err)
+		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
+		return
+	} else {
+		for rows.Next() {
+			var user UserResponse
+			if err := rows.Scan(&user.Id, &user.Name, &user.Email, &user.Role); err != nil {
+				log.Printf("Error scanning user from database: %v\n", err)
+				c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
+				return
+			}
+			users = append(users, user)
+		}
 	}
 
 	c.JSON(200, utils.NewResponse(200, "success", users))
@@ -84,11 +116,13 @@ func (handler *UserHandler) List(c *gin.Context) {
 
 func (handler *UserHandler) Create(c *gin.Context) {
 	// -- Get email
-	email, _ := c.Get("email")
-	if email == nil {
-		log.Printf("Error getting email from context: %v\n", errors.New("email not found in context"))
+	var userId uint
+	if id, ok := c.Get("user_id"); !ok {
+		log.Printf("Error getting user Id from context: %v\n", errors.New("user Id not found in context"))
 		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
 		return
+	} else {
+		userId = id.(uint)
 	}
 
 	// -- Bind request
@@ -121,55 +155,79 @@ func (handler *UserHandler) Create(c *gin.Context) {
 		Role:  role,
 	}
 
-	// -- Query user by email
-	var existingUser models.User
-	result := handler.DB.Where("email = ?", email).First(&existingUser)
-	if result.Error != nil {
-		log.Printf("Error finding matched email in database: %v\n", result.Error)
-		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
-		return
-	}
-
 	// -- Prepare for create
-	if err := user.PrepareForCreate(existingUser.ID, existingUser.ID); err != nil {
+	if err := user.PrepareForCreate(userId, userId); err != nil {
 		log.Printf("Error preparing create fields for user: %v\n", err)
 		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
 		return
 	}
 
-	// -- Create user
-	result = handler.DB.Create(&user)
-	if result.Error != nil {
-		if errors.Is(result.Error, gorm.ErrDuplicatedKey) {
-			c.JSON(400, utils.NewErrorResponse(400, "email already exists"))
-			return
-		}
-		log.Printf("Error creating new user: %v\n", result.Error)
+	// -- Prepare sql query
+	query, params, err := bqb.New(`INSERT INTO "user" (name, email, pwd, role, cid, ctime, mid, mtime) 
+	VALUES 
+		(?, ?, ?, ?, ?, ?, ?, ?)
+	RETURNING id`, user.Name, user.Email, user.Pwd, user.Role, user.CId, user.CTime, user.MId, user.MTime).ToPgsql()
+	if err != nil {
+		log.Printf("Error preparing sql query: %v\n", err)
 		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
 		return
 	}
 
-	c.JSON(201, utils.NewResponse(201, "user created", &UserResponse{
-		ID:    user.ID,
-		Name:  user.Name,
-		Email: user.Email,
-		Role:  user.Role,
-	}))
+	// -- Open transaction
+	tx, err := handler.DB.Begin()
+	if err != nil {
+		log.Printf("Error beginning transaction: %v\n", err)
+		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
+		return
+	}
+
+	// -- Create user
+	var createdUserId uint
+	if row := tx.QueryRow(query, params...); row.Err() != nil {
+		tx.Rollback()
+		if pqErr, ok := row.Err().(*pq.Error); ok {
+			if pqErr.Code == pq.ErrorCode(database.PQ_ERROR_CODES[database.DUPLICATE]) {
+				c.JSON(400, utils.NewErrorResponse(400, "email already exists"))
+				return
+			}
+		}
+
+		log.Printf("Error creating new user: %v\n", row.Err())
+		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
+		return
+	} else {
+		if err := row.Scan(&createdUserId); err != nil {
+			tx.Rollback()
+			log.Printf("Error scanning created user from database: %v\n", err)
+			c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
+			return
+		}
+
+		if err := tx.Commit(); err != nil {
+			log.Printf("Error committing transaction: %v\n", err)
+			c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
+			return
+		}
+	}
+
+	c.JSON(201, utils.NewResponse(201, fmt.Sprintf("user %d created", createdUserId), ""))
 }
 
 func (handler *UserHandler) Update(c *gin.Context) {
-	// -- Get email
-	email, _ := c.Get("email")
-	if email == nil {
-		log.Printf("Error getting email from context: %v\n", errors.New("email not found in context"))
+	// -- Get user id
+	var userId uint
+	if id, ok := c.Get("user_id"); !ok {
+		log.Printf("Error getting user Id from context: %v\n", errors.New("user Id not found in context"))
 		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
 		return
+	} else {
+		userId = id.(uint)
 	}
 
-	// -- Get user ID
-	userID, err := strconv.Atoi(c.Param("id"))
+	// -- Get update user Id
+	updateUserId, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
-		c.JSON(400, utils.NewErrorResponse(400, "invalid user ID. user ID should be an integer"))
+		c.JSON(400, utils.NewErrorResponse(400, "invalid user Id. user Id should be an integer"))
 		return
 	}
 
@@ -191,165 +249,270 @@ func (handler *UserHandler) Update(c *gin.Context) {
 		}
 	}
 
-	// -- Query user by ID
+	// -- Prepare sql query
+	query, params, err := bqb.New(`SELECT id, name, email, pwd, role, deleted FROM "user" WHERE id = ?`, updateUserId).ToPgsql()
+	if err != nil {
+		log.Printf("Error preparing sql query: %v\n", err)
+		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
+		return
+	}
+
+	// -- Begin transaction
+	tx, err := handler.DB.Begin()
+	if err != nil {
+		log.Printf("Error beginning transaction: %v\n", err)
+		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
+		return
+	}
+
+	// -- Query user by Id
 	var user models.User
-	result := handler.DB.Where("id = ?", userID).First(&user)
-	if result.Error != nil {
-		c.JSON(404, utils.NewErrorResponse(404, "user not found"))
+	if result := tx.QueryRow(query, params...); result.Err() != nil {
+		tx.Rollback()
+		log.Printf("Error finding user in database: %v\n", result.Err())
+		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
+		return
+	} else if err := result.Scan(&user.Id, &user.Name, &user.Email, &user.Pwd, &user.Role, &user.Deleted); err != nil {
+		tx.Rollback()
+		log.Printf("Error scanning user from database: %v\n", err)
+		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
 		return
 	}
 
 	// -- Check if user already deleted
 	if user.Deleted {
 		if lower := strings.ToLower(request.Deleted); lower != "false" || lower == "true" {
+			tx.Rollback()
 			c.JSON(400, utils.NewErrorResponse(400, "user already deleted"))
 			return
 		}
 	}
 
-	// -- Query updated user by email
-	var currentUser models.User
-	result = handler.DB.Where("email = ?", email).First(&currentUser)
-	if result.Error != nil {
-		log.Printf("Error finding matched email in database: %v\n", result.Error)
+	// -- Prepare for update
+	if err := user.PrepareForUpdate(userId); err != nil {
+		tx.Rollback()
+		log.Printf("Error preparing update fields for user: %v\n", err)
 		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
 		return
 	}
 
-	// -- Prepare for update
-	if err := user.PrepareForUpdate(currentUser.ID); err != nil {
-		log.Printf("Error preparing update fields for user: %v\n", err)
+	// -- Prepare sql query
+	query, _, err = bqb.New(`SELECT COUNT(id) FROM "user" WHERE role = 'Admin'`).ToPgsql()
+	if err != nil {
+		tx.Rollback()
+		log.Printf("Error preparing sql query: %v\n", err)
 		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
 		return
 	}
 
 	// -- Check if user is updating an only admin
 	var count int64
-	result = handler.DB.Model(&models.User{}).Where("role = ?", "Admin").Count(&count)
-	if result.Error != nil {
-		log.Printf("Error finding admin role in database: %v\n", result.Error)
+	if row := tx.QueryRow(query); row.Err() != nil {
+		tx.Rollback()
+		log.Printf("Error finding admin role in database: %v\n", row.Err())
+		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
+		return
+	} else if err := row.Scan(&count); err != nil {
+		tx.Rollback()
+		log.Printf("Error scanning admin role from database: %v\n", err)
 		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
 		return
 	}
 	if count < 2 && user.Role == "Admin" && role != "Admin" {
+		tx.Rollback()
 		c.JSON(400, utils.NewErrorResponse(400, "cannot update the only admin"))
 		return
 	}
 
 	// -- Update user
-	if request.Name != "" {
-		user.Name = request.Name
+	bqbQuery := bqb.New(`UPDATE "user" SET`)
+	if request.Name != "" && request.Name != user.Name {
+		bqbQuery.Space(`name = ?,`, request.Name)
 	}
-	if request.Email != "" {
-		user.Email = request.Email
+	if request.Email != "" && request.Email != user.Email {
+		bqbQuery.Space(`email = ?,`, request.Email)
 	}
 	if request.Password != "" {
 		hashedPwd, err := utils.HashPwd(request.Password)
 		if err != nil {
+			tx.Rollback()
 			log.Printf("Error hashing password: %v\n", err)
 			c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
 			return
 		}
-		user.Pwd = hashedPwd
+		bqbQuery.Space(`pwd = ?,`, hashedPwd)
 	}
-	if role != "" {
-		user.Role = role
+	if role != "" && role != user.Role {
+		bqbQuery.Space(`role = ?,`, role)
 	}
 	if lower := strings.ToLower(request.Deleted); lower == "true" || lower == "false" {
-		user.Deleted = lower == "true"
+		bqbQuery.Space(`deleted = ?,`, lower == "true")
 	}
-	result = handler.DB.Save(&user)
-	if result.Error != nil {
-		if errors.Is(result.Error, gorm.ErrDuplicatedKey) {
-			c.JSON(400, utils.NewErrorResponse(400, "email already exists"))
-			return
-		}
-		log.Printf("Error saving into database: %v\n", result.Error)
+
+	// -- Uppdate timestamp
+	bqbQuery.Space(`mid = ?, mtime = ? WHERE id = ?`, user.MId, user.MTime, updateUserId)
+
+	query, params, err = bqbQuery.ToPgsql()
+	if err != nil {
+		tx.Rollback()
+		log.Printf("Error preparing sql query: %v\n", err)
 		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
 		return
 	}
 
-	c.JSON(200, utils.NewResponse(200, fmt.Sprintf("user %d updated", user.ID), &UserResponse{
-		ID:    user.ID,
-		Name:  user.Name,
-		Email: user.Email,
-		Role:  user.Role,
-	}))
+	// -- Update user to database
+	if result, err := tx.Exec(query, params...); err != nil {
+		tx.Rollback()
+		log.Printf("Error updating user: %v\n", err)
+		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
+		return
+	} else {
+		if n, err := result.RowsAffected(); err != nil {
+			tx.Rollback()
+			log.Printf("Error getting rows affected: %v\n", err)
+			c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
+			return
+		} else if n == 0 {
+			tx.Rollback()
+			c.JSON(400, utils.NewErrorResponse(400, "user not updated"))
+			return
+		}
+	}
+
+	// -- Commit transaction
+	if err := tx.Commit(); err != nil {
+		log.Printf("Error committing transaction: %v\n", err)
+		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
+		return
+	}
+
+	c.JSON(200, utils.NewResponse(200, fmt.Sprintf("user %d updated", user.Id), ""))
 }
 
 func (handler *UserHandler) Delete(c *gin.Context) {
-	// -- Get email
-	email, _ := c.Get("email")
-	if email == nil {
-		log.Printf("Error getting email from context: %v\n", errors.New("email not found in context"))
+	// -- Get user id
+	var userId uint
+	if id, ok := c.Get("user_id"); !ok {
+		log.Printf("Error getting user Id from context: %v\n", errors.New("user Id not found in context"))
+		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
+		return
+	} else {
+		userId = id.(uint)
+	}
+
+	// -- Get delete user Id
+	targetUserId, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		c.JSON(400, utils.NewErrorResponse(400, "invalid user Id. user Id should be an integer"))
+		return
+	}
+
+	// -- Prepare sql query
+	query, params, err := bqb.New(`SELECT id, email, deleted FROM "user" WHERE id = ?`, targetUserId).ToPgsql()
+	if err != nil {
+		log.Printf("Error preparing sql query: %v\n", err)
 		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
 		return
 	}
 
-	// -- Get user ID
-	userID, err := strconv.Atoi(c.Param("id"))
+	// -- Begin transaction
+	tx, err := handler.DB.Begin()
 	if err != nil {
-		c.JSON(400, utils.NewErrorResponse(400, "invalid user ID. user ID should be an integer"))
+		log.Printf("Error beginning transaction: %v\n", err)
+		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
 		return
 	}
 
-	// -- Query user by ID
-	var user models.User
-	result := handler.DB.Where("id = ?", userID).First(&user)
-	if result.Error != nil {
+	// -- Query user by Id
+	var targetUser models.User
+	if err := tx.QueryRow(query, params...).Scan(&targetUser.Id, &targetUser.Email, &targetUser.Deleted); err != nil {
+		tx.Rollback()
+		log.Printf("Error finding user in database: %v\n", err)
 		c.JSON(404, utils.NewErrorResponse(404, "user not found"))
 		return
 	}
 
-	// -- Check if user is deleting itself
-	if user.Email == email {
-		c.JSON(400, utils.NewErrorResponse(400, "user cannot delete itself"))
-		return
-	}
-
 	// -- Check if user already deleted
-	if user.Deleted {
+	if targetUser.Deleted {
 		c.JSON(400, utils.NewErrorResponse(400, "user already deleted"))
 		return
 	}
 
-	// -- Check if user is deleting an only admin
-	var count int64
-	result = handler.DB.Model(&models.User{}).Where("role = ?", "Admin").Count(&count)
-	if result.Error != nil {
-		log.Printf("Error finding admin role in database: %v\n", result.Error)
-		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
-		return
-	}
-	if count < 2 && user.Role == "Admin" {
-		c.JSON(400, utils.NewErrorResponse(400, "cannot delete the only admin"))
-		return
-	}
-
-	// -- Query updated user by ID
-	var currentUser models.User
-	result = handler.DB.Where("email = ?", email).First(&currentUser)
-	if result.Error != nil {
-		log.Printf("Error finding matched email in database: %v\n", result.Error)
-		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
+	// -- Check if user is deleting itself
+	if targetUser.Id == userId {
+		c.JSON(400, utils.NewErrorResponse(400, "user cannot delete itself"))
 		return
 	}
 
 	// -- Prepare for update
-	if err := user.PrepareForUpdate(currentUser.ID); err != nil {
+	if err := targetUser.PrepareForUpdate(userId); err != nil {
 		log.Printf("Error preparing update fields for user: %v\n", err)
 		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
 		return
 	}
 
-	// -- Delete user
-	user.Deleted = true
-	result = handler.DB.Save(&user)
-	if result.Error != nil {
-		log.Printf("Error saving into database: %v\n", result.Error)
+	// -- Prepare sql query
+	query, _, err = bqb.New(`SELECT COUNT(id) FROM "user" WHERE role = 'Admin'`).ToPgsql()
+	if err != nil {
+		tx.Rollback()
+		log.Printf("Error preparing sql query: %v\n", err)
 		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
 		return
 	}
 
-	c.JSON(200, utils.NewResponse(200, fmt.Sprintf("user %d deleted", user.ID), nil))
+	// -- Check if user is deleting an only admin
+	var count int64
+	if row := tx.QueryRow(query); row.Err() != nil {
+		tx.Rollback()
+		log.Printf("Error finding admin role in database: %v\n", row.Err())
+		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
+		return
+	} else if err := row.Scan(&count); err != nil {
+		tx.Rollback()
+		log.Printf("Error scanning admin role from database: %v\n", err)
+		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
+		return
+	}
+	if count < 2 && targetUser.Role == "Admin" {
+		tx.Rollback()
+		c.JSON(400, utils.NewErrorResponse(400, "cannot update the only admin"))
+		return
+	}
+
+	// -- Prepare sql query
+	query, params, err = bqb.New(`UPDATE "user" SET deleted = true WHERE id = ?`, targetUser.Id).ToPgsql()
+	if err != nil {
+		tx.Rollback()
+		log.Printf("Error preparing sql query: %v\n", err)
+		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
+		return
+	}
+
+	// -- Delete user
+	if result, err := tx.Exec(query, params...); err != nil {
+		tx.Rollback()
+		log.Printf("Error deleting user: %v\n", err)
+		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
+		return
+	} else {
+		if n, err := result.RowsAffected(); err != nil {
+			tx.Rollback()
+			log.Printf("Error getting rows affected: %v\n", err)
+			c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
+			return
+		} else if n == 0 {
+			tx.Rollback()
+			c.JSON(400, utils.NewErrorResponse(400, "user not deleted"))
+			return
+		}
+	}
+
+	// -- Commit transaction
+	if err := tx.Commit(); err != nil {
+		log.Printf("Error committing transaction: %v\n", err)
+		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
+		return
+	}
+
+	c.JSON(200, utils.NewResponse(200, fmt.Sprintf("user %d deleted", targetUser.Id), nil))
 }

@@ -1,35 +1,26 @@
 package database
 
 import (
+	"database/sql"
 	"log"
 	"server/config"
 
-	"gorm.io/driver/postgres"
-	"gorm.io/gorm"
+	_ "github.com/lib/pq"
 )
 
-// DB gorm connector
-var DB *gorm.DB
-
-func ConnectDB() {
+func InitSQL() *sql.DB {
 	connectionString := config.Env("DB_CONNECTION_STRING")
 
-	var err error
-	DB, err = gorm.Open(postgres.Open(connectionString), &gorm.Config{
-		TranslateError: true,
-	})
+	db, err := sql.Open("postgres", connectionString)
 	if err != nil {
 		log.Fatalf("Error connecting to database: %v\n", err)
 	}
 
-	log.Println("Database connected")
-
-	// Create pool
-	sqlDB, err := DB.DB()
-	if err != nil {
-		log.Fatalf("Error creating pool: %v\n", err)
+	if err := db.Ping(); err != nil {
+		log.Fatalf("Error pinging database: %v\n", err)
+	} else {
+		log.Println("Database connected")
 	}
 
-	sqlDB.SetMaxIdleConns(10)
-	sqlDB.SetMaxOpenConns(100)
+	return db
 }

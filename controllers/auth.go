@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"database/sql"
 	"errors"
 	"log"
 	"server/models"
@@ -8,7 +9,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
-	"gorm.io/gorm"
+	"github.com/nullism/bqb"
 )
 
 type LoginRequest struct {
@@ -26,31 +27,46 @@ type UpdatePasswordRequest struct {
 }
 
 type AuthHandler struct {
-	DB *gorm.DB
+	DB *sql.DB
 }
 
 func (handler *AuthHandler) Me(c *gin.Context) {
-	email, ok := c.Get("email")
-	if !ok {
-		log.Printf("Error getting email from context: %v\n", errors.New("email not found in context"))
+	// -- Get id
+	var user_id uint
+	if id, err := c.Get("user_id"); !err {
+		log.Printf("Error getting user id: %v\n", err)
+		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
+		return
+	} else {
+		user_id = id.(uint)
+	}
+
+	// -- Prepare sql query
+	query, params, err := bqb.New("SELECT name, email, role FROM \"user\" WHERE id = ?", user_id).ToPgsql()
+	if err != nil {
+		log.Printf("Error preparing query: %v\n", err)
 		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
 		return
 	}
 
 	// -- Get user from db
 	var user models.User
-	result := handler.DB.First(&user, "email = ?", email)
-
-	if result.RowsAffected == 0 {
-		c.JSON(404, gin.H{"error": "user doesn't existed"})
+	if row := handler.DB.QueryRow(query, params...); row.Err() != nil {
+		c.JSON(404, utils.NewErrorResponse(404, "user doesn't existed"))
 		return
+	} else {
+		if err := row.Scan(&user.Name, &user.Email, &user.Role); err != nil {
+			log.Printf("Error scanning user: %v\n", err)
+			c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
+			return
+		}
 	}
 
-	c.JSON(200, gin.H{
+	c.JSON(200, utils.NewResponse(200, "", gin.H{
 		"name":  user.Name,
 		"email": user.Email,
 		"role":  user.Role,
-	})
+	}))
 }
 
 func (handler *AuthHandler) Login(c *gin.Context) {
@@ -61,17 +77,35 @@ func (handler *AuthHandler) Login(c *gin.Context) {
 		return
 	}
 
+	// -- Prepare sql query
+	query, params, err := bqb.New("SELECT email, pwd, deleted FROM \"user\" WHERE email = ?", req.Email).ToPgsql()
+	if err != nil {
+		log.Printf("Error preparing query: %v\n", err)
+		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
+		return
+	}
+
 	// -- Validate user
 	var user models.User
-	handler.DB.First(&user, "email = ?", req.Email)
+	if row := handler.DB.QueryRow(query, params...); row.Err() != nil {
+		log.Printf("Error querying user: %v\n", row.Err())
+		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
+		return
+	} else {
+		if err := row.Scan(&user.Email, &user.Pwd, &user.Deleted); err != nil {
+			log.Printf("Error scanning user: %v\n", err)
+			c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
+			return
+		}
+	}
 
 	if user.Deleted {
-		c.JSON(401, gin.H{"error": "Your account has been deleted"})
+		c.JSON(401, utils.NewErrorResponse(401, "Your account has been deleted"))
 		return
 	}
 
 	if user.Email != req.Email || (!utils.ComparePwd(req.Password, user.Pwd) && user.Pwd != "") {
-		c.JSON(401, gin.H{"error": "Invalid email or password"})
+		c.JSON(401, utils.NewErrorResponse(401, "Invalid email or password"))
 		return
 	}
 
@@ -97,10 +131,10 @@ func (handler *AuthHandler) Login(c *gin.Context) {
 		return
 	}
 
-	c.JSON(200, gin.H{
+	c.JSON(200, utils.NewResponse(200, "", gin.H{
 		"token":         token,
 		"refresh_token": refreshToken,
-	})
+	}))
 }
 
 func (handler *AuthHandler) RefreshToken(c *gin.Context) {
@@ -127,13 +161,26 @@ func (handler *AuthHandler) RefreshToken(c *gin.Context) {
 				return
 			}
 
+			// -- Prepare sql query
+			query, params, err := bqb.New("SELECT email, role FROM \"user\" WHERE email = ?", refreshClaims.Email).ToPgsql()
+			if err != nil {
+				log.Printf("Error preparing query: %v\n", err)
+				c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
+				return
+			}
+
 			// -- Check email
 			var user models.User
-			result := handler.DB.First(&user, "email = ?", refreshClaims.Email)
-
-			if result.RowsAffected == 0 {
-				c.JSON(401, utils.NewErrorResponse(401, "email doesn't existed"))
+			if row := handler.DB.QueryRow(query, params...); row.Err() != nil {
+				log.Printf("Error querying user : %v\n", err)
+				c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
 				return
+			} else {
+				if err := row.Scan(&user.Email, &user.Role); err != nil {
+					log.Printf("Error scanning user: %v\n", err)
+					c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
+					return
+				}
 			}
 
 			// -- Generate new token
@@ -171,6 +218,16 @@ func (handler *AuthHandler) RefreshToken(c *gin.Context) {
 }
 
 func (handler *AuthHandler) UpdatePassword(c *gin.Context) {
+	// -- Get user id
+	var user_id uint
+	if id, err := c.Get("user_id"); !err {
+		log.Printf("Error getting user id: %v\n", err)
+		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
+		return
+	} else {
+		user_id = id.(uint)
+	}
+
 	// -- Parse request
 	var req UpdatePasswordRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -178,15 +235,26 @@ func (handler *AuthHandler) UpdatePassword(c *gin.Context) {
 		return
 	}
 
-	// -- Get email
-	email, _ := c.Get("email")
+	// -- Prepare sql query
+	query, params, err := bqb.New("SELECT pwd FROM \"user\" WHERE id = ?", user_id).ToPgsql()
+	if err != nil {
+		log.Printf("Error preparing query: %v\n", err)
+		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
+		return
+	}
 
 	// -- Get user from db
 	var user models.User
-	result := handler.DB.First(&user, "email = ?", email)
-	if result.RowsAffected == 0 {
-		c.JSON(404, utils.NewErrorResponse(404, "user doesn't existed"))
+	if row := handler.DB.QueryRow(query, params...); row.Err() != nil {
+		log.Printf("Error querying user: %v\n", row.Err())
+		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
 		return
+	} else {
+		if err := row.Scan(&user.Pwd); err != nil {
+			log.Printf("Error scanning user: %v\n", err)
+			c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
+			return
+		}
 	}
 
 	// -- Update Pwd if user in db doesn't have pwd
@@ -200,8 +268,40 @@ func (handler *AuthHandler) UpdatePassword(c *gin.Context) {
 
 	// -- Update pwd
 	if hashedPwd, err := utils.HashPwd(req.NewPassword); err == nil {
-		user.Pwd = hashedPwd
-		handler.DB.Save(&user)
+		// -- Begin transaction
+		var tx *sql.Tx
+		if dbTx, err := handler.DB.Begin(); err != nil {
+			log.Printf("Error beginning transaction: %v\n", err)
+			c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
+			return
+		} else {
+			tx = dbTx
+		}
+
+		// -- Prepare sql query
+		query, params, err = bqb.New("UPDATE \"user\" SET pwd = ? WHERE id = ?", hashedPwd, user_id).ToPgsql()
+		if err != nil {
+			log.Printf("Error preparing query: %v\n", err)
+			c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
+			return
+		}
+
+		// -- Update pwd
+		if _, err := tx.Exec(query, params...); err != nil {
+			tx.Rollback()
+
+			log.Printf("Error updating password: %v\n", err)
+			c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
+			return
+		}
+
+		// -- Commit transaction
+		if err := tx.Commit(); err != nil {
+			log.Printf("Error committing transaction: %v\n", err)
+			c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
+			return
+		}
+
 		c.JSON(200, utils.NewResponse(200, "success", nil))
 	} else {
 		log.Printf("Error hashing password: %v\n", err)

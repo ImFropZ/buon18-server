@@ -5,38 +5,34 @@ import (
 )
 
 type Account struct {
-	ID             uint      `json:"id" gorm:"primaryKey"`
+	Id             uint      `json:"id" `
 	Code           string    `json:"code"`
 	Name           string    `json:"name"`
 	Email          string    `json:"email"`
 	Gender         string    `json:"gender"`
 	Address        string    `json:"address"`
 	Phone          string    `json:"phone"`
-	SecondaryPhone string    `json:"secondary_phone" gorm:"column:secondary_phone"`
+	SecondaryPhone string    `json:"secondary_phone"`
 	Deleted        bool      `json:"deleted"`
-	CID            uint      `json:"cid" gorm:"column:cid"`
-	CTime          time.Time `json:"ctime" gorm:"column:ctime"`
-	MID            uint      `json:"mid" gorm:"column:mid"`
-	MTime          time.Time `json:"mtime" gorm:"column:mtime"`
+	CId            uint      `json:"cid"`
+	CTime          time.Time `json:"ctime"`
+	MId            uint      `json:"mid"`
+	MTime          time.Time `json:"mtime"`
 
 	// -- Associations
-	SocialMedias []SocialMedia `json:"social_medias" gorm:"foreignKey:AccountID"`
-}
-
-func (Account) TableName() string {
-	return "account"
+	SocialMedias []SocialMedia `json:"social_medias"`
 }
 
 func (a *Account) PrepareForCreate(cid uint, mid uint) (err error) {
-	a.CID = cid
+	a.CId = cid
 	a.CTime = time.Now()
-	a.MID = mid
+	a.MId = mid
 	a.MTime = time.Now()
 	return
 }
 
 func (a *Account) PrepareForUpdate(mid uint) (err error) {
-	a.MID = mid
+	a.MId = mid
 	a.MTime = time.Now()
 	return
 }

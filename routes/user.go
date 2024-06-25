@@ -1,17 +1,17 @@
 package routes
 
 import (
+	"database/sql"
 	"server/controllers"
 	"server/middlewares"
 
 	"github.com/gin-gonic/gin"
-	"gorm.io/gorm"
 )
 
-func User(e *gin.Engine, db *gorm.DB) {
+func User(e *gin.Engine, db *sql.DB) {
 	handler := controllers.UserHandler{DB: db}
 
-	router := e.Group("/users", middlewares.Authenticate())
+	router := e.Group("/users", middlewares.Authenticate(db))
 	{
 		router.GET("/", middlewares.Authorize(middlewares.Editor), handler.List)
 		router.GET("/:id", middlewares.Authorize(middlewares.Editor), handler.First)
