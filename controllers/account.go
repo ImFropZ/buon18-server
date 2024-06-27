@@ -84,7 +84,8 @@ func (handler *AccountHandler) First(c *gin.Context) {
 			LEFT JOIN
 		"social_media" as sm ON a.id = sm.account_id
 	WHERE
-		a.id = ?`, id).ToPgsql()
+		a.id = ?
+	ORDER BY sm.id`, id).ToPgsql()
 	if err != nil {
 		log.Printf("Error preparing sql query: %v\n", err)
 		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
@@ -139,7 +140,7 @@ func (handler *AccountHandler) List(c *gin.Context) {
 		"account" as a
 			LEFT JOIN
 		"social_media" as sm ON a.id = sm.account_id
-	ORDER BY a.id 
+	ORDER BY a.id, sm.id
 	LIMIT ? OFFSET ?`, paginationQueryParams.Limit, paginationQueryParams.Offset).ToPgsql()
 	if err != nil {
 		log.Printf("Error preparing sql query: %v\n", err)
