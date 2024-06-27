@@ -512,8 +512,11 @@ func (handler *AccountHandler) Update(c *gin.Context) {
 	// -- Create social medias
 	var validCreateCount uint
 	for _, sm := range createSocialMedias {
-		if sm.Platform == "" && sm.URL == "" {
-			continue
+		// -- Need both fields to create social media
+		if sm.Platform == "" || sm.URL == "" {
+			tx.Rollback()
+			c.JSON(400, utils.NewErrorResponse(400, "invalid social media. required fields: platform, url"))
+			return
 		}
 		bqbQuery.Space("(?, ?, ?, ?, ?, ?, ?),", id, sm.Platform, sm.URL, tmpSocialMedia.CId, tmpSocialMedia.CTime, tmpSocialMedia.MId, tmpSocialMedia.MTime)
 		validCreateCount++
