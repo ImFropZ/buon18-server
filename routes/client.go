@@ -13,6 +13,7 @@ func Client(e *gin.Engine, db *sql.DB) {
 
 	account := e.Group("/clients", middlewares.Authenticate(db))
 	{
+		account.GET("/", middlewares.Authorize(middlewares.User), handler.List)
 		account.GET("/:id", middlewares.Authorize(middlewares.User), handler.First)
 	}
 }

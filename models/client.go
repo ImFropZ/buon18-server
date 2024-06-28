@@ -60,3 +60,11 @@ func (a *Client) ToResponse() ClientResponse {
 		Note:      a.Note,
 	}
 }
+
+func ClientsToResponse(clients []Client) []ClientResponse {
+	clientsResponse := make([]ClientResponse, 0)
+	for _, client := range clients {
+		clientsResponse = append(clientsResponse, client.ToResponse())
+	}
+	return clientsResponse
+}
