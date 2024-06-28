@@ -3,6 +3,10 @@ package models
 import "time"
 
 type SocialMedia struct {
+	Id uint `json:"id"`
+}
+
+type SocialMediaData struct {
 	Id        uint      `json:"id"`
 	AccountId uint      `json:"account_id"`
 	Platform  string    `json:"platform"`
@@ -13,7 +17,7 @@ type SocialMedia struct {
 	MTime     time.Time `json:"mtime"`
 }
 
-func (s *SocialMedia) PrepareForCreate(cid uint, mid uint) (err error) {
+func (s *SocialMediaData) PrepareForCreate(cid uint, mid uint) (err error) {
 	s.CId = cid
 	s.CTime = time.Now()
 	s.MId = mid
@@ -21,7 +25,7 @@ func (s *SocialMedia) PrepareForCreate(cid uint, mid uint) (err error) {
 	return
 }
 
-func (s *SocialMedia) PrepareForUpdate(mid uint) (err error) {
+func (s *SocialMediaData) PrepareForUpdate(mid uint) (err error) {
 	s.MId = mid
 	s.MTime = time.Now()
 	return

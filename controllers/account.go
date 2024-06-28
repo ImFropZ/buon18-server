@@ -78,14 +78,14 @@ func (handler *AccountHandler) First(c *gin.Context) {
 
 	// -- Prepare sql query
 	query, params, err := bqb.New(`SELECT 
-	a.id, a.code, a.name, a.gender, a.email, a.address, a.phone, a.secondary_phone, COALESCE(sm.id, 0), COALESCE(sm.platform, ''), COALESCE(sm.url, '')
+	a.id, a.code, a.name, a.gender, a.email, a.address, a.phone, a.secondary_phone, COALESCE(smd.id, 0), COALESCE(smd.platform, ''), COALESCE(smd.url, '')
 	FROM
 		"account" as a
 			LEFT JOIN
-		"social_media" as sm ON a.id = sm.account_id
+		"social_media_data" as smd ON a.social_media_id = smd.social_media_id
 	WHERE
 		a.id = ?
-	ORDER BY sm.id`, id).ToPgsql()
+	ORDER BY smd.id`, id).ToPgsql()
 	if err != nil {
 		log.Printf("Error preparing sql query: %v\n", err)
 		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
@@ -135,12 +135,12 @@ func (handler *AccountHandler) List(c *gin.Context) {
 
 	// -- Prepare sql query
 	query, params, err := bqb.New(`SELECT 
-	a.id, a.code, a.name, a.gender, a.email, a.address, a.phone, a.secondary_phone, COALESCE(sm.id, 0), COALESCE(sm.platform, ''), COALESCE(sm.url, '')
+	a.id, a.code, a.name, a.gender, a.email, a.address, a.phone, a.secondary_phone, COALESCE(smd.id, 0), COALESCE(smd.platform, ''), COALESCE(smd.url, '')
 	FROM
 		"account" as a
 			LEFT JOIN
-		"social_media" as sm ON a.id = sm.account_id
-	ORDER BY a.id, sm.id
+		"social_media_data" as smd ON a.social_media_id = smd.social_media_id
+	ORDER BY a.id, smd.id
 	LIMIT ? OFFSET ?`, paginationQueryParams.Limit, paginationQueryParams.Offset).ToPgsql()
 	if err != nil {
 		log.Printf("Error preparing sql query: %v\n", err)
@@ -241,12 +241,8 @@ func (handler *AccountHandler) Create(c *gin.Context) {
 	}
 	account.Gender = utils.SerializeGender(req.Gender)
 
-	// -- Prepare sql query
-	query, params, err := bqb.New(`INSERT INTO 
-	"account" (code, name, phone, email, address, secondary_phone, gender, cid, ctime, mid, mtime)
-	VALUES
-		(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-	RETURNING id`, account.Code, account.Name, account.Phone, account.Email, account.Address, account.SecondaryPhone, account.Gender, account.CId, account.CTime, account.MId, account.MTime).ToPgsql()
+	// -- Prepare sql query (CREATE SOCIAL MEDIA)
+	query, _, err := bqb.New(`INSERT INTO "social_media" DEFAULT VALUES RETURNING id`).ToPgsql()
 	if err != nil {
 		log.Printf("Error preparing sql query: %v\n", err)
 		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
@@ -257,6 +253,35 @@ func (handler *AccountHandler) Create(c *gin.Context) {
 	tx, err := handler.DB.Begin()
 	if err != nil {
 		log.Printf("Error beginning transaction: %v\n", err)
+		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
+		return
+	}
+
+	// -- Create social media
+	var createdSocialMediaId uint
+	if row := tx.QueryRow(query); row.Err() != nil {
+		tx.Rollback()
+		log.Printf("Error creating social media: %v\n", row.Err())
+		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
+		return
+	} else {
+		if err := row.Scan(&createdSocialMediaId); err != nil {
+			tx.Rollback()
+			log.Printf("Error scaning social media: %v\n", err)
+			c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
+			return
+		}
+	}
+
+	// -- Prepare sql query (CREATE ACCOUNT)
+	query, params, err := bqb.New(`INSERT INTO 
+	"account" (code, name, phone, email, address, secondary_phone, gender, social_media_id, cid, ctime, mid, mtime)
+	VALUES
+		(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+	RETURNING id`, account.Code, account.Name, account.Phone, account.Email, account.Address, account.SecondaryPhone, account.Gender, createdSocialMediaId, account.CId, account.CTime, account.MId, account.MTime).ToPgsql()
+	if err != nil {
+		tx.Rollback()
+		log.Printf("Error preparing sql query: %v\n", err)
 		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
 		return
 	}
@@ -284,22 +309,21 @@ func (handler *AccountHandler) Create(c *gin.Context) {
 		}
 	}
 
-	bqbQuery := bqb.New(`INSERT INTO "social_media" (account_id, platform, url, cid, ctime, mid, mtime) VALUES`)
-	socialMedia := models.SocialMedia{}
-	if err := socialMedia.PrepareForCreate(userId, userId); err != nil {
+	// -- Prepare sql query (CREATE SOCIAL MEDIA DATA)
+	bqbQuery := bqb.New(`INSERT INTO "social_media_data" (social_media_id, platform, url, cid, ctime, mid, mtime) VALUES`)
+	socialMediaData := models.SocialMediaData{}
+	if err := socialMediaData.PrepareForCreate(userId, userId); err != nil {
 		tx.Rollback()
 		log.Printf("Error preparing social media for create: %v\n", err)
 		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
 		return
 	}
 
-	// -- Create social medias
 	for _, sm := range req.SocialMedias {
 		// -- Append social media to bqb query
-		bqbQuery.Space("(?, ?, ?, ?, ?, ?, ?),", createdUserId, sm.Platform, sm.URL, socialMedia.CId, socialMedia.CTime, socialMedia.MId, socialMedia.MTime)
+		bqbQuery.Space("(?, ?, ?, ?, ?, ?, ?),", createdSocialMediaId, sm.Platform, sm.URL, socialMediaData.CId, socialMediaData.CTime, socialMediaData.MId, socialMediaData.MTime)
 	}
 
-	// -- Prepare social media query
 	query, params, err = bqbQuery.ToPgsql()
 	if err != nil {
 		tx.Rollback()
@@ -353,8 +377,8 @@ func (handler *AccountHandler) Update(c *gin.Context) {
 		return
 	}
 
-	// -- Prepare sql query
-	query, params, err := bqb.New(`SELECT id, code, name, email, gender, address, phone, secondary_phone FROM "account" WHERE id = ?`, id).ToPgsql()
+	// -- Prepare sql query (GET ACCOUNT)
+	query, params, err := bqb.New(`SELECT id, code, name, email, gender, address, phone, secondary_phone, social_media_id FROM "account" WHERE id = ?`, id).ToPgsql()
 	if err != nil {
 		log.Printf("Error preparing sql query: %v\n", err)
 		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
@@ -371,13 +395,14 @@ func (handler *AccountHandler) Update(c *gin.Context) {
 
 	// -- Get account from db
 	account := models.Account{}
+	var accountSocialMediaId uint
 	if row := tx.QueryRow(query, params...); row.Err() != nil {
 		tx.Rollback()
 		log.Printf("Error getting account: %v\n", row.Err())
 		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
 		return
 	} else {
-		if err := row.Scan(&account.Id, &account.Code, &account.Name, &account.Email, &account.Gender, &account.Address, &account.Phone, &account.SecondaryPhone); err != nil {
+		if err := row.Scan(&account.Id, &account.Code, &account.Name, &account.Email, &account.Gender, &account.Address, &account.Phone, &account.SecondaryPhone, &accountSocialMediaId); err != nil {
 			tx.Rollback()
 			log.Printf("Error scanning account: %v\n", err)
 			c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
@@ -385,10 +410,9 @@ func (handler *AccountHandler) Update(c *gin.Context) {
 		}
 	}
 
-	// -- Prepare sql query
+	// -- Prepare sql query (UPDATE ACCOUNT)
 	bqbQuery := bqb.New(`UPDATE "account" SET`)
 
-	// -- Prepare for update
 	tmpAccount := models.Account{}
 	if err := tmpAccount.PrepareForUpdate(userId); err != nil {
 		log.Printf("Error preparing account for update: %v\n", err)
@@ -396,7 +420,6 @@ func (handler *AccountHandler) Update(c *gin.Context) {
 		return
 	}
 
-	// -- Update account
 	if req.Code != "" && req.Code != account.Code {
 		bqbQuery.Space(" code = ?,", req.Code)
 	}
@@ -452,7 +475,7 @@ func (handler *AccountHandler) Update(c *gin.Context) {
 	}
 
 	// -- Prepare for update social media and can be used for create social media
-	tmpSocialMedia := models.SocialMedia{}
+	tmpSocialMedia := models.SocialMediaData{}
 	if err := tmpSocialMedia.PrepareForCreate(userId, userId); err != nil {
 		tx.Rollback()
 		log.Printf("Error preparing social media for update: %v\n", err)
@@ -461,17 +484,17 @@ func (handler *AccountHandler) Update(c *gin.Context) {
 	}
 
 	// -- Separate social medias to create and update
-	var createSocialMedias []models.SocialMedia
-	var updateSocialMedias []models.SocialMedia
+	var createSocialMedias []models.SocialMediaData
+	var updateSocialMedias []models.SocialMediaData
 	for _, sm := range req.SocialMedias {
 		if sm.Id == 0 {
-			createSocialMedias = append(createSocialMedias, models.SocialMedia{
+			createSocialMedias = append(createSocialMedias, models.SocialMediaData{
 				Platform: sm.Platform,
 				URL:      sm.URL,
 			})
 			continue
 		}
-		updateSocialMedias = append(updateSocialMedias, models.SocialMedia{
+		updateSocialMedias = append(updateSocialMedias, models.SocialMediaData{
 			Id:       sm.Id,
 			Platform: sm.Platform,
 			URL:      sm.URL,
@@ -483,14 +506,14 @@ func (handler *AccountHandler) Update(c *gin.Context) {
 		if sm.Platform == "" && sm.URL == "" {
 			continue
 		}
-		bqbQuery = bqb.New(`UPDATE "social_media" SET`)
+		bqbQuery = bqb.New(`UPDATE "social_media_data" SET`)
 		if sm.Platform != "" {
 			bqbQuery.Space("platform = ?,", sm.Platform)
 		}
 		if sm.URL != "" {
 			bqbQuery.Space("url = ?,", sm.URL)
 		}
-		query, params, err = bqbQuery.Space("mid = ?, mtime = ? WHERE id = ?", tmpSocialMedia.MId, tmpSocialMedia.MTime, sm.Id).ToPgsql()
+		query, params, err = bqbQuery.Space("mid = ?, mtime = ? WHERE id = ? AND social_media_id", tmpSocialMedia.MId, tmpSocialMedia.MTime, sm.Id, accountSocialMediaId).ToPgsql()
 		if err != nil {
 			tx.Rollback()
 			log.Printf("Error preparing sql query: %v\n", err)
@@ -507,7 +530,7 @@ func (handler *AccountHandler) Update(c *gin.Context) {
 		}
 	}
 
-	bqbQuery = bqb.New(`INSERT INTO "social_media" (account_id, platform, url, cid, ctime, mid, mtime) VALUES`)
+	bqbQuery = bqb.New(`INSERT INTO "social_media_data" (social_media_id, platform, url, cid, ctime, mid, mtime) VALUES`)
 
 	// -- Create social medias
 	var validCreateCount uint
@@ -518,7 +541,7 @@ func (handler *AccountHandler) Update(c *gin.Context) {
 			c.JSON(400, utils.NewErrorResponse(400, "invalid social media. required fields: platform, url"))
 			return
 		}
-		bqbQuery.Space("(?, ?, ?, ?, ?, ?, ?),", id, sm.Platform, sm.URL, tmpSocialMedia.CId, tmpSocialMedia.CTime, tmpSocialMedia.MId, tmpSocialMedia.MTime)
+		bqbQuery.Space("(?, ?, ?, ?, ?, ?, ?),", accountSocialMediaId, sm.Platform, sm.URL, tmpSocialMedia.CId, tmpSocialMedia.CTime, tmpSocialMedia.MId, tmpSocialMedia.MTime)
 		validCreateCount++
 	}
 
@@ -570,7 +593,11 @@ func (handler *AccountHandler) DeleteSocialMedia(c *gin.Context) {
 	}
 
 	// -- Prepare sql query
-	query, params, err := bqb.New(`DELETE FROM "social_media" WHERE id = ? AND account_id = ?`, socialMediaId, id).ToPgsql()
+	query, params, err := bqb.New(`DELETE FROM "social_media_data" as smd
+	USING "account" as a
+	WHERE smd.social_media_id = a.social_media_id
+	AND smd.id = ?
+	AND a.id = ?`, socialMediaId, id).ToPgsql()
 	if err != nil {
 		log.Printf("Error preparing sql query: %v\n", err)
 		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
@@ -623,7 +650,10 @@ func (handler *AccountHandler) Delete(c *gin.Context) {
 	}
 
 	// -- Prepare sql query to delete social medias
-	query, params, err := bqb.New(`DELETE FROM "social_media" WHERE account_id = ?`, id).ToPgsql()
+	query, params, err := bqb.New(`DELETE FROM "social_media_data" as smd
+	USING "account" AS a 
+	WHERE smd.social_media_id = a.social_media_id
+	AND a.id = ?`, id).ToPgsql()
 	if err != nil {
 		log.Printf("Error preparing sql query: %v\n", err)
 		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
@@ -647,7 +677,9 @@ func (handler *AccountHandler) Delete(c *gin.Context) {
 	}
 
 	// -- Prepare sql query to delete account
-	query, params, err = bqb.New(`DELETE FROM "account" WHERE id = ?`, id).ToPgsql()
+	query, params, err = bqb.New(`DELETE FROM "account" 
+	WHERE id = ?
+	RETURNING social_media_id`, id).ToPgsql()
 	if err != nil {
 		tx.Rollback()
 		log.Printf("Error preparing sql query: %v\n", err)
@@ -656,9 +688,34 @@ func (handler *AccountHandler) Delete(c *gin.Context) {
 	}
 
 	// -- Delete account
-	if _, err := tx.Exec(query, params...); err != nil {
+	var targetSocialMediaId uint
+	if row := tx.QueryRow(query, params...); row.Err() != nil {
 		tx.Rollback()
 		log.Printf("Error deleting account: %v\n", err)
+		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
+		return
+	} else {
+		if err := row.Scan(&targetSocialMediaId); err != nil {
+			tx.Rollback()
+			log.Printf("Error scaning account: %v\n", err)
+			c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
+			return
+		}
+	}
+
+	// -- Prepare sql query to delete social media
+	query, params, err = bqb.New(`DELETE FROM "social_media" WHERE id = ?`, targetSocialMediaId).ToPgsql()
+	if err != nil {
+		tx.Rollback()
+		log.Printf("Error preparing sql query: %v\n", err)
+		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
+		return
+	}
+
+	// -- Delete social media
+	if _, err := tx.Exec(query, params...); err != nil {
+		tx.Rollback()
+		log.Printf("Error deleting social media: %v\n", err)
 		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
 		return
 	}
