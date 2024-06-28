@@ -71,7 +71,7 @@ func (a *Account) ToResponse() AccountResponse {
 }
 
 func AccountsToResponse(accounts []Account) []AccountResponse {
-	var accountsResponse []AccountResponse
+	accountsResponse := make([]AccountResponse, 0)
 	for _, account := range accounts {
 		accountsResponse = append(accountsResponse, account.ToResponse())
 	}

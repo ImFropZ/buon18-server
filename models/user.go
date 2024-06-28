@@ -46,7 +46,7 @@ func (u *User) ToResponse() UserResponse {
 }
 
 func UsersToResponse(users []User) []UserResponse {
-	var usersResponse []UserResponse
+	usersResponse := make([]UserResponse, 0)
 	for _, user := range users {
 		usersResponse = append(usersResponse, user.ToResponse())
 	}
