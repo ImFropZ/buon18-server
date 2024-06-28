@@ -16,13 +16,6 @@ import (
 	"github.com/nullism/bqb"
 )
 
-type UserResponse struct {
-	Id    uint   `json:"id"`
-	Name  string `json:"name"`
-	Email string `json:"email"`
-	Role  string `json:"role"`
-}
-
 type CreateUserRequest struct {
 	Name     string `json:"name" binding:"required"`
 	Email    string `json:"email" binding:"required"`
@@ -57,7 +50,7 @@ func (handler *UserHandler) First(c *gin.Context) {
 		return
 	}
 
-	var user UserResponse
+	var user models.User
 	if row := handler.DB.QueryRow(query, params...); row.Err() != nil {
 		log.Printf("Error finding user in database: %v\n", row.Err())
 		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
@@ -73,7 +66,7 @@ func (handler *UserHandler) First(c *gin.Context) {
 		return
 	}
 
-	c.JSON(200, utils.NewResponse(200, "success", user))
+	c.JSON(200, utils.NewResponse(200, "success", user.ToResponse()))
 }
 
 func (handler *UserHandler) List(c *gin.Context) {
@@ -94,14 +87,14 @@ func (handler *UserHandler) List(c *gin.Context) {
 	}
 
 	// -- Query users from database
-	var users []UserResponse = make([]UserResponse, 0)
+	var users []models.User = make([]models.User, 0)
 	if rows, err := handler.DB.Query(query, params...); err != nil {
 		log.Printf("Error finding users in database: %v\n", err)
 		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
 		return
 	} else {
 		for rows.Next() {
-			var user UserResponse
+			var user models.User
 			if err := rows.Scan(&user.Id, &user.Name, &user.Email, &user.Role); err != nil {
 				log.Printf("Error scanning user from database: %v\n", err)
 				c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
@@ -111,7 +104,7 @@ func (handler *UserHandler) List(c *gin.Context) {
 		}
 	}
 
-	c.JSON(200, utils.NewResponse(200, "success", users))
+	c.JSON(200, utils.NewResponse(200, "success", models.UsersToResponse(users)))
 }
 
 func (handler *UserHandler) Create(c *gin.Context) {

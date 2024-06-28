@@ -14,24 +14,6 @@ import (
 	"github.com/nullism/bqb"
 )
 
-type AccountResponse struct {
-	Id             uint                  `json:"id"`
-	Code           string                `json:"code"`
-	Name           string                `json:"name"`
-	Gender         string                `json:"gender"`
-	Email          string                `json:"email"`
-	Address        string                `json:"address"`
-	Phone          string                `json:"phone"`
-	SecondaryPhone string                `json:"secondary_phone"`
-	SocialMedias   []SocialMediaResponse `json:"social_medias"`
-}
-
-type SocialMediaResponse struct {
-	Id       uint   `json:"id"`
-	Platform string `json:"platform"`
-	URL      string `json:"url"`
-}
-
 type CreateAccountRequest struct {
 	Code           string                     `json:"code" binding:"required"`
 	Name           string                     `json:"name" binding:"required"`
@@ -93,7 +75,7 @@ func (handler *AccountHandler) First(c *gin.Context) {
 	}
 
 	// -- Query database
-	var account AccountResponse
+	var account models.Account
 	if rows, err := handler.DB.Query(query, params...); err != nil {
 		log.Printf("Error querying database: %v\n", err)
 		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
@@ -101,9 +83,9 @@ func (handler *AccountHandler) First(c *gin.Context) {
 	} else {
 		defer rows.Close()
 
-		account.SocialMedias = make([]SocialMediaResponse, 0)
+		account.SocialMedias = make([]models.SocialMediaData, 0)
 		for rows.Next() {
-			var socialMedia SocialMediaResponse
+			var socialMedia models.SocialMediaData
 			if err := rows.Scan(&account.Id, &account.Code, &account.Name, &account.Gender, &account.Email, &account.Address, &account.Phone, &account.SecondaryPhone, &socialMedia.Id, &socialMedia.Platform, &socialMedia.URL); err != nil {
 				log.Printf("Error scanning row: %v\n", err)
 				c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
@@ -121,7 +103,7 @@ func (handler *AccountHandler) First(c *gin.Context) {
 		return
 	}
 
-	c.JSON(200, utils.NewResponse(200, "success", account))
+	c.JSON(200, utils.NewResponse(200, "success", account.ToResponse()))
 }
 
 func (handler *AccountHandler) List(c *gin.Context) {
@@ -149,7 +131,7 @@ func (handler *AccountHandler) List(c *gin.Context) {
 	}
 
 	// -- Query accounts
-	var accounts []AccountResponse
+	var accounts []models.Account
 	if rows, err := handler.DB.Query(query, params...); err != nil {
 		log.Printf("Error querying database: %v\n", err)
 		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
@@ -158,12 +140,12 @@ func (handler *AccountHandler) List(c *gin.Context) {
 		defer rows.Close()
 
 		// -- Apply accounts data without social medias
-		var tmpAccount AccountResponse
-		tmpAccount.SocialMedias = make([]SocialMediaResponse, 0)
+		var tmpAccount models.Account
+		tmpAccount.SocialMedias = make([]models.SocialMediaData, 0)
 
 		for rows.Next() {
-			var scanAccount AccountResponse
-			var scanSocialMedia SocialMediaResponse
+			var scanAccount models.Account
+			var scanSocialMedia models.SocialMediaData
 			if err := rows.Scan(&scanAccount.Id, &scanAccount.Code, &scanAccount.Name, &scanAccount.Gender, &scanAccount.Email, &scanAccount.Address, &scanAccount.Phone, &scanAccount.SecondaryPhone, &scanSocialMedia.Id, &scanSocialMedia.Platform, &scanSocialMedia.URL); err != nil {
 				log.Printf("Error scanning row: %v\n", err)
 				c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
@@ -190,11 +172,11 @@ func (handler *AccountHandler) List(c *gin.Context) {
 			}
 
 			// -- Reset social medias to empty array
-			tmpAccount.SocialMedias = make([]SocialMediaResponse, 0)
+			tmpAccount.SocialMedias = make([]models.SocialMediaData, 0)
 		}
 	}
 
-	c.JSON(200, utils.NewResponse(200, "success", accounts))
+	c.JSON(200, utils.NewResponse(200, "success", models.AccountsToResponse(accounts)))
 }
 
 func (handler *AccountHandler) Create(c *gin.Context) {
