@@ -553,3 +553,122 @@ func (handler *AccountHandler) Update(c *gin.Context) {
 
 	c.JSON(200, utils.NewResponse(200, fmt.Sprintf("account %d updated", id), nil))
 }
+
+func (handler *AccountHandler) DeleteSocialMedia(c *gin.Context) {
+	// -- Get id
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		c.JSON(400, utils.NewErrorResponse(400, "invalid user Id. user Id should be an integer"))
+		return
+	}
+
+	// -- Get social media id
+	socialMediaId, err := strconv.Atoi(c.Param("smid"))
+	if err != nil {
+		c.JSON(400, utils.NewErrorResponse(400, "invalid social media Id. social media Id should be an integer"))
+		return
+	}
+
+	// -- Prepare sql query
+	query, params, err := bqb.New(`DELETE FROM "social_media" WHERE id = ? AND account_id = ?`, socialMediaId, id).ToPgsql()
+	if err != nil {
+		log.Printf("Error preparing sql query: %v\n", err)
+		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
+		return
+	}
+
+	// -- Begin transaction
+	tx, err := handler.DB.Begin()
+	if err != nil {
+		log.Printf("Error beginning transaction: %v\n", err)
+		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
+		return
+	}
+
+	// -- Delete social media
+	if result, err := tx.Exec(query, params...); err != nil {
+		tx.Rollback()
+		log.Printf("Error deleting social media: %v\n", err)
+		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
+		return
+	} else {
+		if n, err := result.RowsAffected(); err != nil {
+			tx.Rollback()
+			log.Printf("Error getting rows affected: %v\n", err)
+			c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
+			return
+		} else if n == 0 {
+			tx.Rollback()
+			c.JSON(404, utils.NewErrorResponse(404, fmt.Sprintf("social media %d not found from account %d", socialMediaId, id)))
+			return
+		}
+	}
+
+	// -- Commit transaction
+	if err := tx.Commit(); err != nil {
+		log.Printf("Error commiting transaction: %v\n", err)
+		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
+		return
+	}
+
+	c.JSON(200, utils.NewResponse(200, fmt.Sprintf("social media %d deleted", socialMediaId), nil))
+}
+
+func (handler *AccountHandler) Delete(c *gin.Context) {
+	// -- Get id
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		c.JSON(400, utils.NewErrorResponse(400, "invalid user Id. user Id should be an integer"))
+		return
+	}
+
+	// -- Prepare sql query to delete social medias
+	query, params, err := bqb.New(`DELETE FROM "social_media" WHERE account_id = ?`, id).ToPgsql()
+	if err != nil {
+		log.Printf("Error preparing sql query: %v\n", err)
+		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
+		return
+	}
+
+	// -- Begin transaction
+	tx, err := handler.DB.Begin()
+	if err != nil {
+		log.Printf("Error beginning transaction: %v\n", err)
+		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
+		return
+	}
+
+	// -- Delete social medias
+	if _, err := tx.Exec(query, params...); err != nil {
+		tx.Rollback()
+		log.Printf("Error deleting social medias: %v\n", err)
+		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
+		return
+	}
+
+	// -- Prepare sql query to delete account
+	query, params, err = bqb.New(`DELETE FROM "account" WHERE id = ?`, id).ToPgsql()
+	if err != nil {
+		tx.Rollback()
+		log.Printf("Error preparing sql query: %v\n", err)
+		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
+		return
+	}
+
+	// -- Delete account
+	if _, err := tx.Exec(query, params...); err != nil {
+		tx.Rollback()
+		log.Printf("Error deleting account: %v\n", err)
+		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
+		return
+	}
+
+	// -- Commit transaction
+	if err := tx.Commit(); err != nil {
+		log.Printf("Error commiting transaction: %v\n", err)
+		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
+		return
+	}
+
+	c.JSON(200, utils.NewResponse(200, fmt.Sprintf("account %d deleted", id), nil))
+}
