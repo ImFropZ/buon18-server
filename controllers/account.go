@@ -352,7 +352,7 @@ func (handler *AccountHandler) Update(c *gin.Context) {
 	}
 
 	// -- Prepare sql query (GET ACCOUNT)
-	query, params, err := bqb.New(`SELECT id, code, name, email, gender, address, phone, secondary_phone, social_media_id FROM "account" WHERE id = ?`, id).ToPgsql()
+	query, params, err := bqb.New(`SELECT id, code, name, COALESCE(email, ''), gender, COALESCE(address, ''), phone, COALESCE(secondary_phone, ''), social_media_id FROM "account" WHERE id = ?`, id).ToPgsql()
 	if err != nil {
 		log.Printf("Error preparing sql query: %v\n", err)
 		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
