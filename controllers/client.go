@@ -555,3 +555,98 @@ func (handler *ClientHandler) Update(c *gin.Context) {
 
 	c.JSON(200, utils.NewResponse(200, fmt.Sprintf("client %d updated", targetClientId), nil))
 }
+
+func (handler *ClientHandler) Delete(c *gin.Context) {
+	// -- Get id
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		c.JSON(400, utils.NewErrorResponse(400, "invalid user Id. user Id should be an integer"))
+		return
+	}
+
+	// -- Prepare sql query to delete social medias
+	query, params, err := bqb.New(`DELETE FROM "social_media_data" as smd
+	USING "client" AS c 
+	WHERE smd.social_media_id = c.social_media_id
+	AND c.id = ?`, id).ToPgsql()
+	if err != nil {
+		log.Printf("Error preparing sql query: %v\n", err)
+		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
+		return
+	}
+
+	// -- Begin transaction
+	tx, err := handler.DB.Begin()
+	if err != nil {
+		log.Printf("Error beginning transaction: %v\n", err)
+		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
+		return
+	}
+
+	// -- Delete social medias
+	if _, err := tx.Exec(query, params...); err != nil {
+		tx.Rollback()
+		log.Printf("Error deleting social medias: %v\n", err)
+		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
+		return
+	}
+
+	// -- Prepare sql query to delete client
+	query, params, err = bqb.New(`DELETE FROM "client" 
+	WHERE id = ?
+	RETURNING social_media_id`, id).ToPgsql()
+	if err != nil {
+		tx.Rollback()
+		log.Printf("Error preparing sql query: %v\n", err)
+		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
+		return
+	}
+
+	// -- Delete client
+	var targetSocialMediaId uint
+	if row := tx.QueryRow(query, params...); row.Err() != nil {
+		tx.Rollback()
+		log.Printf("Error deleting client: %v\n", err)
+		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
+		return
+	} else {
+		if err := row.Scan(&targetSocialMediaId); err != nil {
+			tx.Rollback()
+
+			if err == sql.ErrNoRows {
+				c.JSON(404, utils.NewErrorResponse(404, "client not found"))
+				return
+			}
+
+			log.Printf("Error scaning client: %v\n", err)
+			c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
+			return
+		}
+	}
+
+	// -- Prepare sql query to delete social media
+	query, params, err = bqb.New(`DELETE FROM "social_media" WHERE id = ?`, targetSocialMediaId).ToPgsql()
+	if err != nil {
+		tx.Rollback()
+		log.Printf("Error preparing sql query: %v\n", err)
+		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
+		return
+	}
+
+	// -- Delete social media
+	if _, err := tx.Exec(query, params...); err != nil {
+		tx.Rollback()
+		log.Printf("Error deleting social media: %v\n", err)
+		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
+		return
+	}
+
+	// -- Commit transaction
+	if err := tx.Commit(); err != nil {
+		log.Printf("Error commiting transaction: %v\n", err)
+		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
+		return
+	}
+
+	c.JSON(200, utils.NewResponse(200, fmt.Sprintf("client %d deleted", id), nil))
+}
