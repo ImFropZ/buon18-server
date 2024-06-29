@@ -25,6 +25,17 @@ type CreateClientRequest struct {
 	SocialMedias []models.CreateSocialMediaRequest `json:"social_medias"`
 }
 
+type UpdateClientRequest struct {
+	Code         string                            `json:"code"`
+	Name         string                            `json:"name"`
+	Address      string                            `json:"address"`
+	Phone        string                            `json:"phone"`
+	Latitude     float64                           `json:"latitude"`
+	Longitude    float64                           `json:"longitude"`
+	Note         string                            `json:"note"`
+	SocialMedias []models.UpdateSocialMediaRequest `json:"social_medias"`
+}
+
 type ClientHandler struct {
 	DB *sql.DB
 }
@@ -314,4 +325,233 @@ func (handler *ClientHandler) Create(c *gin.Context) {
 	}
 
 	c.JSON(201, utils.NewResponse(201, fmt.Sprintf("client %d created", createdClientId), nil))
+}
+
+func (handler *ClientHandler) Update(c *gin.Context) {
+	// -- Get user id
+	var userId uint
+	if id, err := c.Get("user_id"); !err {
+		log.Printf("Error getting user id: %v\n", err)
+		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
+		return
+	} else {
+		userId = id.(uint)
+	}
+
+	// -- Parse request
+	var req UpdateClientRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(400, utils.NewErrorResponse(400, "invalid request"))
+		return
+	}
+
+	// -- Get id
+	targetClientId, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		c.JSON(400, utils.NewErrorResponse(400, "invalid user Id. user Id should be an integer"))
+		return
+	}
+
+	// -- Prepare sql query (GET CLIENT)
+	query, params, err := bqb.New(`SELECT id, code, name, COALESCE(address, ''), phone, latitude, longitude, COALESCE(note, ''), social_media_id FROM "client" WHERE id = ?`, targetClientId).ToPgsql()
+	if err != nil {
+		log.Printf("Error preparing sql query: %v\n", err)
+		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
+		return
+	}
+
+	// -- Begin transaction
+	tx, err := handler.DB.Begin()
+	if err != nil {
+		log.Printf("Error beginning transaction: %v\n", err)
+		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
+		return
+	}
+
+	// -- Get client from db
+	client := models.Client{}
+	var clientSocialMediaId uint
+	if row := tx.QueryRow(query, params...); row.Err() != nil {
+		tx.Rollback()
+		log.Printf("Error getting client: %v\n", row.Err())
+		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
+		return
+	} else {
+		if err := row.Scan(&client.Id, &client.Code, &client.Name, &client.Address, &client.Phone, &client.Latitude, &client.Longitude, &client.Note, &clientSocialMediaId); err != nil {
+			tx.Rollback()
+
+			if err == sql.ErrNoRows {
+				c.JSON(404, utils.NewErrorResponse(404, "client not found"))
+				return
+			}
+
+			log.Printf("Error scanning client: %v\n", err)
+			c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
+			return
+		}
+	}
+
+	// -- Prepare sql query (UPDATE CLIENT)
+	bqbQuery := bqb.New(`UPDATE "client" SET`)
+
+	tmpClient := models.Client{}
+	if err := tmpClient.PrepareForUpdate(userId); err != nil {
+		log.Printf("Error preparing client for update: %v\n", err)
+		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
+		return
+	}
+
+	if req.Code != "" && req.Code != client.Code {
+		bqbQuery.Space(" code = ?,", req.Code)
+	}
+	if req.Name != "" && req.Name != client.Name {
+		bqbQuery.Space(" name = ?,", req.Name)
+	}
+	if req.Address != "" && req.Address != client.Address {
+		bqbQuery.Space(" address = ?,", req.Address)
+	}
+	if req.Phone != "" && req.Phone != client.Phone {
+		bqbQuery.Space(" phone = ?,", req.Phone)
+	}
+	if req.Latitude != 0.0 && req.Latitude != client.Latitude {
+		bqbQuery.Space(" latitude = ?,", req.Latitude)
+	}
+	if req.Longitude != 0.0 && req.Longitude != client.Longitude {
+		bqbQuery.Space(" longitude = ?,", req.Longitude)
+	}
+	if req.Note != "" && req.Note != client.Note {
+		bqbQuery.Space(" note = ?,", req.Note)
+	}
+
+	// -- Append mid and mtime
+	query, params, err = bqbQuery.Space(" mid = ?, mtime = ? WHERE id = ? RETURNING id", tmpClient.MId, tmpClient.MTime, targetClientId).ToPgsql()
+	if err != nil {
+		tx.Rollback()
+		log.Printf("Error preparing sql query: %v\n", err)
+		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
+		return
+	}
+
+	// -- Update client
+	if _, err := tx.Exec(query, params...); err != nil {
+		tx.Rollback()
+		log.Printf("Error updating client: %v\n", err)
+		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
+		return
+	}
+
+	// -- Update social medias
+	if len(req.SocialMedias) == 0 {
+		// -- Commit transaction
+		if err := tx.Commit(); err != nil {
+			log.Printf("Error commiting transaction: %v\n", err)
+			c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
+			return
+		}
+
+		c.JSON(200, utils.NewResponse(200, fmt.Sprintf("account %d updated", targetClientId), nil))
+		return
+	}
+
+	// -- Prepare for update social media and can be used for create social media
+	tmpSocialMedia := models.SocialMediaData{}
+	if err := tmpSocialMedia.PrepareForCreate(userId, userId); err != nil {
+		tx.Rollback()
+		log.Printf("Error preparing social media for update: %v\n", err)
+		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
+		return
+	}
+
+	// -- Separate social medias to create and update
+	var createSocialMedias []models.SocialMediaData
+	var updateSocialMedias []models.SocialMediaData
+	for _, sm := range req.SocialMedias {
+		if sm.Id == 0 {
+			createSocialMedias = append(createSocialMedias, models.SocialMediaData{
+				Platform: sm.Platform,
+				URL:      sm.URL,
+			})
+			continue
+		}
+		updateSocialMedias = append(updateSocialMedias, models.SocialMediaData{
+			Id:       sm.Id,
+			Platform: sm.Platform,
+			URL:      sm.URL,
+		})
+	}
+
+	// -- Update social medias
+	for _, sm := range updateSocialMedias {
+		if sm.Platform == "" && sm.URL == "" {
+			continue
+		}
+		bqbQuery = bqb.New(`UPDATE "social_media_data" SET`)
+		if sm.Platform != "" {
+			bqbQuery.Space("platform = ?,", sm.Platform)
+		}
+		if sm.URL != "" {
+			bqbQuery.Space("url = ?,", sm.URL)
+		}
+		query, params, err = bqbQuery.Space("mid = ?, mtime = ? WHERE id = ? AND social_media_id = ?", tmpSocialMedia.MId, tmpSocialMedia.MTime, sm.Id, clientSocialMediaId).ToPgsql()
+		if err != nil {
+			tx.Rollback()
+			log.Printf("Error preparing sql query: %v\n", err)
+			c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
+			return
+		}
+
+		// -- Update social media
+		if _, err := tx.Exec(query, params...); err != nil {
+			tx.Rollback()
+			log.Printf("Error updating social media: %v\n", err)
+			c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
+			return
+		}
+	}
+
+	bqbQuery = bqb.New(`INSERT INTO "social_media_data" (social_media_id, platform, url, cid, ctime, mid, mtime) VALUES`)
+
+	// -- Create social medias
+	var validCreateCount uint
+	for _, sm := range createSocialMedias {
+		// -- Need both fields to create social media
+		if sm.Platform == "" || sm.URL == "" {
+			tx.Rollback()
+			c.JSON(400, utils.NewErrorResponse(400, "invalid social media. required fields: platform, url"))
+			return
+		}
+		bqbQuery.Space("(?, ?, ?, ?, ?, ?, ?),", clientSocialMediaId, sm.Platform, sm.URL, tmpSocialMedia.CId, tmpSocialMedia.CTime, tmpSocialMedia.MId, tmpSocialMedia.MTime)
+		validCreateCount++
+	}
+
+	// -- Prepare social media query
+	if validCreateCount > 0 {
+		query, params, err = bqbQuery.ToPgsql()
+		if err != nil {
+			tx.Rollback()
+			log.Printf("Error preparing social media query: %v\n", err)
+			c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
+			return
+		}
+
+		// -- Remove last comma
+		query = query[:len(query)-1]
+
+		// -- Create social medias
+		if _, err := tx.Exec(query, params...); err != nil {
+			tx.Rollback()
+			log.Printf("Error creating social media: %v\n", err)
+			c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
+			return
+		}
+	}
+
+	// -- Commit transaction
+	if err := tx.Commit(); err != nil {
+		log.Printf("Error commiting transaction: %v\n", err)
+		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
+		return
+	}
+
+	c.JSON(200, utils.NewResponse(200, fmt.Sprintf("client %d updated", targetClientId), nil))
 }
