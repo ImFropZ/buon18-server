@@ -11,9 +11,10 @@ import (
 func Client(e *gin.Engine, db *sql.DB) {
 	handler := controllers.ClientHandler{DB: db}
 
-	account := e.Group("/clients", middlewares.Authenticate(db))
+	client := e.Group("/clients", middlewares.Authenticate(db))
 	{
-		account.GET("/", middlewares.Authorize(middlewares.User), handler.List)
-		account.GET("/:id", middlewares.Authorize(middlewares.User), handler.First)
+		client.GET("/", middlewares.Authorize(middlewares.User), handler.List)
+		client.GET("/:id", middlewares.Authorize(middlewares.User), handler.First)
+		client.POST("/", middlewares.Authorize(middlewares.Editor), handler.Create)
 	}
 }

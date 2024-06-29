@@ -50,14 +50,15 @@ func (a *Client) PrepareForUpdate(mid uint) (err error) {
 
 func (a *Client) ToResponse() ClientResponse {
 	return ClientResponse{
-		Id:        a.Id,
-		Code:      a.Code,
-		Name:      a.Name,
-		Address:   a.Address,
-		Phone:     a.Phone,
-		Latitude:  a.Latitude,
-		Longitude: a.Longitude,
-		Note:      a.Note,
+		Id:           a.Id,
+		Code:         a.Code,
+		Name:         a.Name,
+		Address:      a.Address,
+		Phone:        a.Phone,
+		Latitude:     a.Latitude,
+		Longitude:    a.Longitude,
+		Note:         a.Note,
+		SocialMedias: SocialMediasToResponse(a.SocialMedias),
 	}
 }
 

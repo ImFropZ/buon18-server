@@ -15,36 +15,25 @@ import (
 )
 
 type CreateAccountRequest struct {
-	Code           string                     `json:"code" binding:"required"`
-	Name           string                     `json:"name" binding:"required"`
-	Email          string                     `json:"email"`
-	Gender         string                     `json:"gender"`
-	Address        string                     `json:"address"`
-	Phone          string                     `json:"phone" binding:"required"`
-	SecondaryPhone string                     `json:"secondary_phone"`
-	SocialMedias   []CreateSocialMediaRequest `json:"social_medias"`
-}
-
-type CreateSocialMediaRequest struct {
-	Platform string `json:"platform" binding:"required"`
-	URL      string `json:"url" binding:"required"`
+	Code           string                            `json:"code" binding:"required"`
+	Name           string                            `json:"name" binding:"required"`
+	Email          string                            `json:"email"`
+	Gender         string                            `json:"gender"`
+	Address        string                            `json:"address"`
+	Phone          string                            `json:"phone" binding:"required"`
+	SecondaryPhone string                            `json:"secondary_phone"`
+	SocialMedias   []models.CreateSocialMediaRequest `json:"social_medias"`
 }
 
 type UpdateAccountRequest struct {
-	Code           string                     `json:"code"`
-	Name           string                     `json:"name"`
-	Email          string                     `json:"email"`
-	Gender         string                     `json:"gender"`
-	Address        string                     `json:"address"`
-	SecondaryPhone string                     `json:"secondary_phone"`
-	Phone          string                     `json:"phone"`
-	SocialMedias   []UpdateSocialMediaRequest `json:"social_medias"`
-}
-
-type UpdateSocialMediaRequest struct {
-	Id       uint   `json:"id"`
-	Platform string `json:"platform"`
-	URL      string `json:"url"`
+	Code           string                            `json:"code"`
+	Name           string                            `json:"name"`
+	Email          string                            `json:"email"`
+	Gender         string                            `json:"gender"`
+	Address        string                            `json:"address"`
+	SecondaryPhone string                            `json:"secondary_phone"`
+	Phone          string                            `json:"phone"`
+	SocialMedias   []models.UpdateSocialMediaRequest `json:"social_medias"`
 }
 
 type AccountHandler struct {
@@ -60,7 +49,7 @@ func (handler *AccountHandler) First(c *gin.Context) {
 
 	// -- Prepare sql query
 	query, params, err := bqb.New(`SELECT 
-	a.id, a.code, a.name, a.gender, a.email, a.address, a.phone, a.secondary_phone, COALESCE(smd.id, 0), COALESCE(smd.platform, ''), COALESCE(smd.url, '')
+	a.id, a.code, a.name, a.gender, COALESCE(a.email, ''), COALESCE(a.address, ''), a.phone, COALESCE(a.secondary_phone, ''), COALESCE(smd.id, 0), COALESCE(smd.platform, ''), COALESCE(smd.url, '')
 	FROM
 		"account" as a
 			LEFT JOIN
@@ -117,7 +106,7 @@ func (handler *AccountHandler) List(c *gin.Context) {
 
 	// -- Prepare sql query
 	query, params, err := bqb.New(`SELECT 
-	a.id, a.code, a.name, a.gender, a.email, a.address, a.phone, a.secondary_phone, COALESCE(smd.id, 0), COALESCE(smd.platform, ''), COALESCE(smd.url, '')
+	a.id, a.code, a.name, a.gender, COALESCE(a.email, ''), COALESCE(a.address, ''), a.phone, COALESCE(a.secondary_phone, ''), COALESCE(smd.id, 0), COALESCE(smd.platform, ''), COALESCE(smd.url, '')
 	FROM
 		"account" as a
 			LEFT JOIN
@@ -152,27 +141,30 @@ func (handler *AccountHandler) List(c *gin.Context) {
 				return
 			}
 
-			// -- Append social media to tmpAccount
+			// -- Append social media to tmpAccount's social medias
 			if tmpAccount.Id == scanAccount.Id {
 				tmpAccount.SocialMedias = append(tmpAccount.SocialMedias, scanSocialMedia)
 				continue
 			}
 
-			// -- Append tmpAccount to accounts
+			// -- Append tmpAccount to accounts if tmpAccount.Id are not default value
 			if tmpAccount.Id != 0 {
 				accounts = append(accounts, tmpAccount)
+				// -- Reset
+				tmpAccount = models.Account{}
+				tmpAccount.SocialMedias = make([]models.SocialMediaData, 0)
 			}
 
-			// -- Set scanAccount to tmpAccount and append social media
+			// -- Assign scanAccount to tmpAccount
 			tmpAccount = scanAccount
-			// -- Social media can be null
 			if scanSocialMedia.Id != 0 {
 				tmpAccount.SocialMedias = append(tmpAccount.SocialMedias, scanSocialMedia)
-				continue
 			}
+		}
 
-			// -- Reset social medias to empty array
-			tmpAccount.SocialMedias = make([]models.SocialMediaData, 0)
+		// -- Append last tmpAccount to accounts
+		if tmpAccount.Id != 0 {
+			accounts = append(accounts, tmpAccount)
 		}
 	}
 
@@ -259,7 +251,7 @@ func (handler *AccountHandler) Create(c *gin.Context) {
 	query, params, err := bqb.New(`INSERT INTO 
 	"account" (code, name, phone, email, address, secondary_phone, gender, social_media_id, cid, ctime, mid, mtime)
 	VALUES
-		(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	RETURNING id`, account.Code, account.Name, account.Phone, account.Email, account.Address, account.SecondaryPhone, account.Gender, createdSocialMediaId, account.CId, account.CTime, account.MId, account.MTime).ToPgsql()
 	if err != nil {
 		tx.Rollback()

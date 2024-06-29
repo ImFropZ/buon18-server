@@ -23,6 +23,17 @@ type SocialMediaResponse struct {
 	URL      string `json:"url"`
 }
 
+type CreateSocialMediaRequest struct {
+	Platform string `json:"platform" binding:"required"`
+	URL      string `json:"url" binding:"required"`
+}
+
+type UpdateSocialMediaRequest struct {
+	Id       uint   `json:"id"`
+	Platform string `json:"platform"`
+	URL      string `json:"url"`
+}
+
 func (s *SocialMediaData) PrepareForCreate(cid uint, mid uint) (err error) {
 	s.CId = cid
 	s.CTime = time.Now()
@@ -43,4 +54,12 @@ func (s *SocialMediaData) ToResponse() SocialMediaResponse {
 		Platform: s.Platform,
 		URL:      s.URL,
 	}
+}
+
+func SocialMediasToResponse(s []SocialMediaData) []SocialMediaResponse {
+	res := make([]SocialMediaResponse, 0)
+	for _, v := range s {
+		res = append(res, v.ToResponse())
+	}
+	return res
 }
