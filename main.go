@@ -13,7 +13,7 @@ var DB *sql.DB
 
 func main() {
 	// -- Initialize
-	config.LoadEnv()
+	config.GetConfigInstance()
 	DB = database.InitSQL()
 	defer DB.Close()
 

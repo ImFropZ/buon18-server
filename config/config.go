@@ -8,20 +8,21 @@ import (
 
 var lock = &sync.Mutex{}
 
-type AuthConfig struct {
-	TOKEN_KEY          string
-	REFRESH_TOKEN_KEY  string
-	TOKEN_DURATION_SEC int
-	REFRESH_TOKEN_SEC  int
+type Config struct {
+	DB_CONNECTION_STRING string
+	TOKEN_KEY            string
+	REFRESH_TOKEN_KEY    string
+	TOKEN_DURATION_SEC   int
+	REFRESH_TOKEN_SEC    int
 }
 
-var authConfigInstance *AuthConfig
+var configInstance *Config
 
-func GetAuthConfigInstance() *AuthConfig {
-	if authConfigInstance == nil {
+func GetConfigInstance() *Config {
+	if configInstance == nil {
 		lock.Lock()
 		defer lock.Unlock()
-		if authConfigInstance == nil {
+		if configInstance == nil {
 			tokenDuration, err := strconv.Atoi(Env("TOKEN_DURATION_SEC"))
 			if err != nil {
 				fmt.Println("Error parsing TOKEN_DURATION")
@@ -32,14 +33,26 @@ func GetAuthConfigInstance() *AuthConfig {
 				fmt.Println("Error parsing REFRESH_TOKEN_SEC")
 			}
 
-			authConfigInstance = &AuthConfig{
-				TOKEN_KEY:          Env("TOKEN_KEY"),
-				REFRESH_TOKEN_KEY:  Env("REFRESH_TOKEN_KEY"),
+			configInstance = &Config{
+				// -- Database
+				DB_CONNECTION_STRING: validateEnvString("DB_CONNECTION_STRING"),
+
+				// -- Auth
+				TOKEN_KEY:          validateEnvString("TOKEN_KEY"),
+				REFRESH_TOKEN_KEY:  validateEnvString("REFRESH_TOKEN_KEY"),
 				TOKEN_DURATION_SEC: tokenDuration,
 				REFRESH_TOKEN_SEC:  refreshDuration, // 1 week
 			}
 		}
 	}
 
-	return authConfigInstance
+	return configInstance
+}
+
+func validateEnvString(key string) (value string) {
+	value = Env(key)
+	if value == "" {
+		panic(fmt.Sprintf("%s enviroment variable is required", key))
+	}
+	return
 }

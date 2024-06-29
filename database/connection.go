@@ -9,7 +9,7 @@ import (
 )
 
 func InitSQL() *sql.DB {
-	connectionString := config.Env("DB_CONNECTION_STRING")
+	connectionString := config.GetConfigInstance().DB_CONNECTION_STRING
 
 	db, err := sql.Open("postgres", connectionString)
 	if err != nil {

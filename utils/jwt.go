@@ -32,7 +32,7 @@ func RemoveBearer(token string) (string, error) {
 }
 
 func GenerateWebToken(c WebTokenClaims) (string, error) {
-	config := config.GetAuthConfigInstance()
+	config := config.GetConfigInstance()
 
 	// Create the Claims
 	claims := &jwt.MapClaims{
@@ -54,7 +54,7 @@ func GenerateWebToken(c WebTokenClaims) (string, error) {
 }
 
 func GenerateRefreshToken(c RefreshTokenClaims) (string, error) {
-	config := config.GetAuthConfigInstance()
+	config := config.GetConfigInstance()
 
 	// Create the Claims
 	claims := &jwt.MapClaims{
@@ -75,7 +75,7 @@ func GenerateRefreshToken(c RefreshTokenClaims) (string, error) {
 }
 
 func ValidateWebToken(tokenString string) (WebTokenClaims, error) {
-	config := config.GetAuthConfigInstance()
+	config := config.GetConfigInstance()
 
 	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
 		return []byte(config.TOKEN_KEY), nil
@@ -96,7 +96,7 @@ func ValidateWebToken(tokenString string) (WebTokenClaims, error) {
 }
 
 func ValidateRefreshToken(tokenString string) (RefreshTokenClaims, error) {
-	config := config.GetAuthConfigInstance()
+	config := config.GetConfigInstance()
 
 	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
 		return []byte(config.REFRESH_TOKEN_KEY), nil
