@@ -18,5 +18,6 @@ func Client(e *gin.Engine, db *sql.DB) {
 		client.POST("/", middlewares.Authorize(middlewares.Editor), handler.Create)
 		client.PATCH("/:id", middlewares.Authorize(middlewares.Editor), handler.Update)
 		client.DELETE("/:id", middlewares.Authorize(middlewares.Admin), handler.Delete)
+		client.DELETE("/:id/social-medias/:smid", middlewares.Authorize(middlewares.Admin), handler.DeleteSocialMedia)
 	}
 }

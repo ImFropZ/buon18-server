@@ -190,7 +190,7 @@ func (handler *ClientHandler) Create(c *gin.Context) {
 		return
 	}
 
-	// -- Create account
+	// -- Create client
 	client := models.Client{
 		Code:      req.Code,
 		Name:      req.Name,
@@ -201,7 +201,7 @@ func (handler *ClientHandler) Create(c *gin.Context) {
 
 	// -- Prepare for create
 	if err := client.PrepareForCreate(userId, userId); err != nil {
-		log.Printf("Error preparing account for create: %v\n", err)
+		log.Printf("Error preparing client for create: %v\n", err)
 		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
 		return
 	}
@@ -270,13 +270,13 @@ func (handler *ClientHandler) Create(c *gin.Context) {
 			}
 		}
 
-		log.Printf("Error create account: %v\n", row.Err())
+		log.Printf("Error create client: %v\n", row.Err())
 		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
 		return
 	} else {
 		if err := row.Scan(&createdClientId); err != nil {
 			tx.Rollback()
-			log.Printf("Error scaning account: %v\n", err)
+			log.Printf("Error scaning client: %v\n", err)
 			c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
 			return
 		}
@@ -308,7 +308,7 @@ func (handler *ClientHandler) Create(c *gin.Context) {
 		// -- Remove last comma
 		query = query[:len(query)-1]
 
-		// -- Get account from db
+		// -- Get client from db
 		if _, err := tx.Exec(query, params...); err != nil {
 			tx.Rollback()
 			log.Printf("Error creating social media: %v\n", err)
@@ -449,7 +449,7 @@ func (handler *ClientHandler) Update(c *gin.Context) {
 			return
 		}
 
-		c.JSON(200, utils.NewResponse(200, fmt.Sprintf("account %d updated", targetClientId), nil))
+		c.JSON(200, utils.NewResponse(200, fmt.Sprintf("client %d updated", targetClientId), nil))
 		return
 	}
 
@@ -554,6 +554,70 @@ func (handler *ClientHandler) Update(c *gin.Context) {
 	}
 
 	c.JSON(200, utils.NewResponse(200, fmt.Sprintf("client %d updated", targetClientId), nil))
+}
+
+func (handler *ClientHandler) DeleteSocialMedia(c *gin.Context) {
+	// -- Get id
+	clientUserId, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		c.JSON(400, utils.NewErrorResponse(400, "invalid user Id. user Id should be an integer"))
+		return
+	}
+
+	// -- Get social media id
+	socialMediaId, err := strconv.Atoi(c.Param("smid"))
+	if err != nil {
+		c.JSON(400, utils.NewErrorResponse(400, "invalid social media Id. social media Id should be an integer"))
+		return
+	}
+
+	// -- Prepare sql query
+	query, params, err := bqb.New(`DELETE FROM "social_media_data" as smd
+	USING "client" as c
+	WHERE smd.social_media_id = c.social_media_id
+	AND smd.id = ?
+	AND c.id = ?`, socialMediaId, clientUserId).ToPgsql()
+	if err != nil {
+		log.Printf("Error preparing sql query: %v\n", err)
+		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
+		return
+	}
+
+	// -- Begin transaction
+	tx, err := handler.DB.Begin()
+	if err != nil {
+		log.Printf("Error beginning transaction: %v\n", err)
+		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
+		return
+	}
+
+	// -- Delete social media
+	if result, err := tx.Exec(query, params...); err != nil {
+		tx.Rollback()
+		log.Printf("Error deleting social media: %v\n", err)
+		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
+		return
+	} else {
+		if n, err := result.RowsAffected(); err != nil {
+			tx.Rollback()
+			log.Printf("Error getting rows affected: %v\n", err)
+			c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
+			return
+		} else if n == 0 {
+			tx.Rollback()
+			c.JSON(404, utils.NewErrorResponse(404, fmt.Sprintf("social media %d not found from client %d", socialMediaId, clientUserId)))
+			return
+		}
+	}
+
+	// -- Commit transaction
+	if err := tx.Commit(); err != nil {
+		log.Printf("Error commiting transaction: %v\n", err)
+		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
+		return
+	}
+
+	c.JSON(200, utils.NewResponse(200, fmt.Sprintf("social media %d deleted", socialMediaId), nil))
 }
 
 func (handler *ClientHandler) Delete(c *gin.Context) {
