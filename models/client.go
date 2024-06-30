@@ -5,21 +5,21 @@ import (
 )
 
 type Client struct {
-	Id        uint      `json:"id" `
-	Code      string    `json:"code"`
-	Name      string    `json:"name"`
-	Address   string    `json:"address"`
-	Phone     string    `json:"phone"`
-	Latitude  float64   `json:"latitude"`
-	Longitude float64   `json:"longitude"`
-	Note      string    `json:"note"`
-	CId       uint      `json:"cid"`
-	CTime     time.Time `json:"ctime"`
-	MId       uint      `json:"mid"`
-	MTime     time.Time `json:"mtime"`
+	Id        uint
+	Code      string
+	Name      string
+	Address   string
+	Phone     string
+	Latitude  float64
+	Longitude float64
+	Note      string
+	CId       uint
+	CTime     time.Time
+	MId       uint
+	MTime     time.Time
 
 	// -- Associations
-	SocialMedias []SocialMediaData `json:"social_medias"`
+	SocialMedias []SocialMediaData
 }
 
 type ClientResponse struct {

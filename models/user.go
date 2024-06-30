@@ -3,16 +3,16 @@ package models
 import "time"
 
 type User struct {
-	Id      uint      `json:"id"`
-	Email   string    `json:"email"`
-	Name    string    `json:"name"`
-	Pwd     string    `json:"password"`
-	Role    string    `json:"role"`
-	Deleted bool      `json:"deleted"`
-	CId     uint      `json:"cid"`
-	CTime   time.Time `json:"ctime"`
-	MId     uint      `json:"mid"`
-	MTime   time.Time `json:"mtime"`
+	Id      uint
+	Email   string
+	Name    string
+	Pwd     string
+	Role    string
+	Deleted bool
+	CId     uint
+	CTime   time.Time
+	MId     uint
+	MTime   time.Time
 }
 
 type UserResponse struct {

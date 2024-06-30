@@ -23,6 +23,7 @@ func main() {
 	routes.User(router, DB)
 	routes.Account(router, DB)
 	routes.Client(router, DB)
+	routes.Quote(router, DB)
 
 	router.Routes()
 	router.Run() // listen and serve on 0.0.0.0:8080 (for windows "localhost:8080")

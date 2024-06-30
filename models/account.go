@@ -5,22 +5,22 @@ import (
 )
 
 type Account struct {
-	Id             uint      `json:"id" `
-	Code           string    `json:"code"`
-	Name           string    `json:"name"`
-	Email          string    `json:"email"`
-	Gender         string    `json:"gender"`
-	Address        string    `json:"address"`
-	Phone          string    `json:"phone"`
-	SecondaryPhone string    `json:"secondary_phone"`
-	Deleted        bool      `json:"deleted"`
-	CId            uint      `json:"cid"`
-	CTime          time.Time `json:"ctime"`
-	MId            uint      `json:"mid"`
-	MTime          time.Time `json:"mtime"`
+	Id             uint
+	Code           string
+	Name           string
+	Email          string
+	Gender         string
+	Address        string
+	Phone          string
+	SecondaryPhone string
+	Deleted        bool
+	CId            uint
+	CTime          time.Time
+	MId            uint
+	MTime          time.Time
 
 	// -- Associations
-	SocialMedias []SocialMediaData `json:"social_medias"`
+	SocialMedias []SocialMediaData
 }
 
 type AccountResponse struct {

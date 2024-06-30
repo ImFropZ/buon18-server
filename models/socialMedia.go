@@ -3,18 +3,18 @@ package models
 import "time"
 
 type SocialMedia struct {
-	Id uint `json:"id"`
+	Id uint
 }
 
 type SocialMediaData struct {
-	Id            uint      `json:"id"`
-	SocialMediaId uint      `json:"social_media_id"`
-	Platform      string    `json:"platform"`
-	URL           string    `json:"url"`
-	CId           uint      `json:"cid"`
-	CTime         time.Time `json:"ctime"`
-	MId           uint      `json:"mid"`
-	MTime         time.Time `json:"mtime"`
+	Id            uint
+	SocialMediaId uint
+	Platform      string
+	URL           string
+	CId           uint
+	CTime         time.Time
+	MId           uint
+	MTime         time.Time
 }
 
 type SocialMediaResponse struct {
