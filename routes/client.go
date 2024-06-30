@@ -13,8 +13,8 @@ func Client(e *gin.Engine, db *sql.DB) {
 
 	client := e.Group("/clients", middlewares.Authenticate(db))
 	{
-		client.GET("/", middlewares.Authorize(middlewares.User), handler.List)
-		client.GET("/:id", middlewares.Authorize(middlewares.User), handler.First)
+		client.GET("/", handler.List)
+		client.GET("/:id", handler.First)
 		client.POST("/", middlewares.Authorize(middlewares.Editor), handler.Create)
 		client.PATCH("/:id", middlewares.Authorize(middlewares.Editor), handler.Update)
 		client.DELETE("/:id", middlewares.Authorize(middlewares.Admin), handler.Delete)

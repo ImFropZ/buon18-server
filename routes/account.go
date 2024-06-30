@@ -13,8 +13,8 @@ func Account(e *gin.Engine, db *sql.DB) {
 
 	account := e.Group("/accounts", middlewares.Authenticate(db))
 	{
-		account.GET("/", middlewares.Authorize(middlewares.User), handler.List)
-		account.GET("/:id", middlewares.Authorize(middlewares.User), handler.First)
+		account.GET("/", handler.List)
+		account.GET("/:id", handler.First)
 		account.POST("/", middlewares.Authorize(middlewares.Editor), handler.Create)
 		account.PATCH("/:id", middlewares.Authorize(middlewares.Editor), handler.Update)
 		account.DELETE("/:id", middlewares.Authorize(middlewares.Admin), handler.Delete)
