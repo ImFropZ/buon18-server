@@ -60,6 +60,20 @@ type QuoteItemResponse struct {
 	UnitPrice   float64 `json:"unit_price"`
 }
 
+func (q *Quote) PrepareForCreate(id uint) (err error) {
+	q.CId = id
+	q.CTime = time.Now()
+	q.MId = id
+	q.MTime = time.Now()
+	return
+}
+
+func (q *Quote) PrepareForUpdate(id uint) (err error) {
+	q.MId = id
+	q.MTime = time.Now()
+	return
+}
+
 func (quote *Quote) ToResponse() QuoteResponse {
 	return QuoteResponse{
 		Id:          quote.Id,
