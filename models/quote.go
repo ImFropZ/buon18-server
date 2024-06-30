@@ -20,10 +20,7 @@ type Quote struct {
 	MTime      time.Time
 
 	// -- Associations
-	Client     Client
-	Account    Account
 	QuoteItems []QuoteItem
-	CreatedBy  User
 }
 
 type QuoteItem struct {
@@ -40,19 +37,19 @@ type QuoteItem struct {
 }
 
 type QuoteResponse struct {
-	Id         uint                `json:"id"`
-	Code       string              `json:"code"`
-	Date       time.Time           `json:"date"`
-	ExpiryDate time.Time           `json:"expiry_date"`
-	Note       string              `json:"note"`
-	Subtotal   float64             `json:"subtotal"`
-	Discount   float64             `json:"discount"`
-	Total      float64             `json:"total"`
-	Status     string              `json:"status"`
-	Items      []QuoteItemResponse `json:"items"`
-	Client     ClientResponse      `json:"client"`
-	Account    AccountResponse     `json:"account"`
-	CreatedBy  UserResponse        `json:"created_by"`
+	Id          uint                `json:"id"`
+	Code        string              `json:"code"`
+	Date        time.Time           `json:"date"`
+	ExpiryDate  time.Time           `json:"expiry_date"`
+	Note        string              `json:"note"`
+	Subtotal    float64             `json:"subtotal"`
+	Discount    float64             `json:"discount"`
+	Total       float64             `json:"total"`
+	Status      string              `json:"status"`
+	Items       []QuoteItemResponse `json:"items"`
+	ClientId    uint                `json:"client_id"`
+	AccountId   uint                `json:"account_id"`
+	CreatedById uint                `json:"created_by_id"`
 }
 
 type QuoteItemResponse struct {
@@ -65,19 +62,19 @@ type QuoteItemResponse struct {
 
 func (quote *Quote) ToResponse() QuoteResponse {
 	return QuoteResponse{
-		Id:         quote.Id,
-		Code:       quote.Code,
-		Date:       quote.Date,
-		ExpiryDate: quote.ExpiryDate,
-		Note:       quote.Note,
-		Subtotal:   quote.Subtotal,
-		Discount:   quote.Discount,
-		Total:      quote.Total,
-		Status:     quote.Status,
-		Items:      QuoteItemsToResponse(quote.QuoteItems),
-		Client:     quote.Client.ToResponse(),
-		Account:    quote.Account.ToResponse(),
-		CreatedBy:  quote.CreatedBy.ToResponse(),
+		Id:          quote.Id,
+		Code:        quote.Code,
+		Date:        quote.Date,
+		ExpiryDate:  quote.ExpiryDate,
+		Note:        quote.Note,
+		Subtotal:    quote.Subtotal,
+		Discount:    quote.Discount,
+		Total:       quote.Total,
+		Status:      quote.Status,
+		Items:       QuoteItemsToResponse(quote.QuoteItems),
+		ClientId:    quote.ClientId,
+		AccountId:   quote.AccountId,
+		CreatedById: quote.CId,
 	}
 }
 

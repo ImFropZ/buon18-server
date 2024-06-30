@@ -24,7 +24,7 @@ func (handler *QuoteHandler) List(c *gin.Context) {
 	paginationQueryParams.Parse(c)
 
 	// -- Prepare sql query
-	query, params, err := bqb.New(`SELECT q.id, q.code, q.date, q.expiry_date, q.note, q.subtotal, q.discount, q.total, q.client_id, q.account_id, q.status, qt.id, qt.name, qt.description, qt.quantity, qt.unit_price
+	query, params, err := bqb.New(`SELECT q.id, q.code, q.date, q.expiry_date, COALESCE(q.note, ''), q.subtotal, q.discount, q.total, q.client_id, q.account_id, q.status, q.cid, qt.id, qt.name, COALESCE(qt.description, ''), qt.quantity, qt.unit_price
 	FROM "quote" as q
 	LEFT JOIN "quote_item" as qt ON qt.quote_id = q.id 
 	ORDER BY q.id, qt.id
@@ -48,14 +48,11 @@ func (handler *QuoteHandler) List(c *gin.Context) {
 		for rows.Next() {
 			var scanQuote models.Quote
 			var scanQuoteItem models.QuoteItem
-			if err := rows.Scan(&scanQuote.Id, &scanQuote.Code, &scanQuote.Date, &scanQuote.ExpiryDate, &scanQuote.Note, &scanQuote.Subtotal, &scanQuote.Discount, &scanQuote.Total, &scanQuote.ClientId, &scanQuote.AccountId, &scanQuote.Status, &scanQuoteItem.Id, &scanQuoteItem.Name, &scanQuoteItem.Description, &scanQuoteItem.Quantity, &scanQuoteItem.UnitPrice); err != nil {
+			if err := rows.Scan(&scanQuote.Id, &scanQuote.Code, &scanQuote.Date, &scanQuote.ExpiryDate, &scanQuote.Note, &scanQuote.Subtotal, &scanQuote.Discount, &scanQuote.Total, &scanQuote.ClientId, &scanQuote.AccountId, &scanQuote.Status, &scanQuote.CId, &scanQuoteItem.Id, &scanQuoteItem.Name, &scanQuoteItem.Description, &scanQuoteItem.Quantity, &scanQuoteItem.UnitPrice); err != nil {
 				log.Printf("Error scanning user from database: %v\n", err)
 				c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
 				return
 			}
-
-			// -- Debugging
-			log.Printf("Quotes: %v\n", scanQuote)
 
 			// -- Append social media to tmpQuote's social medias
 			if tmpQuote.Id == scanQuote.Id {
