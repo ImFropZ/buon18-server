@@ -14,6 +14,8 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/lib/pq"
 	"github.com/nullism/bqb"
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
 )
 
 type CreateQuoteRequest struct {
@@ -47,6 +49,10 @@ type UpdateQuoteRequest struct {
 		Quantity    uint    `json:"quantity"`
 		UnitPrice   float64 `json:"unit_price"`
 	} `json:"items"`
+}
+
+type UpdateQuoteStatusRequest struct {
+	Action string `json:"action" binding:"required"`
 }
 
 type QuoteHandler struct {
@@ -293,6 +299,133 @@ func (handler *QuoteHandler) Create(c *gin.Context) {
 	c.JSON(201, utils.NewResponse(201, fmt.Sprintf("quote %d created successfully", createdQuoteId), nil))
 }
 
+func (handler *QuoteHandler) UpdateStatus(c *gin.Context) {
+	// -- Get user id
+	var userId uint
+	if id, ok := c.Get("user_id"); !ok {
+		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
+		return
+	} else {
+		userId = id.(uint)
+	}
+
+	// -- Get id
+	quoteId, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		c.JSON(400, utils.NewErrorResponse(400, "invalid quote Id. quote Id should be an integer"))
+		return
+	}
+
+	// -- Parse request body
+	var request UpdateQuoteStatusRequest
+	if err := c.ShouldBindJSON(&request); err != nil {
+		c.JSON(400, utils.NewErrorResponse(400, "invalid request body. required fields: action"))
+		return
+	}
+
+	// -- Validate action
+	caser := cases.Title(language.English)
+	if action := caser.String(request.Action); action == "Sent" || action == "Accept" || action == "Reject" {
+		request.Action = action
+	} else {
+		c.JSON(400, utils.NewErrorResponse(400, "invalid action. action should be sent, accept, or reject"))
+		return
+	}
+
+	// -- Prepare quote update timestamps
+	tmpQuote := models.Quote{}
+	tmpQuote.PrepareForUpdate(userId)
+
+	// -- Prepare sql query
+	query, params, err := bqb.New(`SELECT status FROM "quote" WHERE id = ?`, quoteId).ToPgsql()
+	if err != nil {
+		log.Printf("Error preparing sql query: %v\n", err)
+		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
+		return
+	}
+
+	// -- Begin transaction
+	tx, err := handler.DB.Begin()
+	if err != nil {
+		log.Printf("Error beginning transaction: %v\n", err)
+		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
+		return
+	}
+
+	// -- Check if quote exists
+	var status string
+	if err := tx.QueryRow(query, params...).Scan(&status); err != nil {
+		tx.Rollback()
+
+		if err == sql.ErrNoRows {
+			c.JSON(404, utils.NewErrorResponse(404, "quote not found"))
+			return
+		}
+
+		log.Printf("Error counting quote: %v\n", err)
+		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
+		return
+	}
+
+	// -- Check if status is Expired
+	if status == "Expired" {
+		tx.Rollback()
+		c.JSON(400, utils.NewErrorResponse(400, "quote status is already expired. create a new quote instead"))
+		return
+	}
+
+	// -- Check if request status is Sent and status is Accept or Reject
+	if (status == "Accept" || status == "Reject") && request.Action == "Sent" {
+		tx.Rollback()
+		c.JSON(400, utils.NewErrorResponse(400, "quote status is already "+strings.ToLower(status)+". you can only update to either approved or rejected status"))
+		return
+	}
+
+	// -- Check if status is Draft (Draft to Sent)
+	if status == "Draft" && request.Action == "Sent" {
+		// -- Update status to sent
+		query, params, err = bqb.New(`UPDATE "quote" SET status = ?, mid = ?, mtime = ? WHERE id = ?`, request.Action, tmpQuote.MId, tmpQuote.MTime, quoteId).ToPgsql()
+		if err != nil {
+			tx.Rollback()
+			log.Printf("Error preparing sql query: %v\n", err)
+			c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
+			return
+		}
+
+		// -- Update quote
+		if _, err := tx.Exec(query, params...); err != nil {
+			tx.Rollback()
+			log.Printf("Error updating quote: %v\n", err)
+			c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
+			return
+		}
+
+		tx.Commit()
+		c.JSON(200, utils.NewResponse(200, fmt.Sprintf("quote %d updated successfully", quoteId), nil))
+		return
+	}
+
+	// -- Prepare sql query
+	query, params, err = bqb.New(`UPDATE "quote" SET status = ?, mid = ?, mtime = ? WHERE id = ?`, request.Action, tmpQuote.MId, tmpQuote.MTime, quoteId).ToPgsql()
+	if err != nil {
+		tx.Rollback()
+		log.Printf("Error preparing sql query: %v\n", err)
+		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
+		return
+	}
+
+	// -- Update quote
+	if _, err := tx.Exec(query, params...); err != nil {
+		tx.Rollback()
+		log.Printf("Error updating quote: %v\n", err)
+		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
+		return
+	}
+
+	tx.Commit()
+	c.JSON(200, utils.NewResponse(200, fmt.Sprintf("quote %d updated successfully", quoteId), nil))
+}
+
 func (handler *QuoteHandler) Update(c *gin.Context) {
 	// -- Get user id
 	var userId uint
@@ -322,7 +455,7 @@ func (handler *QuoteHandler) Update(c *gin.Context) {
 	tmpQuote.PrepareForUpdate(userId)
 
 	// -- Prepare sql query
-	query, params, err := bqb.New(`SELECT code, date, expiry_date, COALESCE(note, ''), discount, client_id, account_id FROM "quote" WHERE id = ?`, quoteId).ToPgsql()
+	query, params, err := bqb.New(`SELECT code, date, expiry_date, COALESCE(note, ''), discount, client_id, account_id, status FROM "quote" WHERE id = ?`, quoteId).ToPgsql()
 	if err != nil {
 		log.Printf("Error preparing sql query: %v\n", err)
 		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
@@ -339,7 +472,7 @@ func (handler *QuoteHandler) Update(c *gin.Context) {
 
 	// -- Check if quote exists
 	var quote models.Quote
-	if err := tx.QueryRow(query, params...).Scan(&quote.Code, &quote.Date, &quote.ExpiryDate, &quote.Note, &quote.Discount, &quote.ClientId, &quote.AccountId); err != nil {
+	if err := tx.QueryRow(query, params...).Scan(&quote.Code, &quote.Date, &quote.ExpiryDate, &quote.Note, &quote.Discount, &quote.ClientId, &quote.AccountId, &quote.Status); err != nil {
 		tx.Rollback()
 
 		if err == sql.ErrNoRows {
@@ -352,8 +485,8 @@ func (handler *QuoteHandler) Update(c *gin.Context) {
 		return
 	}
 
-	// -- Check if status is Approved, Rejected, or Expired
-	if quote.Status == "Approved" || quote.Status == "Rejected" || quote.Status == "Expired" {
+	// -- Check if status is Accept, Reject, or Expired
+	if quote.Status == "Accept" || quote.Status == "Reject" || quote.Status == "Expired" {
 		tx.Rollback()
 		c.JSON(400, utils.NewErrorResponse(400, "quote status is already "+strings.ToLower(quote.Status)))
 		return
@@ -629,7 +762,7 @@ func (handler *QuoteHandler) DeleteItem(c *gin.Context) {
 	}
 
 	// -- Prepare sql query
-	query, params, err := bqb.New(`SELECT COUNT(*) FROM "quote_item" WHERE quote_id = ?`, quoteId).ToPgsql()
+	query, params, err := bqb.New(`SELECT status FROM "quote" WHERE id = ?`, quoteId).ToPgsql()
 	if err != nil {
 		log.Printf("Error preparing sql query: %v\n", err)
 		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
@@ -640,6 +773,36 @@ func (handler *QuoteHandler) DeleteItem(c *gin.Context) {
 	tx, err := handler.DB.Begin()
 	if err != nil {
 		log.Printf("Error beginning transaction: %v\n", err)
+		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
+		return
+	}
+
+	// -- Check if quote exists
+	var status string
+	if err := tx.QueryRow(query, params...).Scan(&status); err != nil {
+		tx.Rollback()
+
+		if err == sql.ErrNoRows {
+			c.JSON(404, utils.NewErrorResponse(404, "quote not found"))
+			return
+		}
+
+		log.Printf("Error counting quote: %v\n", err)
+		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
+		return
+	}
+
+	// -- Check if status is Accept, Reject, or Expired
+	if status == "Accept" || status == "Reject" || status == "Expired" {
+		tx.Rollback()
+		c.JSON(400, utils.NewErrorResponse(400, "quote status is already "+strings.ToLower(status)))
+		return
+	}
+
+	// -- Prepare sql query
+	query, params, err = bqb.New(`SELECT COUNT(*) FROM "quote_item" WHERE quote_id = ?`, quoteId).ToPgsql()
+	if err != nil {
+		log.Printf("Error preparing sql query: %v\n", err)
 		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
 		return
 	}
