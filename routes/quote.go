@@ -16,5 +16,6 @@ func Quote(e *gin.Engine, db *sql.DB) {
 		router.GET("/", handler.List)
 		router.GET("/:id", handler.First)
 		router.POST("/", middlewares.Authorize(middlewares.Editor), handler.Create)
+		router.DELETE("/:id/items/:qid", middlewares.Authorize(middlewares.Admin), handler.DeleteItem)
 	}
 }

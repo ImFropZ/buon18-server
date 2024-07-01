@@ -274,3 +274,99 @@ func (handler *QuoteHandler) Create(c *gin.Context) {
 
 	c.JSON(201, utils.NewResponse(201, fmt.Sprintf("quote %d created successfully", createdQuoteId), nil))
 }
+
+func (handler *QuoteHandler) DeleteItem(c *gin.Context) {
+	// -- Get quote id and quote item id
+	quoteId, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		c.JSON(400, utils.NewErrorResponse(400, "invalid quote Id. quote Id should be an integer"))
+		return
+	}
+	quoteItemId, err := strconv.Atoi(c.Param("qid"))
+	if err != nil {
+		c.JSON(400, utils.NewErrorResponse(400, "invalid quote item Id. quote item Id should be an integer"))
+		return
+	}
+
+	// -- Prepare sql query
+	query, params, err := bqb.New(`SELECT COUNT(*) FROM "quote_item" WHERE quote_id = ?`, quoteId).ToPgsql()
+	if err != nil {
+		log.Printf("Error preparing sql query: %v\n", err)
+		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
+		return
+	}
+
+	// -- Begin transaction
+	tx, err := handler.DB.Begin()
+	if err != nil {
+		log.Printf("Error beginning transaction: %v\n", err)
+		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
+		return
+	}
+
+	// -- Check if quote item are only one left
+	var count int
+	if err := tx.QueryRow(query, params...).Scan(&count); err != nil {
+		tx.Rollback()
+		log.Printf("Error counting quote items: %v\n", err)
+		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
+		return
+	}
+
+	if count == 1 {
+		tx.Rollback()
+		c.JSON(400, utils.NewErrorResponse(400, "quote should have at least one item. you can delete the quote instead"))
+		return
+	}
+
+	// -- Prepare sql query
+	query, params, err = bqb.New(`DELETE FROM "quote_item" as qi 
+	USING "quote" as q
+	WHERE qi.id = ?
+	AND q.id = ?`, quoteItemId, quoteId).ToPgsql()
+	if err != nil {
+		log.Printf("Error preparing sql query: %v\n", err)
+		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
+		return
+	}
+
+	// -- Delete quote item from database
+	if result, err := tx.Exec(query, params...); err != nil {
+		tx.Rollback()
+		log.Printf("Error deleting quote item from database: %v\n", err)
+		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
+		return
+	} else {
+		if affected, _ := result.RowsAffected(); affected == 0 {
+			tx.Rollback()
+			c.JSON(404, utils.NewErrorResponse(404, "quote item not found"))
+			return
+		}
+	}
+
+	// -- Prepare sql query (UPDATE QUOTE TOTAL)
+	query, params, err = bqb.New(`CALL update_quote_total(?)`, quoteId).ToPgsql()
+	if err != nil {
+		tx.Rollback()
+		log.Printf("Error preparing sql query: %v\n", err)
+		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
+		return
+	}
+
+	// -- Update quote total
+	if _, err := tx.Exec(query, params...); err != nil {
+		tx.Rollback()
+		log.Printf("Error updating quote total: %v\n", err)
+		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
+		return
+	}
+
+	// -- Commit transaction
+	if err := tx.Commit(); err != nil {
+		log.Printf("Error committing transaction: %v\n", err)
+		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
+		return
+	}
+
+	c.JSON(200, utils.NewResponse(200, fmt.Sprintf("Quote item %d successfully deleted from quote %d", quoteItemId, quoteId), nil))
+}
