@@ -33,3 +33,8 @@ func (so *SalesOrder) PrepareForCreate(id uint) {
 	so.MId = id
 	so.MTime = time.Now()
 }
+
+func (so *SalesOrder) PrepareForUpdate(id uint) {
+	so.MId = id
+	so.MTime = time.Now()
+}
