@@ -1,4 +1,3 @@
-DELETE FROM
-    "user"
+DELETE FROM "user"
 WHERE
     id = 1;

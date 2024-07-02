@@ -1,5 +1,5 @@
 CREATE
-OR REPLACE PROCEDURE update_quote_total(quote_id INT) LANGUAGE plpgsql AS $$
+OR REPLACE PROCEDURE update_quote_total (quote_id INT) LANGUAGE plpgsql AS $$
 DECLARE
     v_subtotal NUMERIC := 0;
 

@@ -380,6 +380,32 @@ func (handler *QuoteHandler) UpdateStatus(c *gin.Context) {
 		return
 	}
 
+	// -- Check if status is already in the sales order
+	if targetQuote.Status == "Accept" {
+		query, params, err = bqb.New(`SELECT COUNT(*) FROM "sales_order" WHERE quote_id = ?`, quoteId).ToPgsql()
+		if err != nil {
+			tx.Rollback()
+			log.Printf("Error preparing sql query: %v\n", err)
+			c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
+			return
+		}
+
+		// -- Check if quote is already in the sales order
+		var count int
+		if err := tx.QueryRow(query, params...).Scan(&count); err != nil {
+			tx.Rollback()
+			log.Printf("Error counting sales order: %v\n", err)
+			c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
+			return
+		}
+
+		if count > 0 {
+			tx.Rollback()
+			c.JSON(400, utils.NewErrorResponse(400, "quote status is already in the sales order. you can update status in the sales order instead"))
+			return
+		}
+	}
+
 	// -- Check if request status is Sent and status is Accept or Reject
 	if (targetQuote.Status == "Accept" || targetQuote.Status == "Reject") && request.Action == "Sent" {
 		tx.Rollback()

@@ -1,5 +1,5 @@
 INSERT INTO
-    "user"(
+    "user" (
         id,
         email,
         name,
