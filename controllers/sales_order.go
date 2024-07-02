@@ -43,7 +43,7 @@ func (handler *SalesOrderHandler) First(c *gin.Context) {
 
 	// -- Query sales order
 	var salesOrder models.SalesOrder
-	if err := handler.DB.QueryRow(query, params...).Scan(&salesOrder.ID, &salesOrder.Code, &salesOrder.Note, &salesOrder.Status, &salesOrder.AcceptDate, &salesOrder.DeliveryDate, &salesOrder.QuoteID, &salesOrder.CId); err != nil {
+	if err := handler.DB.QueryRow(query, params...).Scan(&salesOrder.Id, &salesOrder.Code, &salesOrder.Note, &salesOrder.Status, &salesOrder.AcceptDate, &salesOrder.DeliveryDate, &salesOrder.QuoteId, &salesOrder.CId); err != nil {
 		if err == sql.ErrNoRows {
 			c.JSON(404, utils.NewErrorResponse(404, fmt.Sprintf("sales order %d not found", salesOrderId)))
 			return
@@ -89,7 +89,7 @@ func (handler *SalesOrderHandler) List(c *gin.Context) {
 
 		for rows.Next() {
 			var so models.SalesOrder
-			if err := rows.Scan(&so.ID, &so.Code, &so.Note, &so.Status, &so.AcceptDate, &so.DeliveryDate, &so.QuoteID, &so.CId); err != nil {
+			if err := rows.Scan(&so.Id, &so.Code, &so.Note, &so.Status, &so.AcceptDate, &so.DeliveryDate, &so.QuoteId, &so.CId); err != nil {
 				log.Printf("Error scanning sales order: %v", err)
 				c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
 				return

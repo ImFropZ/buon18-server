@@ -3,13 +3,13 @@ package models
 import "time"
 
 type SalesOrder struct {
-	ID           uint
+	Id           uint
 	Code         string
 	Note         string
 	Status       string
 	AcceptDate   time.Time
 	DeliveryDate time.Time
-	QuoteID      uint
+	QuoteId      uint
 	CId          uint
 	CTime        time.Time
 	MId          uint
@@ -17,14 +17,14 @@ type SalesOrder struct {
 }
 
 type SalesOrderResponse struct {
-	ID           uint      `json:"id"`
+	Id           uint      `json:"id"`
 	Code         string    `json:"code"`
 	Note         string    `json:"note"`
 	Status       string    `json:"status"`
 	AcceptDate   time.Time `json:"accept_date"`
 	DeliveryDate time.Time `json:"delivery_date"`
-	QuoteID      uint      `json:"quote_id"`
-	CreatedByID  uint      `json:"created_by_id"`
+	QuoteId      uint      `json:"quote_id"`
+	CreatedById  uint      `json:"created_by_id"`
 }
 
 func (so *SalesOrder) PrepareForCreate(id uint) {
@@ -41,14 +41,14 @@ func (so *SalesOrder) PrepareForUpdate(id uint) {
 
 func (so *SalesOrder) ToResponse() SalesOrderResponse {
 	return SalesOrderResponse{
-		ID:           so.ID,
+		Id:           so.Id,
 		Code:         so.Code,
 		Note:         so.Note,
 		Status:       so.Status,
 		AcceptDate:   so.AcceptDate,
 		DeliveryDate: so.DeliveryDate,
-		QuoteID:      so.QuoteID,
-		CreatedByID:  so.CId,
+		QuoteId:      so.QuoteId,
+		CreatedById:  so.CId,
 	}
 }
 
