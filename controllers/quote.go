@@ -343,7 +343,7 @@ func (handler *QuoteHandler) UpdateStatus(c *gin.Context) {
 	tmpQuote.PrepareForUpdate(userId)
 
 	// -- Prepare sql query
-	query, params, err := bqb.New(`SELECT status FROM "quote" WHERE id = ?`, quoteId).ToPgsql()
+	query, params, err := bqb.New(`SELECT expiry_date, status FROM "quote" WHERE id = ?`, quoteId).ToPgsql()
 	if err != nil {
 		log.Printf("Error preparing sql query: %v\n", err)
 		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
@@ -359,8 +359,8 @@ func (handler *QuoteHandler) UpdateStatus(c *gin.Context) {
 	}
 
 	// -- Check if quote exists
-	var status string
-	if err := tx.QueryRow(query, params...).Scan(&status); err != nil {
+	var targetQuote models.Quote
+	if err := tx.QueryRow(query, params...).Scan(&targetQuote.ExpiryDate, &targetQuote.Status); err != nil {
 		tx.Rollback()
 
 		if err == sql.ErrNoRows {
@@ -374,21 +374,21 @@ func (handler *QuoteHandler) UpdateStatus(c *gin.Context) {
 	}
 
 	// -- Check if status is Expired
-	if status == "Expired" {
+	if isExpired(targetQuote.ExpiryDate) {
 		tx.Rollback()
 		c.JSON(400, utils.NewErrorResponse(400, "quote status is already expired. create a new quote instead"))
 		return
 	}
 
 	// -- Check if request status is Sent and status is Accept or Reject
-	if (status == "Accept" || status == "Reject") && request.Action == "Sent" {
+	if (targetQuote.Status == "Accept" || targetQuote.Status == "Reject") && request.Action == "Sent" {
 		tx.Rollback()
-		c.JSON(400, utils.NewErrorResponse(400, "quote status is already "+strings.ToLower(status)+". you can only update to either approved or rejected status"))
+		c.JSON(400, utils.NewErrorResponse(400, "quote status is already "+strings.ToLower(targetQuote.Status)+". you can only update to either approved or rejected status"))
 		return
 	}
 
 	// -- Check if status is Draft (Draft to Sent)
-	if status == "Draft" && request.Action == "Sent" {
+	if targetQuote.Status == "Draft" && request.Action == "Sent" {
 		// -- Update status to sent
 		query, params, err = bqb.New(`UPDATE "quote" SET status = ?, mid = ?, mtime = ? WHERE id = ?`, request.Action, tmpQuote.MId, tmpQuote.MTime, quoteId).ToPgsql()
 		if err != nil {
@@ -492,7 +492,7 @@ func (handler *QuoteHandler) Update(c *gin.Context) {
 	}
 
 	// -- Check if status is Accept, Reject, or Expired
-	if quote.Status == "Accept" || quote.Status == "Reject" || quote.Status == "Expired" {
+	if quote.Status == "Accept" || quote.Status == "Reject" || isExpired(quote.ExpiryDate) {
 		tx.Rollback()
 		c.JSON(400, utils.NewErrorResponse(400, "quote status is already "+strings.ToLower(quote.Status)))
 		return
@@ -697,18 +697,52 @@ func (handler *QuoteHandler) Delete(c *gin.Context) {
 		return
 	}
 
+	// -- Begin transaction
+	tx, err := handler.DB.Begin()
+	if err != nil {
+		log.Printf("Error beginning transaction: %v\n", err)
+		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
+		return
+	}
+
 	// -- Prepare sql query
-	query, params, err := bqb.New(`DELETE FROM "quote_item" WHERE quote_id = ?`, quoteId).ToPgsql()
+	query, params, err := bqb.New(`SELECT expiry_date, status FROM "quote" WHERE id = ?`, quoteId).ToPgsql()
 	if err != nil {
 		log.Printf("Error preparing sql query: %v\n", err)
 		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
 		return
 	}
 
-	// -- Begin transaction
-	tx, err := handler.DB.Begin()
+	// -- Get quote status
+	var targetQuote models.Quote
+	if err := tx.QueryRow(query, params...).Scan(&targetQuote.ExpiryDate, &targetQuote.Status); err != nil {
+		tx.Rollback()
+
+		if err == sql.ErrNoRows {
+			c.JSON(404, utils.NewErrorResponse(404, "quote not found"))
+			return
+		}
+
+		log.Printf("Error counting quote: %v\n", err)
+		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
+		return
+	}
+	if targetQuote.Status == "Accept" || targetQuote.Status == "Reject" || isExpired(targetQuote.ExpiryDate) {
+		tx.Rollback()
+
+		if isExpired(targetQuote.ExpiryDate) {
+			c.JSON(400, utils.NewErrorResponse(400, "quote status is already expired. create a new quote instead"))
+			return
+		}
+
+		c.JSON(400, utils.NewErrorResponse(400, "quote status is already "+strings.ToLower(targetQuote.Status)))
+		return
+	}
+
+	// -- Prepare sql query
+	query, params, err = bqb.New(`DELETE FROM "quote_item" WHERE quote_id = ?`, quoteId).ToPgsql()
 	if err != nil {
-		log.Printf("Error beginning transaction: %v\n", err)
+		log.Printf("Error preparing sql query: %v\n", err)
 		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
 		return
 	}
@@ -768,7 +802,7 @@ func (handler *QuoteHandler) DeleteItem(c *gin.Context) {
 	}
 
 	// -- Prepare sql query
-	query, params, err := bqb.New(`SELECT status FROM "quote" WHERE id = ?`, quoteId).ToPgsql()
+	query, params, err := bqb.New(`SELECT expiry_date, status FROM "quote" WHERE id = ?`, quoteId).ToPgsql()
 	if err != nil {
 		log.Printf("Error preparing sql query: %v\n", err)
 		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
@@ -784,8 +818,8 @@ func (handler *QuoteHandler) DeleteItem(c *gin.Context) {
 	}
 
 	// -- Check if quote exists
-	var status string
-	if err := tx.QueryRow(query, params...).Scan(&status); err != nil {
+	var targetQuote models.Quote
+	if err := tx.QueryRow(query, params...).Scan(&targetQuote.ExpiryDate, &targetQuote.Status); err != nil {
 		tx.Rollback()
 
 		if err == sql.ErrNoRows {
@@ -799,9 +833,15 @@ func (handler *QuoteHandler) DeleteItem(c *gin.Context) {
 	}
 
 	// -- Check if status is Accept, Reject, or Expired
-	if status == "Accept" || status == "Reject" || status == "Expired" {
+	if targetQuote.Status == "Accept" || targetQuote.Status == "Reject" || isExpired(targetQuote.ExpiryDate) {
 		tx.Rollback()
-		c.JSON(400, utils.NewErrorResponse(400, "quote status is already "+strings.ToLower(status)))
+
+		if isExpired(targetQuote.ExpiryDate) {
+			c.JSON(400, utils.NewErrorResponse(400, "quote status is already expired. create a new quote instead"))
+			return
+		}
+
+		c.JSON(400, utils.NewErrorResponse(400, "quote status is already "+strings.ToLower(targetQuote.Status)))
 		return
 	}
 
@@ -878,4 +918,8 @@ func (handler *QuoteHandler) DeleteItem(c *gin.Context) {
 	}
 
 	c.JSON(200, utils.NewResponse(200, fmt.Sprintf("Quote item %d successfully deleted from quote %d", quoteItemId, quoteId), nil))
+}
+
+func isExpired(date time.Time) bool {
+	return date.Before(time.Now())
 }
