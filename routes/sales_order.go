@@ -13,6 +13,7 @@ func SalesOrder(c *gin.Engine, db *sql.DB) {
 
 	router := c.Group("/sales-orders", middlewares.Authenticate(db))
 	{
+		router.GET("/", handler.List)
 		router.POST("/:id/status", middlewares.Authorize(middlewares.Editor), handler.UpdateStatus)
 	}
 }

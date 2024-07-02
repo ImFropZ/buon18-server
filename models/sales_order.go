@@ -38,3 +38,24 @@ func (so *SalesOrder) PrepareForUpdate(id uint) {
 	so.MId = id
 	so.MTime = time.Now()
 }
+
+func (so *SalesOrder) ToResponse() SalesOrderResponse {
+	return SalesOrderResponse{
+		ID:           so.ID,
+		Code:         so.Code,
+		Note:         so.Note,
+		Status:       so.Status,
+		AcceptDate:   so.AcceptDate,
+		DeliveryDate: so.DeliveryDate,
+		QuoteID:      so.QuoteID,
+		CreatedByID:  so.CId,
+	}
+}
+
+func SalesOrdersToResponse(s []SalesOrder) []SalesOrderResponse {
+	res := make([]SalesOrderResponse, 0)
+	for _, so := range s {
+		res = append(res, so.ToResponse())
+	}
+	return res
+}

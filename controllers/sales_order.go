@@ -22,7 +22,52 @@ type SalesOrderHandler struct {
 	DB *sql.DB
 }
 
-func (so *SalesOrderHandler) UpdateStatus(c *gin.Context) {
+func (handler *SalesOrderHandler) List(c *gin.Context) {
+	paginationQueryParams := utils.PaginationQueryParams{
+		Offset: 0,
+		Limit:  10,
+	}
+
+	// -- Parse query params
+	paginationQueryParams.Parse(c)
+
+	// -- Prepare sql query
+	query, params, err := bqb.New(`SELECT id, code, COALESCE(note, ''), status, accept_date, delivery_date, quote_id, cid 
+	FROM 
+		"sales_order" 
+	ORDER BY id
+	LIMIT ? OFFSET ?`, paginationQueryParams.Limit, paginationQueryParams.Offset).ToPgsql()
+	if err != nil {
+		log.Printf("Error preparing query: %v", err)
+		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
+		return
+	}
+
+	// -- Query sales orders
+	var salesOrders []models.SalesOrder
+	if rows, err := handler.DB.Query(query, params...); err != nil {
+		log.Printf("Error querying sales orders: %v", err)
+		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
+		return
+	} else {
+		defer rows.Close()
+
+		for rows.Next() {
+			var so models.SalesOrder
+			if err := rows.Scan(&so.ID, &so.Code, &so.Note, &so.Status, &so.AcceptDate, &so.DeliveryDate, &so.QuoteID, &so.CId); err != nil {
+				log.Printf("Error scanning sales order: %v", err)
+				c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
+				return
+			}
+
+			salesOrders = append(salesOrders, so)
+		}
+	}
+
+	c.JSON(200, utils.NewResponse(200, "success", models.SalesOrdersToResponse(salesOrders)))
+}
+
+func (handler *SalesOrderHandler) UpdateStatus(c *gin.Context) {
 	// -- Get user id
 	var userId uint
 	if id, ok := c.Get("user_id"); !ok {
@@ -64,7 +109,7 @@ func (so *SalesOrderHandler) UpdateStatus(c *gin.Context) {
 	}
 
 	// -- Begin transaction
-	tx, err := so.DB.Begin()
+	tx, err := handler.DB.Begin()
 	if err != nil {
 		log.Printf("Error beginning transaction: %v", err)
 		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
