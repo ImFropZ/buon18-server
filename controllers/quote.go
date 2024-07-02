@@ -51,6 +51,12 @@ type UpdateQuoteRequest struct {
 	} `json:"items"`
 }
 
+type CreateSalesOrderRequest struct {
+	Code         string    `json:"code" binding:"required"`
+	DeliveryDate time.Time `json:"delivery_date" binding:"required"`
+	Note         string    `json:"note"`
+}
+
 type UpdateQuoteStatusRequest struct {
 	Action string `json:"action" binding:"required"`
 }
@@ -456,6 +462,109 @@ func (handler *QuoteHandler) UpdateStatus(c *gin.Context) {
 
 	tx.Commit()
 	c.JSON(200, utils.NewResponse(200, fmt.Sprintf("quote %d updated successfully", quoteId), nil))
+}
+
+func (handler *QuoteHandler) CreateSalesOrder(c *gin.Context) {
+	// -- Get user id
+	var userId uint
+	if id, ok := c.Get("user_id"); !ok {
+		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
+		return
+	} else {
+		userId = id.(uint)
+	}
+
+	// -- Get id
+	quoteId, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		c.JSON(400, utils.NewErrorResponse(400, "invalid quote Id. quote Id should be an integer"))
+		return
+	}
+
+	// -- Parse request body
+	var request CreateSalesOrderRequest
+	if err := c.ShouldBindJSON(&request); err != nil {
+		c.JSON(400, utils.NewErrorResponse(400, "invalid request body. required fields: code, delivery_date"))
+		return
+	}
+
+	// -- Prepare sql query
+	query, params, err := bqb.New(`SELECT status FROM "quote" WHERE id = ?`, quoteId).ToPgsql()
+	if err != nil {
+		log.Printf("Error preparing sql query: %v\n", err)
+		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
+		return
+	}
+
+	// -- Begin transaction
+	tx, err := handler.DB.Begin()
+	if err != nil {
+		log.Printf("Error beginning transaction: %v\n", err)
+		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
+		return
+	}
+
+	// -- Check if quote exists
+	var quoteStatus string
+	if err := tx.QueryRow(query, params...).Scan(&quoteStatus); err != nil {
+		tx.Rollback()
+
+		if err == sql.ErrNoRows {
+			c.JSON(404, utils.NewErrorResponse(404, "quote not found"))
+			return
+		}
+
+		log.Printf("Error counting quote: %v\n", err)
+		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
+		return
+	}
+
+	// -- Check if status is Accept
+	if quoteStatus != "Accept" {
+		tx.Rollback()
+		c.JSON(400, utils.NewErrorResponse(400, "quote status is not accepted"))
+		return
+	}
+
+	// -- Prepare sales order creation timestamps
+	tmpSalesOrder := models.SalesOrder{}
+	tmpSalesOrder.PrepareForCreate(userId)
+
+	// -- Prepare sql query
+	query, params, err = bqb.New(`INSERT INTO "sales_order" 
+	(code, accept_date, delivery_date, note, quote_id, cid, ctime, mid, mtime) 
+	VALUES 
+	(?, ?, ?, ?, ?, ?, ?, ?, ?)`, request.Code, time.Now(), request.DeliveryDate, request.Note, quoteId, tmpSalesOrder.CId, tmpSalesOrder.CTime, tmpSalesOrder.MId, tmpSalesOrder.MTime).ToPgsql()
+	if err != nil {
+		tx.Rollback()
+		log.Printf("Error preparing sql query: %v\n", err)
+		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
+		return
+	}
+	// -- Insert sales order
+	if _, err := tx.Exec(query, params...); err != nil {
+		tx.Rollback()
+
+		if pqErr, ok := err.(*pq.Error); ok {
+			if pqErr.Code == pq.ErrorCode(database.PQ_ERROR_CODES[database.DUPLICATE]) {
+				c.JSON(400, utils.NewErrorResponse(400, "sales order code already exists"))
+				return
+			}
+		}
+
+		log.Printf("Error inserting sales order to database: %v\n", err)
+		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
+		return
+	}
+
+	// -- Commit transaction
+	if err := tx.Commit(); err != nil {
+		log.Printf("Error committing transaction: %v\n", err)
+		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
+		return
+	}
+
+	c.JSON(201, utils.NewResponse(201, "sales order created successfully", nil))
 }
 
 func (handler *QuoteHandler) Update(c *gin.Context) {

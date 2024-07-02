@@ -196,11 +196,11 @@ CREATE TABLE IF NOT EXISTS
         ) PRIMARY KEY,
         -- Invoice information
         code VARCHAR(32) NOT NULL UNIQUE,
-        from_date DATE NOT NULL,
+        accept_date DATE NOT NULL,
         delivery_date DATE NOT NULL,
         note TEXT,
         -- Foreign keys
-        quote_id BIGINT NOT NULL REFERENCES quote (id) ON DELETE CASCADE ON UPDATE CASCADE,
+        quote_id BIGINT NOT NULL UNIQUE REFERENCES quote (id) ON DELETE CASCADE ON UPDATE CASCADE,
         -- Flags
         status sales_order_status_typ NOT NULL DEFAULT 'On-Going',
         -- Timestamps
