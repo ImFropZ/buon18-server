@@ -102,6 +102,171 @@ func (handler *SalesOrderHandler) List(c *gin.Context) {
 	c.JSON(200, utils.NewResponse(200, "success", models.SalesOrdersToResponse(salesOrders)))
 }
 
+func (handler *SalesOrderHandler) CreateInvoice(c *gin.Context) {
+	// -- Get id
+	salesOrderId, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		c.JSON(400, utils.NewErrorResponse(400, "invalid sales order Id. sales order Id should be an integer"))
+		return
+	}
+
+	// -- Prepare sql query
+	query, params, err := bqb.New(`SELECT status FROM "sales_order" WHERE id = ?`, salesOrderId).ToPgsql()
+	if err != nil {
+		log.Printf("Error preparing query: %v", err)
+		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
+		return
+	}
+
+	// -- Get status
+	var status string
+	if err := handler.DB.QueryRow(query, params...).Scan(&status); err != nil {
+		if err == sql.ErrNoRows {
+			c.JSON(404, utils.NewErrorResponse(404, fmt.Sprintf("sales order %d not found", salesOrderId)))
+			return
+		}
+
+		log.Printf("Error getting status: %v", err)
+		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
+		return
+	}
+
+	if status != "Done" {
+		c.JSON(400, utils.NewErrorResponse(400, "invalid action. sales order is not done"))
+		return
+	}
+
+	// -- Prepare sql query
+	query, params, err = bqb.New(`SELECT id, code, COALESCE(note, ''), accept_date, delivery_date, quote_id, cid 
+	FROM 
+		"sales_order"
+	WHERE id = ?`, salesOrderId).ToPgsql()
+	if err != nil {
+		log.Printf("Error preparing query: %v", err)
+		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
+		return
+	}
+
+	// -- Query sales order
+	var salesOrder models.SalesOrder
+	if err := handler.DB.QueryRow(query, params...).Scan(&salesOrder.Id, &salesOrder.Code, &salesOrder.Note, &salesOrder.AcceptDate, &salesOrder.DeliveryDate, &salesOrder.QuoteId, &salesOrder.CId); err != nil {
+		if err == sql.ErrNoRows {
+			c.JSON(404, utils.NewErrorResponse(404, fmt.Sprintf("sales order %d not found", salesOrderId)))
+			return
+		}
+
+		log.Printf("Error querying sales order: %v", err)
+		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
+		return
+	}
+
+	// -- Prepare sql query (GET USER)
+	query, params, err = bqb.New(`SELECT name, email, role FROM "user" WHERE id = ?`, salesOrder.CId).ToPgsql()
+	if err != nil {
+		log.Printf("Error preparing query: %v", err)
+		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
+		return
+	}
+
+	// -- Query user
+	var user models.User
+	if err := handler.DB.QueryRow(query, params...).Scan(&user.Name, &user.Email, &user.Role); err != nil {
+		if err == sql.ErrNoRows {
+			c.JSON(404, utils.NewErrorResponse(404, fmt.Sprintf("user %d not found", salesOrder.CId)))
+			return
+		}
+
+		log.Printf("Error querying user: %v", err)
+		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
+		return
+	}
+
+	// -- Prepare sql query (GET Quote)
+	query, params, err = bqb.New(`SELECT q.code, q.account_id, q.client_id, q.subtotal, q.discount, q.total, qt.name, COALESCE(qt.description, ''), qt.quantity, qt.unit_price
+	FROM "quote" as q
+	LEFT JOIN "quote_item" as qt ON qt.quote_id = q.id
+	WHERE q.id = ? 
+	ORDER BY qt.id`, salesOrder.QuoteId).ToPgsql()
+	if err != nil {
+		log.Printf("Error preparing query: %v", err)
+		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
+		return
+	}
+
+	// -- Query quote
+	var quote models.Quote
+	quote.QuoteItems = make([]models.QuoteItem, 0)
+	if rows, err := handler.DB.Query(query, params...); err != nil {
+		log.Printf("Error finding quote in database: %v\n", err)
+		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
+		return
+	} else {
+		for rows.Next() {
+			var scanQuoteItem models.QuoteItem
+			if err := rows.Scan(&quote.Code, &quote.AccountId, &quote.ClientId, &quote.Subtotal, &quote.Discount, &quote.Total, &scanQuoteItem.Name, &scanQuoteItem.Description, &scanQuoteItem.Quantity, &scanQuoteItem.UnitPrice); err != nil {
+				log.Printf("Error scanning quote from database: %v\n", err)
+				c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
+				return
+			}
+
+			quote.QuoteItems = append(quote.QuoteItems, scanQuoteItem)
+		}
+	}
+
+	// -- Prepare sql query (GET Account)
+	query, params, err = bqb.New(`SELECT 
+	code, name, COALESCE(email, ''), COALESCE(address, ''), phone, COALESCE(secondary_phone, '')
+	FROM
+		"account"
+	WHERE
+		id = ?`, quote.AccountId).ToPgsql()
+	if err != nil {
+		log.Printf("Error preparing query: %v", err)
+		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
+		return
+	}
+
+	// -- Query account
+	var account models.Account
+	if err := handler.DB.QueryRow(query, params...).Scan(&account.Code, &account.Name, &account.Email, &account.Address, &account.Phone, &account.SecondaryPhone); err != nil {
+		if err == sql.ErrNoRows {
+			c.JSON(404, utils.NewErrorResponse(404, fmt.Sprintf("account %d not found", user.Id)))
+			return
+		}
+
+		log.Printf("Error querying account: %v", err)
+		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
+		return
+	}
+
+	// -- Prepare sql query (GET Client)
+	query, params, err = bqb.New(`SELECT 
+	code, name, COALESCE(address, ''), phone
+	FROM 
+		"client" as c
+	WHERE id = ?`, quote.ClientId).ToPgsql()
+	if err != nil {
+		log.Printf("Error preparing query: %v", err)
+		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
+		return
+	}
+
+	// -- Query client
+	var client models.Client
+	if err := handler.DB.QueryRow(query, params...).Scan(&client.Code, &client.Name, &client.Address, &client.Phone); err != nil {
+		if err == sql.ErrNoRows {
+			c.JSON(404, utils.NewErrorResponse(404, fmt.Sprintf("client %d not found", account.Id)))
+			return
+		}
+
+		log.Printf("Error querying client: %v", err)
+		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
+		return
+	}
+
+	c.JSON(200, utils.NewResponse(200, "success", utils.InvoiceResponse(salesOrder, quote, client, account, user)))
+}
+
 func (handler *SalesOrderHandler) UpdateStatus(c *gin.Context) {
 	// -- Get user id
 	var userId uint
