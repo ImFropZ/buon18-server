@@ -14,6 +14,7 @@ func SalesOrder(c *gin.Engine, db *sql.DB) {
 	router := c.Group("/sales-orders", middlewares.Authenticate(db))
 	{
 		router.GET("/", handler.List)
+		router.GET("/:id", handler.First)
 		router.POST("/:id/status", middlewares.Authorize(middlewares.Editor), handler.UpdateStatus)
 	}
 }

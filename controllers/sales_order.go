@@ -22,6 +22,41 @@ type SalesOrderHandler struct {
 	DB *sql.DB
 }
 
+func (handler *SalesOrderHandler) First(c *gin.Context) {
+	// -- Get id
+	salesOrderId, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		c.JSON(400, utils.NewErrorResponse(400, "invalid sales order Id. sales order Id should be an integer"))
+		return
+	}
+
+	// -- Prepare sql query
+	query, params, err := bqb.New(`SELECT id, code, COALESCE(note, ''), status, accept_date, delivery_date, quote_id, cid 
+	FROM 
+		"sales_order" 
+	WHERE id = ?`, salesOrderId).ToPgsql()
+	if err != nil {
+		log.Printf("Error preparing query: %v", err)
+		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
+		return
+	}
+
+	// -- Query sales order
+	var salesOrder models.SalesOrder
+	if err := handler.DB.QueryRow(query, params...).Scan(&salesOrder.ID, &salesOrder.Code, &salesOrder.Note, &salesOrder.Status, &salesOrder.AcceptDate, &salesOrder.DeliveryDate, &salesOrder.QuoteID, &salesOrder.CId); err != nil {
+		if err == sql.ErrNoRows {
+			c.JSON(404, utils.NewErrorResponse(404, fmt.Sprintf("sales order %d not found", salesOrderId)))
+			return
+		}
+
+		log.Printf("Error querying sales order: %v", err)
+		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
+		return
+	}
+
+	c.JSON(200, utils.NewResponse(200, "success", salesOrder.ToResponse()))
+}
+
 func (handler *SalesOrderHandler) List(c *gin.Context) {
 	paginationQueryParams := utils.PaginationQueryParams{
 		Offset: 0,
