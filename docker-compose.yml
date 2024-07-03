@@ -23,3 +23,8 @@ services:
       TOKEN_DURATION_SEC: 60
       REFRESH_TOKEN_SEC: 600
       GIN_MODE: release
+      ALLOW_ORIGINS: "*"
+      ALLOW_METHODS: GET,POST,PATCH,DELETE,OPTIONS
+      ALLOW_HEADERS: "*"
+      EXPOSE_HEADERS: Content-Length
+      MAX_AGE: 120

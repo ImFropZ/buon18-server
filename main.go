@@ -6,6 +6,7 @@ import (
 	"server/database"
 	"server/routes"
 
+	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 )
 
@@ -19,6 +20,15 @@ func main() {
 
 	router := gin.Default()
 
+	router.Use(cors.New(cors.Config{
+		AllowOrigins:  config.ALLOW_ORIGINS,
+		AllowMethods:  config.ALLOW_METHODS,
+		AllowHeaders:  config.ALLOW_HEADERS,
+		ExposeHeaders: config.EXPOSE_HEADERS,
+		MaxAge:        config.MAX_AGE,
+	}))
+	router.SetTrustedProxies(config.TRUSTED_PROXIES)
+
 	routes.Auth(router, DB)
 	routes.User(router, DB)
 	routes.Account(router, DB)
@@ -27,8 +37,6 @@ func main() {
 	routes.SalesOrder(router, DB)
 
 	router.Routes()
-
-	router.SetTrustedProxies(config.TRUSTED_PROXIES)
 
 	router.Run() // listen and serve on 0.0.0.0:8080 (for windows "localhost:8080")
 }

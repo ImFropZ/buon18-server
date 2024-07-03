@@ -3,7 +3,9 @@ package config
 import (
 	"fmt"
 	"strconv"
+	"strings"
 	"sync"
+	"time"
 )
 
 var lock = &sync.Mutex{}
@@ -17,6 +19,13 @@ type Config struct {
 
 	// -- Trusted Proxies
 	TRUSTED_PROXIES []string
+
+	// -- CORS
+	ALLOW_ORIGINS  []string
+	ALLOW_METHODS  []string
+	ALLOW_HEADERS  []string
+	EXPOSE_HEADERS []string
+	MAX_AGE        time.Duration
 }
 
 var configInstance *Config
@@ -26,6 +35,7 @@ func GetConfigInstance() *Config {
 		lock.Lock()
 		defer lock.Unlock()
 		if configInstance == nil {
+			// -- Token Duration
 			tokenDuration, err := strconv.Atoi(Env("TOKEN_DURATION_SEC"))
 			if err != nil {
 				fmt.Println("Error parsing TOKEN_DURATION")
@@ -36,10 +46,53 @@ func GetConfigInstance() *Config {
 				fmt.Println("Error parsing REFRESH_TOKEN_SEC")
 			}
 
+			// -- Trusted Proxies
 			proxies := Env("TRUSTED_PROXIES")
 			trustedProxies := []string{}
 			if proxies != "" {
 				trustedProxies = append(trustedProxies, proxies)
+			}
+
+			// -- CORS
+			aOrigins := Env("ALLOW_ORIGINS")
+			allowOrigins := []string{}
+			if aOrigins == "" {
+				allowOrigins = append(allowOrigins, "*")
+			} else {
+				allowOrigins = append(allowOrigins, strings.Split(aOrigins, ",")...)
+			}
+
+			aMethods := Env("ALLOW_METHODS")
+			allowMethods := []string{}
+			if aMethods == "" {
+				allowMethods = append(allowMethods, "GET", "POST", "PUT", "DELETE")
+			} else {
+				allowMethods = append(allowMethods, strings.Split(aMethods, ",")...)
+			}
+
+			aHeaders := Env("ALLOW_HEADERS")
+			allowHeaders := []string{}
+			if aHeaders == "" {
+				allowHeaders = append(allowHeaders, "Origin", "Content-Type", "Authorization")
+			} else {
+				allowHeaders = append(allowHeaders, strings.Split(aHeaders, ",")...)
+			}
+
+			eHeaders := Env("EXPOSE_HEADERS")
+			exposeHeaders := []string{}
+			if eHeaders == "" {
+				exposeHeaders = append(exposeHeaders, "Content-Length", "Content-Range")
+			} else {
+				exposeHeaders = append(exposeHeaders, strings.Split(eHeaders, ",")...)
+			}
+
+			mAge := Env("MAX_AGE")
+			maxAge := 0
+			if mAge != "" {
+				maxAge, err = strconv.Atoi(mAge)
+				if err != nil {
+					fmt.Println("Error parsing MAX_AGE")
+				}
 			}
 
 			configInstance = &Config{
@@ -54,6 +107,13 @@ func GetConfigInstance() *Config {
 
 				// -- Trusted Proxies
 				TRUSTED_PROXIES: trustedProxies,
+
+				// -- CORS
+				ALLOW_ORIGINS:  allowOrigins,
+				ALLOW_METHODS:  allowMethods,
+				ALLOW_HEADERS:  allowHeaders,
+				EXPOSE_HEADERS: exposeHeaders,
+				MAX_AGE:        time.Duration(maxAge) * time.Second,
 			}
 		}
 	}

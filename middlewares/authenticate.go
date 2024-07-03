@@ -32,7 +32,7 @@ func Authenticate(DB *sql.DB) gin.HandlerFunc {
 		}
 
 		// -- Prepare sql query
-		query, params, err := bqb.New("SELECT id, role FROM \"user\" WHERE email = ?", claims.Email).ToPgsql()
+		query, params, err := bqb.New(`SELECT id, role FROM "user" WHERE email = ?`, claims.Email).ToPgsql()
 		if err != nil {
 			c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
 			c.Abort()
@@ -42,7 +42,7 @@ func Authenticate(DB *sql.DB) gin.HandlerFunc {
 		// -- Query user from database
 		var User models.User
 		if row := DB.QueryRow(query, params...); row.Err() != nil {
-			log.Printf("Error querying user : %v\n", row.Err())
+			log.Printf("Error querying user: %v\n", row.Err())
 			c.JSON(401, utils.NewErrorResponse(401, "user not found"))
 			c.Abort()
 			return

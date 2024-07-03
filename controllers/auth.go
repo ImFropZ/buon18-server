@@ -78,7 +78,7 @@ func (handler *AuthHandler) Login(c *gin.Context) {
 	}
 
 	// -- Prepare sql query
-	query, params, err := bqb.New("SELECT email, pwd, deleted FROM \"user\" WHERE email = ?", req.Email).ToPgsql()
+	query, params, err := bqb.New("SELECT email, COALESCE(pwd, ''), deleted FROM \"user\" WHERE email = ?", req.Email).ToPgsql()
 	if err != nil {
 		log.Printf("Error preparing query: %v\n", err)
 		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
@@ -103,6 +103,8 @@ func (handler *AuthHandler) Login(c *gin.Context) {
 		c.JSON(401, utils.NewErrorResponse(401, "Your account has been deleted"))
 		return
 	}
+
+	log.Printf("User: %v\n", user)
 
 	if user.Email != req.Email || (!utils.ComparePwd(req.Password, user.Pwd) && user.Pwd != "") {
 		c.JSON(401, utils.NewErrorResponse(401, "Invalid email or password"))
@@ -236,7 +238,7 @@ func (handler *AuthHandler) UpdatePassword(c *gin.Context) {
 	}
 
 	// -- Prepare sql query
-	query, params, err := bqb.New("SELECT pwd FROM \"user\" WHERE id = ?", user_id).ToPgsql()
+	query, params, err := bqb.New("SELECT COALESCE(pwd, '') FROM \"user\" WHERE id = ?", user_id).ToPgsql()
 	if err != nil {
 		log.Printf("Error preparing query: %v\n", err)
 		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
