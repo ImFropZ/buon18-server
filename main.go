@@ -13,7 +13,7 @@ var DB *sql.DB
 
 func main() {
 	// -- Initialize
-	config.GetConfigInstance()
+	config := config.GetConfigInstance()
 	DB = database.InitSQL()
 	defer DB.Close()
 
@@ -27,5 +27,8 @@ func main() {
 	routes.SalesOrder(router, DB)
 
 	router.Routes()
+
+	router.SetTrustedProxies(config.TRUSTED_PROXIES)
+
 	router.Run() // listen and serve on 0.0.0.0:8080 (for windows "localhost:8080")
 }

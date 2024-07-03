@@ -22,3 +22,4 @@ services:
       REFRESH_TOKEN_KEY: my_secret_refresh_key
       TOKEN_DURATION_SEC: 60
       REFRESH_TOKEN_SEC: 600
+      GIN_MODE: release

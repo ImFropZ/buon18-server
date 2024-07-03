@@ -14,6 +14,9 @@ type Config struct {
 	REFRESH_TOKEN_KEY    string
 	TOKEN_DURATION_SEC   int
 	REFRESH_TOKEN_SEC    int
+
+	// -- Trusted Proxies
+	TRUSTED_PROXIES []string
 }
 
 var configInstance *Config
@@ -33,6 +36,12 @@ func GetConfigInstance() *Config {
 				fmt.Println("Error parsing REFRESH_TOKEN_SEC")
 			}
 
+			proxies := Env("TRUSTED_PROXIES")
+			trustedProxies := []string{}
+			if proxies != "" {
+				trustedProxies = append(trustedProxies, proxies)
+			}
+
 			configInstance = &Config{
 				// -- Database
 				DB_CONNECTION_STRING: validateEnvString("DB_CONNECTION_STRING"),
@@ -41,7 +50,10 @@ func GetConfigInstance() *Config {
 				TOKEN_KEY:          validateEnvString("TOKEN_KEY"),
 				REFRESH_TOKEN_KEY:  validateEnvString("REFRESH_TOKEN_KEY"),
 				TOKEN_DURATION_SEC: tokenDuration,
-				REFRESH_TOKEN_SEC:  refreshDuration, // 1 week
+				REFRESH_TOKEN_SEC:  refreshDuration,
+
+				// -- Trusted Proxies
+				TRUSTED_PROXIES: trustedProxies,
 			}
 		}
 	}
