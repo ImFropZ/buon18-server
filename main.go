@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"server/config"
 	"server/database"
+	"server/middlewares"
 	"server/routes"
 
 	"github.com/gin-contrib/cors"
@@ -19,6 +20,7 @@ func main() {
 	defer DB.Close()
 
 	router := gin.Default()
+	router.SetTrustedProxies(config.TRUSTED_PROXIES)
 
 	router.Use(cors.New(cors.Config{
 		AllowOrigins:  config.ALLOW_ORIGINS,
@@ -27,9 +29,13 @@ func main() {
 		ExposeHeaders: config.EXPOSE_HEADERS,
 		MaxAge:        config.MAX_AGE,
 	}))
-	router.SetTrustedProxies(config.TRUSTED_PROXIES)
 
+	// -- Routes
+	// -- Public
 	routes.Auth(router, DB)
+
+	// -- Private
+	router.Use(middlewares.Authenticate(DB))
 	routes.User(router, DB)
 	routes.Account(router, DB)
 	routes.Client(router, DB)

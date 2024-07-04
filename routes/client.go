@@ -11,13 +11,10 @@ import (
 func Client(e *gin.Engine, db *sql.DB) {
 	handler := controllers.ClientHandler{DB: db}
 
-	client := e.Group("/clients", middlewares.Authenticate(db))
-	{
-		client.GET("/", handler.List)
-		client.GET("/:id", handler.First)
-		client.POST("/", middlewares.Authorize(middlewares.Editor), handler.Create)
-		client.PATCH("/:id", middlewares.Authorize(middlewares.Editor), handler.Update)
-		client.DELETE("/:id", middlewares.Authorize(middlewares.Admin), handler.Delete)
-		client.DELETE("/:id/social-medias/:smid", middlewares.Authorize(middlewares.Admin), handler.DeleteSocialMedia)
-	}
+	e.GET("/clients", handler.List)
+	e.GET("/clients/:id", handler.First)
+	e.POST("/clients", middlewares.Authorize(middlewares.Editor), handler.Create)
+	e.PATCH("/clients/:id", middlewares.Authorize(middlewares.Editor), handler.Update)
+	e.DELETE("/clients/:id", middlewares.Authorize(middlewares.Admin), handler.Delete)
+	e.DELETE("/clients/:id/social-medias/:smid", middlewares.Authorize(middlewares.Admin), handler.DeleteSocialMedia)
 }
