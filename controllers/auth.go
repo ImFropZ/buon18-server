@@ -93,6 +93,11 @@ func (handler *AuthHandler) Login(c *gin.Context) {
 		return
 	} else {
 		if err := row.Scan(&user.Email, &user.Pwd, &user.Deleted); err != nil {
+			if err == sql.ErrNoRows {
+				c.JSON(401, utils.NewErrorResponse(401, "contact your administrator to create an account"))
+				return
+			}
+
 			log.Printf("Error scanning user: %v\n", err)
 			c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
 			return
@@ -103,8 +108,6 @@ func (handler *AuthHandler) Login(c *gin.Context) {
 		c.JSON(401, utils.NewErrorResponse(401, "Your account has been deleted"))
 		return
 	}
-
-	log.Printf("User: %v\n", user)
 
 	if user.Email != req.Email || (!utils.ComparePwd(req.Password, user.Pwd) && user.Pwd != "") {
 		c.JSON(401, utils.NewErrorResponse(401, "Invalid email or password"))
