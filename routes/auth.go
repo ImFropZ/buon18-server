@@ -8,11 +8,11 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func Auth(rg *gin.RouterGroup, db *sql.DB) {
+func Auth(e *gin.Engine, db *sql.DB) {
 	handler := controllers.AuthHandler{DB: db}
 
-	rg.GET("/me", middlewares.Authenticate(db), handler.Me)
-	rg.POST("/login", handler.Login)
-	rg.POST("/refresh", handler.RefreshToken)
-	rg.POST("/update-password", middlewares.Authenticate(db), handler.UpdatePassword)
+	e.GET("/api/me", middlewares.Authenticate(db), handler.Me)
+	e.POST("/api/login", handler.Login)
+	e.POST("/api/refresh", handler.RefreshToken)
+	e.POST("/api/update-password", middlewares.Authenticate(db), handler.UpdatePassword)
 }
