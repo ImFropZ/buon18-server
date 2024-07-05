@@ -129,7 +129,9 @@ func (handler *QuoteHandler) First(c *gin.Context) {
 		return
 	}
 
-	c.JSON(200, utils.NewResponse(200, "success", quote.ToResponse()))
+	c.JSON(200, utils.NewResponse(200, "success", gin.H{
+		"quote": quote.ToResponse(),
+	}))
 }
 
 func (handler *QuoteHandler) List(c *gin.Context) {
@@ -199,7 +201,25 @@ func (handler *QuoteHandler) List(c *gin.Context) {
 		}
 	}
 
-	c.JSON(200, utils.NewResponse(200, "success", models.QuotesToResponse(quotes)))
+	// -- Count total quotes
+	query, params, err = bqb.New(`SELECT COUNT(*) FROM "quote"`).ToPgsql()
+	if err != nil {
+		log.Printf("Error preparing sql query: %v\n", err)
+		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
+		return
+	}
+
+	var total uint
+	if err := handler.DB.QueryRow(query, params...).Scan(&total); err != nil {
+		log.Printf("Error getting total quotes: %v\n", err)
+		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
+		return
+	}
+
+	c.JSON(200, utils.NewResponse(200, "success", gin.H{
+		"total":  total,
+		"quotes": models.QuotesToResponse(quotes),
+	}))
 }
 
 func (handler *QuoteHandler) Create(c *gin.Context) {

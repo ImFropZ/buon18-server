@@ -54,7 +54,9 @@ func (handler *SalesOrderHandler) First(c *gin.Context) {
 		return
 	}
 
-	c.JSON(200, utils.NewResponse(200, "success", salesOrder.ToResponse()))
+	c.JSON(200, utils.NewResponse(200, "success", gin.H{
+		"sales_order": salesOrder.ToResponse(),
+	}))
 }
 
 func (handler *SalesOrderHandler) List(c *gin.Context) {
@@ -99,7 +101,25 @@ func (handler *SalesOrderHandler) List(c *gin.Context) {
 		}
 	}
 
-	c.JSON(200, utils.NewResponse(200, "success", models.SalesOrdersToResponse(salesOrders)))
+	// -- Count total sales orders
+	query, params, err = bqb.New(`SELECT COUNT(*) FROM "sales_order"`).ToPgsql()
+	if err != nil {
+		log.Printf("Error preparing sql query: %v\n", err)
+		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
+		return
+	}
+
+	var total uint
+	if err := handler.DB.QueryRow(query, params...).Scan(&total); err != nil {
+		log.Printf("Error getting total sales orders: %v\n", err)
+		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
+		return
+	}
+
+	c.JSON(200, utils.NewResponse(200, "success", gin.H{
+		"total":        total,
+		"sales_orders": models.SalesOrdersToResponse(salesOrders),
+	}))
 }
 
 func (handler *SalesOrderHandler) CreateInvoice(c *gin.Context) {

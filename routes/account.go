@@ -8,13 +8,13 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func Account(e *gin.Engine, db *sql.DB) {
+func Account(rg *gin.RouterGroup, db *sql.DB) {
 	handler := controllers.AccountHandler{DB: db}
 
-	e.GET("/accounts", middlewares.Authenticate(db), handler.List)
-	e.GET("/accounts/:id", middlewares.Authenticate(db), handler.First)
-	e.POST("/accounts", middlewares.Authenticate(db), middlewares.Authorize(middlewares.Editor), handler.Create)
-	e.PATCH("/accounts/:id", middlewares.Authenticate(db), middlewares.Authorize(middlewares.Editor), handler.Update)
-	e.DELETE("/accounts/:id", middlewares.Authenticate(db), middlewares.Authorize(middlewares.Admin), handler.Delete)
-	e.DELETE("/accounts/:id/social-medias/:smid", middlewares.Authenticate(db), middlewares.Authorize(middlewares.Admin), handler.DeleteSocialMedia)
+	rg.GET("/accounts", middlewares.Authenticate(db), handler.List)
+	rg.GET("/accounts/:id", middlewares.Authenticate(db), handler.First)
+	rg.POST("/accounts", middlewares.Authenticate(db), middlewares.Authorize(middlewares.Editor), handler.Create)
+	rg.PATCH("/accounts/:id", middlewares.Authenticate(db), middlewares.Authorize(middlewares.Editor), handler.Update)
+	rg.DELETE("/accounts/:id", middlewares.Authenticate(db), middlewares.Authorize(middlewares.Admin), handler.Delete)
+	rg.DELETE("/accounts/:id/social-medias/:smid", middlewares.Authenticate(db), middlewares.Authorize(middlewares.Admin), handler.DeleteSocialMedia)
 }

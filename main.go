@@ -22,7 +22,9 @@ func main() {
 	router := gin.Default()
 	router.SetTrustedProxies(config.TRUSTED_PROXIES)
 
-	router.Use(cors.New(cors.Config{
+	rg := router.Group("/api")
+
+	rg.Use(cors.New(cors.Config{
 		AllowOrigins:  config.ALLOW_ORIGINS,
 		AllowMethods:  config.ALLOW_METHODS,
 		AllowHeaders:  config.ALLOW_HEADERS,
@@ -32,15 +34,15 @@ func main() {
 
 	// -- Routes
 	// -- Public
-	routes.Auth(router, DB)
+	routes.Auth(rg, DB)
 
 	// -- Private
-	router.Use(middlewares.Authenticate(DB))
-	routes.User(router, DB)
-	routes.Account(router, DB)
-	routes.Client(router, DB)
-	routes.Quote(router, DB)
-	routes.SalesOrder(router, DB)
+	rg.Use(middlewares.Authenticate(DB))
+	routes.User(rg, DB)
+	routes.Account(rg, DB)
+	routes.Client(rg, DB)
+	routes.Quote(rg, DB)
+	routes.SalesOrder(rg, DB)
 
 	router.Routes()
 

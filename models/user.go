@@ -16,10 +16,11 @@ type User struct {
 }
 
 type UserResponse struct {
-	Id    uint   `json:"id"`
-	Name  string `json:"name"`
-	Email string `json:"email"`
-	Role  string `json:"role"`
+	Id      uint   `json:"id"`
+	Name    string `json:"name"`
+	Email   string `json:"email"`
+	Role    string `json:"role"`
+	Deleted bool   `json:"deleted"`
 }
 
 func (u *User) PrepareForCreate(cid uint, mid uint) (err error) {
@@ -38,10 +39,11 @@ func (u *User) PrepareForUpdate(mid uint) (err error) {
 
 func (u *User) ToResponse() UserResponse {
 	return UserResponse{
-		Id:    u.Id,
-		Name:  u.Name,
-		Email: u.Email,
-		Role:  u.Role,
+		Id:      u.Id,
+		Name:    u.Name,
+		Email:   u.Email,
+		Role:    u.Role,
+		Deleted: u.Deleted,
 	}
 }
 

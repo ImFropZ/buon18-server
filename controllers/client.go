@@ -92,7 +92,9 @@ func (handler *ClientHandler) First(c *gin.Context) {
 	}
 
 	// -- Return client
-	c.JSON(200, utils.NewResponse(200, "", client.ToResponse()))
+	c.JSON(200, utils.NewResponse(200, "", gin.H{
+		"client": client.ToResponse(),
+	}))
 }
 
 func (handler *ClientHandler) List(c *gin.Context) {
@@ -168,7 +170,25 @@ func (handler *ClientHandler) List(c *gin.Context) {
 		}
 	}
 
-	c.JSON(200, utils.NewResponse(200, "success", models.ClientsToResponse(clients)))
+	// -- Count total clients
+	query, params, err = bqb.New(`SELECT COUNT(*) FROM "client"`).ToPgsql()
+	if err != nil {
+		log.Printf("Error preparing sql query: %v\n", err)
+		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
+		return
+	}
+
+	var total uint
+	if err := handler.DB.QueryRow(query, params...).Scan(&total); err != nil {
+		log.Printf("Error getting total clients: %v\n", err)
+		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
+		return
+	}
+
+	c.JSON(200, utils.NewResponse(200, "success", gin.H{
+		"total":   total,
+		"clients": models.ClientsToResponse(clients),
+	}))
 }
 
 func (handler *ClientHandler) Create(c *gin.Context) {

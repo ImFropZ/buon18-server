@@ -43,7 +43,7 @@ func (handler *UserHandler) First(c *gin.Context) {
 	}
 
 	// -- Prepare sql query
-	query, params, err := bqb.New("SELECT id, name, email, role FROM \"user\" WHERE id = ?", id).ToPgsql()
+	query, params, err := bqb.New("SELECT id, name, email, role, deleted FROM \"user\" WHERE id = ?", id).ToPgsql()
 	if err != nil {
 		log.Printf("Error preparing sql query: %v\n", err)
 		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
@@ -55,7 +55,7 @@ func (handler *UserHandler) First(c *gin.Context) {
 		log.Printf("Error finding user in database: %v\n", row.Err())
 		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
 		return
-	} else if err := row.Scan(&user.Id, &user.Name, &user.Email, &user.Role); err != nil {
+	} else if err := row.Scan(&user.Id, &user.Name, &user.Email, &user.Role, &user.Deleted); err != nil {
 		if err == sql.ErrNoRows {
 			c.JSON(404, utils.NewErrorResponse(404, "user not found"))
 			return
@@ -66,7 +66,9 @@ func (handler *UserHandler) First(c *gin.Context) {
 		return
 	}
 
-	c.JSON(200, utils.NewResponse(200, "success", user.ToResponse()))
+	c.JSON(200, utils.NewResponse(200, "success", gin.H{
+		"user": user.ToResponse(),
+	}))
 }
 
 func (handler *UserHandler) List(c *gin.Context) {
@@ -79,7 +81,7 @@ func (handler *UserHandler) List(c *gin.Context) {
 	paginationQueryParams.Parse(c)
 
 	// -- Prepare sql query
-	query, params, err := bqb.New("SELECT id, name, email, role FROM \"user\" ORDER BY id LIMIT ? OFFSET ?", paginationQueryParams.Limit, paginationQueryParams.Offset).ToPgsql()
+	query, params, err := bqb.New("SELECT id, name, email, role, deleted FROM \"user\" ORDER BY id LIMIT ? OFFSET ?", paginationQueryParams.Limit, paginationQueryParams.Offset).ToPgsql()
 	if err != nil {
 		log.Printf("Error preparing sql query: %v\n", err)
 		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
@@ -95,7 +97,7 @@ func (handler *UserHandler) List(c *gin.Context) {
 	} else {
 		for rows.Next() {
 			var user models.User
-			if err := rows.Scan(&user.Id, &user.Name, &user.Email, &user.Role); err != nil {
+			if err := rows.Scan(&user.Id, &user.Name, &user.Email, &user.Role, &user.Deleted); err != nil {
 				log.Printf("Error scanning user from database: %v\n", err)
 				c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
 				return
@@ -104,7 +106,25 @@ func (handler *UserHandler) List(c *gin.Context) {
 		}
 	}
 
-	c.JSON(200, utils.NewResponse(200, "success", models.UsersToResponse(users)))
+	// -- Count total users
+	query, params, err = bqb.New(`SELECT COUNT(*) FROM "user"`).ToPgsql()
+	if err != nil {
+		log.Printf("Error preparing sql query: %v\n", err)
+		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
+		return
+	}
+
+	var total uint
+	if err := handler.DB.QueryRow(query, params...).Scan(&total); err != nil {
+		log.Printf("Error getting total users: %v\n", err)
+		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
+		return
+	}
+
+	c.JSON(200, utils.NewResponse(200, "success", gin.H{
+		"total": total,
+		"users": models.UsersToResponse(users),
+	}))
 }
 
 func (handler *UserHandler) Create(c *gin.Context) {

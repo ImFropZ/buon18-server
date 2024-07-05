@@ -63,9 +63,11 @@ func (handler *AuthHandler) Me(c *gin.Context) {
 	}
 
 	c.JSON(200, utils.NewResponse(200, "", gin.H{
-		"name":  user.Name,
-		"email": user.Email,
-		"role":  user.Role,
+		"user": gin.H{
+			"name":  user.Name,
+			"email": user.Email,
+			"role":  user.Role,
+		},
 	}))
 }
 

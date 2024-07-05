@@ -8,12 +8,12 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func User(e *gin.Engine, db *sql.DB) {
+func User(rg *gin.RouterGroup, db *sql.DB) {
 	handler := controllers.UserHandler{DB: db}
 
-	e.GET("/users", middlewares.Authorize(middlewares.Editor), handler.List)
-	e.GET("/users/:id", middlewares.Authorize(middlewares.Editor), handler.First)
-	e.POST("/users", middlewares.Authorize(middlewares.Admin), handler.Create)
-	e.PATCH("/users/:id", middlewares.Authorize(middlewares.Admin), handler.Update)
-	e.DELETE("/users/:id", middlewares.Authorize(middlewares.Admin), handler.Delete)
+	rg.GET("/users", middlewares.Authorize(middlewares.Editor), handler.List)
+	rg.GET("/users/:id", middlewares.Authorize(middlewares.Editor), handler.First)
+	rg.POST("/users", middlewares.Authorize(middlewares.Admin), handler.Create)
+	rg.PATCH("/users/:id", middlewares.Authorize(middlewares.Admin), handler.Update)
+	rg.DELETE("/users/:id", middlewares.Authorize(middlewares.Admin), handler.Delete)
 }

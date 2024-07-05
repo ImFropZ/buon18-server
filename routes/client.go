@@ -8,13 +8,13 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func Client(e *gin.Engine, db *sql.DB) {
+func Client(rg *gin.RouterGroup, db *sql.DB) {
 	handler := controllers.ClientHandler{DB: db}
 
-	e.GET("/clients", handler.List)
-	e.GET("/clients/:id", handler.First)
-	e.POST("/clients", middlewares.Authorize(middlewares.Editor), handler.Create)
-	e.PATCH("/clients/:id", middlewares.Authorize(middlewares.Editor), handler.Update)
-	e.DELETE("/clients/:id", middlewares.Authorize(middlewares.Admin), handler.Delete)
-	e.DELETE("/clients/:id/social-medias/:smid", middlewares.Authorize(middlewares.Admin), handler.DeleteSocialMedia)
+	rg.GET("/clients", handler.List)
+	rg.GET("/clients/:id", handler.First)
+	rg.POST("/clients", middlewares.Authorize(middlewares.Editor), handler.Create)
+	rg.PATCH("/clients/:id", middlewares.Authorize(middlewares.Editor), handler.Update)
+	rg.DELETE("/clients/:id", middlewares.Authorize(middlewares.Admin), handler.Delete)
+	rg.DELETE("/clients/:id/social-medias/:smid", middlewares.Authorize(middlewares.Admin), handler.DeleteSocialMedia)
 }
