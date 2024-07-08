@@ -49,6 +49,9 @@ type UpdateQuoteRequest struct {
 		Quantity    uint    `json:"quantity"`
 		UnitPrice   float64 `json:"unit_price"`
 	} `json:"items"`
+
+	// -- Delete items
+	DeleteItems []uint `json:"delete_item_ids"`
 }
 
 type CreateSalesOrderRequest struct {
@@ -74,7 +77,7 @@ func (handler *QuoteHandler) First(c *gin.Context) {
 	}
 
 	// -- Prepare sql query
-	query, params, err := bqb.New(`SELECT q.id, q.code, q.date, q.expiry_date, COALESCE(q.note, ''), q.subtotal, q.discount, q.total, q.client_id, q.account_id, q.status, q.cid, qt.id, qt.name, COALESCE(qt.description, ''), qt.quantity, qt.unit_price
+	query, params, err := bqb.New(`SELECT q.id, q.code, q.date, q.expiry_date, COALESCE(q.note, ''), q.subtotal, q.discount, q.total, q.client_id, q.account_id, q.status, q.cid, COALESCE(qt.id, 0), COALESCE(qt.name, ''), COALESCE(qt.description, ''), COALESCE(qt.quantity, 0), COALESCE(qt.unit_price, 0)
 	FROM "quote" as q
 	LEFT JOIN "quote_item" as qt ON qt.quote_id = q.id
 	WHERE q.id = ? 
@@ -144,7 +147,7 @@ func (handler *QuoteHandler) List(c *gin.Context) {
 	paginationQueryParams.Parse(c)
 
 	// -- Prepare sql query
-	query, params, err := bqb.New(`SELECT q.id, q.code, q.date, q.expiry_date, COALESCE(q.note, ''), q.subtotal, q.discount, q.total, q.client_id, q.account_id, q.status, q.cid, qt.id, qt.name, COALESCE(qt.description, ''), qt.quantity, qt.unit_price
+	query, params, err := bqb.New(`SELECT q.id, q.code, q.date, q.expiry_date, COALESCE(q.note, ''), q.subtotal, q.discount, q.total, q.client_id, q.account_id, q.status, q.cid, COALESCE(qt.id, 0), COALESCE(qt.name, ''), COALESCE(qt.description, ''), COALESCE(qt.quantity, 0), COALESCE(qt.unit_price, 0)
 	FROM "quote" as q
 	LEFT JOIN "quote_item" as qt ON qt.quote_id = q.id 
 	ORDER BY q.id, qt.id
@@ -709,8 +712,8 @@ func (handler *QuoteHandler) Update(c *gin.Context) {
 		}
 	}
 
-	// -- Check if there are items to update or insert
-	if len(request.Items) < 1 {
+	// -- Check if there are items to update, insert or delete
+	if len(request.Items) == 0 && len(request.DeleteItems) == 0 {
 		// Check if discount is updated
 		if isDiscountUpdated {
 			// -- Prepare sql query
@@ -812,6 +815,56 @@ func (handler *QuoteHandler) Update(c *gin.Context) {
 		if _, err := tx.Exec(query, params...); err != nil {
 			tx.Rollback()
 			log.Printf("Error inserting quote items: %v\n", err)
+			c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
+			return
+		}
+	}
+
+	if len(request.DeleteItems) > 0 {
+		// -- Prepare sql query
+		query, params, err := bqb.New(`SELECT Count(*) FROM "quote_item" WHERE quote_id = ?`, quoteId).ToPgsql()
+		if err != nil {
+			tx.Rollback()
+			log.Printf("Error preparing sql query: %v\n", err)
+			c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
+			return
+		}
+
+		// -- Count quote items
+		var count uint
+		if err := tx.QueryRow(query, params...).Scan(&count); err != nil {
+			tx.Rollback()
+			log.Printf("Error counting quote items: %v\n", err)
+			c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
+			return
+		}
+
+		if uint(len(request.DeleteItems))+1 > count {
+			tx.Rollback()
+			c.JSON(400, utils.NewErrorResponse(400, "invalid request body. delete items should not exceed total quote items or empty the quote items"))
+			return
+		}
+
+		// -- Prepare sql query
+		bqbQuery = bqb.New(`DELETE FROM "quote_item" WHERE id IN (`)
+		for _, id := range request.DeleteItems {
+			bqbQuery.Space(`?,`, id)
+		}
+
+		query, params, err = bqbQuery.ToPgsql()
+		if err != nil {
+			tx.Rollback()
+			log.Printf("Error preparing sql query: %v\n", err)
+			c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
+			return
+		}
+		// -- Remove last comma and add closing bracket
+		query = query[:len(query)-1] + ")"
+
+		// -- Delete quote items
+		if _, err := tx.Exec(query, params...); err != nil {
+			tx.Rollback()
+			log.Printf("Error deleting quote items: %v\n", err)
 			c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
 			return
 		}
@@ -941,138 +994,6 @@ func (handler *QuoteHandler) Delete(c *gin.Context) {
 	}
 
 	c.JSON(200, utils.NewResponse(200, fmt.Sprintf("quote %d deleted successfully", quoteId), nil))
-}
-
-func (handler *QuoteHandler) DeleteItem(c *gin.Context) {
-	// -- Get quote id and quote item id
-	quoteId, err := strconv.Atoi(c.Param("id"))
-	if err != nil {
-		c.JSON(400, utils.NewErrorResponse(400, "invalid quote Id. quote Id should be an integer"))
-		return
-	}
-	quoteItemId, err := strconv.Atoi(c.Param("qid"))
-	if err != nil {
-		c.JSON(400, utils.NewErrorResponse(400, "invalid quote item Id. quote item Id should be an integer"))
-		return
-	}
-
-	// -- Prepare sql query
-	query, params, err := bqb.New(`SELECT expiry_date, status FROM "quote" WHERE id = ?`, quoteId).ToPgsql()
-	if err != nil {
-		log.Printf("Error preparing sql query: %v\n", err)
-		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
-		return
-	}
-
-	// -- Begin transaction
-	tx, err := handler.DB.Begin()
-	if err != nil {
-		log.Printf("Error beginning transaction: %v\n", err)
-		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
-		return
-	}
-
-	// -- Check if quote exists
-	var targetQuote models.Quote
-	if err := tx.QueryRow(query, params...).Scan(&targetQuote.ExpiryDate, &targetQuote.Status); err != nil {
-		tx.Rollback()
-
-		if err == sql.ErrNoRows {
-			c.JSON(404, utils.NewErrorResponse(404, "quote not found"))
-			return
-		}
-
-		log.Printf("Error counting quote: %v\n", err)
-		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
-		return
-	}
-
-	// -- Check if status is Accept, Reject, or Expired
-	if targetQuote.Status == "Accept" || targetQuote.Status == "Reject" || isExpired(targetQuote.ExpiryDate) {
-		tx.Rollback()
-
-		if isExpired(targetQuote.ExpiryDate) {
-			c.JSON(400, utils.NewErrorResponse(400, "quote status is already expired. create a new quote instead"))
-			return
-		}
-
-		c.JSON(400, utils.NewErrorResponse(400, "quote status is already "+strings.ToLower(targetQuote.Status)))
-		return
-	}
-
-	// -- Prepare sql query
-	query, params, err = bqb.New(`SELECT COUNT(*) FROM "quote_item" WHERE quote_id = ?`, quoteId).ToPgsql()
-	if err != nil {
-		log.Printf("Error preparing sql query: %v\n", err)
-		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
-		return
-	}
-
-	// -- Check if quote item are only one left
-	var count int
-	if err := tx.QueryRow(query, params...).Scan(&count); err != nil {
-		tx.Rollback()
-		log.Printf("Error counting quote items: %v\n", err)
-		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
-		return
-	}
-
-	if count == 1 {
-		tx.Rollback()
-		c.JSON(400, utils.NewErrorResponse(400, "quote should have at least one item. you can delete the quote instead"))
-		return
-	}
-
-	// -- Prepare sql query
-	query, params, err = bqb.New(`DELETE FROM "quote_item" as qi 
-	USING "quote" as q
-	WHERE qi.id = ?
-	AND q.id = ?`, quoteItemId, quoteId).ToPgsql()
-	if err != nil {
-		log.Printf("Error preparing sql query: %v\n", err)
-		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
-		return
-	}
-
-	// -- Delete quote item from database
-	if result, err := tx.Exec(query, params...); err != nil {
-		tx.Rollback()
-		log.Printf("Error deleting quote item from database: %v\n", err)
-		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
-		return
-	} else {
-		if affected, _ := result.RowsAffected(); affected == 0 {
-			tx.Rollback()
-			c.JSON(404, utils.NewErrorResponse(404, "quote item not found"))
-			return
-		}
-	}
-
-	// -- Prepare sql query (UPDATE QUOTE TOTAL)
-	query, params, err = bqb.New(`CALL update_quote_total(?)`, quoteId).ToPgsql()
-	if err != nil {
-		tx.Rollback()
-		log.Printf("Error preparing sql query: %v\n", err)
-		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
-		return
-	}
-
-	// -- Update quote total
-	if _, err := tx.Exec(query, params...); err != nil {
-		tx.Rollback()
-		log.Printf("Error updating quote total: %v\n", err)
-		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
-		return
-	}
-
-	// -- Commit transaction
-	if err := tx.Commit(); err != nil {
-		log.Printf("Error committing transaction: %v\n", err)
-		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
-		return
-	}
-
-	c.JSON(200, utils.NewResponse(200, fmt.Sprintf("Quote item %d successfully deleted from quote %d", quoteItemId, quoteId), nil))
 }
 
 func isExpired(date time.Time) bool {
