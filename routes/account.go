@@ -16,5 +16,4 @@ func Account(e *gin.Engine, db *sql.DB) {
 	e.POST("/api/accounts", middlewares.Authenticate(db), middlewares.Authorize(middlewares.Editor), handler.Create)
 	e.PATCH("/api/accounts/:id", middlewares.Authenticate(db), middlewares.Authorize(middlewares.Editor), handler.Update)
 	e.DELETE("/api/accounts/:id", middlewares.Authenticate(db), middlewares.Authorize(middlewares.Admin), handler.Delete)
-	e.DELETE("/api/accounts/:id/social-medias/:smid", middlewares.Authenticate(db), middlewares.Authorize(middlewares.Admin), handler.DeleteSocialMedia)
 }

@@ -34,6 +34,9 @@ type UpdateAccountRequest struct {
 	SecondaryPhone string                            `json:"secondary_phone"`
 	Phone          string                            `json:"phone"`
 	SocialMedias   []models.UpdateSocialMediaRequest `json:"social_medias"`
+
+	// - Fields to delete social medias
+	DeleteSocialMedias []uint `json:"delete_social_media_ids"`
 }
 
 type AccountHandler struct {
@@ -456,7 +459,7 @@ func (handler *AccountHandler) Update(c *gin.Context) {
 	}
 
 	// -- Update social medias
-	if len(req.SocialMedias) == 0 {
+	if len(req.SocialMedias) == 0 && len(req.DeleteSocialMedias) == 0 {
 		// -- Commit transaction
 		if err := tx.Commit(); err != nil {
 			log.Printf("Error commiting transaction: %v\n", err)
@@ -561,66 +564,30 @@ func (handler *AccountHandler) Update(c *gin.Context) {
 		}
 	}
 
-	// -- Commit transaction
-	if err := tx.Commit(); err != nil {
-		log.Printf("Error commiting transaction: %v\n", err)
-		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
-		return
-	}
+	// -- Delete social medias
+	if len(req.DeleteSocialMedias) > 0 {
+		// -- Prepare sql query
+		bqbQuery = bqb.New(`DELETE FROM "social_media_data" WHERE id IN (`)
+		for _, smid := range req.DeleteSocialMedias {
+			bqbQuery.Space("?,", smid)
+		}
 
-	c.JSON(200, utils.NewResponse(200, fmt.Sprintf("account %d updated", id), nil))
-}
-
-func (handler *AccountHandler) DeleteSocialMedia(c *gin.Context) {
-	// -- Get id
-	id, err := strconv.Atoi(c.Param("id"))
-	if err != nil {
-		c.JSON(400, utils.NewErrorResponse(400, "invalid user Id. user Id should be an integer"))
-		return
-	}
-
-	// -- Get social media id
-	socialMediaId, err := strconv.Atoi(c.Param("smid"))
-	if err != nil {
-		c.JSON(400, utils.NewErrorResponse(400, "invalid social media Id. social media Id should be an integer"))
-		return
-	}
-
-	// -- Prepare sql query
-	query, params, err := bqb.New(`DELETE FROM "social_media_data" as smd
-	USING "account" as a
-	WHERE smd.social_media_id = a.social_media_id
-	AND smd.id = ?
-	AND a.id = ?`, socialMediaId, id).ToPgsql()
-	if err != nil {
-		log.Printf("Error preparing sql query: %v\n", err)
-		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
-		return
-	}
-
-	// -- Begin transaction
-	tx, err := handler.DB.Begin()
-	if err != nil {
-		log.Printf("Error beginning transaction: %v\n", err)
-		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
-		return
-	}
-
-	// -- Delete social media
-	if result, err := tx.Exec(query, params...); err != nil {
-		tx.Rollback()
-		log.Printf("Error deleting social media: %v\n", err)
-		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
-		return
-	} else {
-		if n, err := result.RowsAffected(); err != nil {
+		query, params, err = bqbQuery.ToPgsql()
+		if err != nil {
 			tx.Rollback()
-			log.Printf("Error getting rows affected: %v\n", err)
+			log.Printf("Error preparing social media query: %v\n", err)
 			c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
 			return
-		} else if n == 0 {
+		}
+
+		// -- Remove last comma and add closing bracket
+		query = query[:len(query)-1] + ")"
+
+		// -- Delete social medias
+		if _, err := tx.Exec(query, params...); err != nil {
 			tx.Rollback()
-			c.JSON(404, utils.NewErrorResponse(404, fmt.Sprintf("social media %d not found from account %d", socialMediaId, id)))
+			log.Printf("Error deleting social media: %v\n", err)
+			c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
 			return
 		}
 	}
@@ -632,7 +599,7 @@ func (handler *AccountHandler) DeleteSocialMedia(c *gin.Context) {
 		return
 	}
 
-	c.JSON(200, utils.NewResponse(200, fmt.Sprintf("social media %d deleted", socialMediaId), nil))
+	c.JSON(200, utils.NewResponse(200, fmt.Sprintf("account %d updated", id), nil))
 }
 
 func (handler *AccountHandler) Delete(c *gin.Context) {
