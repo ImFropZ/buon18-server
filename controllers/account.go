@@ -507,7 +507,7 @@ func (handler *AccountHandler) Update(c *gin.Context) {
 		if sm.URL != "" {
 			bqbQuery.Space("url = ?,", sm.URL)
 		}
-		query, params, err = bqbQuery.Space("mid = ?, mtime = ? WHERE id = ? AND social_media_id", tmpSocialMedia.MId, tmpSocialMedia.MTime, sm.Id, accountSocialMediaId).ToPgsql()
+		query, params, err = bqbQuery.Space("mid = ?, mtime = ? WHERE id = ? AND social_media_id = ?", tmpSocialMedia.MId, tmpSocialMedia.MTime, sm.Id, accountSocialMediaId).ToPgsql()
 		if err != nil {
 			tx.Rollback()
 			log.Printf("Error preparing sql query: %v\n", err)
