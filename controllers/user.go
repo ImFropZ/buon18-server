@@ -81,7 +81,17 @@ func (handler *UserHandler) List(c *gin.Context) {
 	paginationQueryParams.Parse(c)
 
 	// -- Prepare sql query
-	query, params, err := bqb.New("SELECT id, name, email, role, deleted FROM \"user\" ORDER BY id LIMIT ? OFFSET ?", paginationQueryParams.Limit, paginationQueryParams.Offset).ToPgsql()
+	bqbQuery := bqb.New(`SELECT id, name, email, role, deleted FROM "user"`)
+
+	// -- Add query if exists
+	if paginationQueryParams.Query != "" {
+		bqbQuery.Space(`WHERE name ILIKE ?`, "%"+paginationQueryParams.Query+"%")
+	}
+
+	// -- Complete query
+	bqbQuery.Space("ORDER BY id OFFSET ? LIMIT ?", paginationQueryParams.Offset, paginationQueryParams.Limit)
+
+	query, params, err := bqbQuery.ToPgsql()
 	if err != nil {
 		log.Printf("Error preparing sql query: %v\n", err)
 		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
@@ -107,7 +117,13 @@ func (handler *UserHandler) List(c *gin.Context) {
 	}
 
 	// -- Count total users
-	query, params, err = bqb.New(`SELECT COUNT(*) FROM "user"`).ToPgsql()
+	bqbQuery = bqb.New(`SELECT COUNT(*) FROM "user"`)
+
+	if paginationQueryParams.Query != "" {
+		bqbQuery.Space(`WHERE name ILIKE ?`, "%"+paginationQueryParams.Query+"%")
+	}
+
+	query, params, err = bqbQuery.ToPgsql()
 	if err != nil {
 		log.Printf("Error preparing sql query: %v\n", err)
 		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))

@@ -69,11 +69,19 @@ func (handler *SalesOrderHandler) List(c *gin.Context) {
 	paginationQueryParams.Parse(c)
 
 	// -- Prepare sql query
-	query, params, err := bqb.New(`SELECT id, code, COALESCE(note, ''), status, accept_date, delivery_date, quote_id, cid 
+	bqbQuery := bqb.New(`SELECT id, code, COALESCE(note, ''), status, accept_date, delivery_date, quote_id, cid 
 	FROM 
-		"sales_order" 
-	ORDER BY id
-	LIMIT ? OFFSET ?`, paginationQueryParams.Limit, paginationQueryParams.Offset).ToPgsql()
+		"sales_order"`)
+
+	// -- Add query if exists
+	if paginationQueryParams.Query != "" {
+		bqbQuery.Space(`WHERE code ILIKE ?`, "%"+paginationQueryParams.Query+"%")
+	}
+
+	// -- Complete query
+	bqbQuery.Space("ORDER BY id OFFSET ? LIMIT ?", paginationQueryParams.Offset, paginationQueryParams.Limit)
+
+	query, params, err := bqbQuery.ToPgsql()
 	if err != nil {
 		log.Printf("Error preparing query: %v", err)
 		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
@@ -102,7 +110,13 @@ func (handler *SalesOrderHandler) List(c *gin.Context) {
 	}
 
 	// -- Count total sales orders
-	query, params, err = bqb.New(`SELECT COUNT(*) FROM "sales_order"`).ToPgsql()
+	bqbQuery = bqb.New(`SELECT COUNT(*) FROM "sales_order"`)
+
+	if paginationQueryParams.Query != "" {
+		bqbQuery.Space(`WHERE code ILIKE ?`, "%"+paginationQueryParams.Query+"%")
+	}
+
+	query, params, err = bqbQuery.ToPgsql()
 	if err != nil {
 		log.Printf("Error preparing sql query: %v\n", err)
 		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))

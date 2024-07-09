@@ -9,6 +9,7 @@ import (
 type PaginationQueryParams struct {
 	Offset int
 	Limit  int
+	Query  string
 }
 
 func (p *PaginationQueryParams) Parse(c *gin.Context) {
@@ -23,5 +24,8 @@ func (p *PaginationQueryParams) Parse(c *gin.Context) {
 			limit = 10
 		}
 		p.Limit = limit
+	}
+	if query := c.Query("q"); query != "" {
+		p.Query = query
 	}
 }

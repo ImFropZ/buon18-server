@@ -110,14 +110,22 @@ func (handler *ClientHandler) List(c *gin.Context) {
 	paginationQueryParams.Parse(c)
 
 	// -- Prepare sql query (GET CLIENTS)
-	query, params, err := bqb.New(`SELECT 
+	bqbQuery := bqb.New(`SELECT 
 	c.id, c.code, c.name, COALESCE(c.address, ''), c.phone, c.latitude, c.longitude, COALESCE(c.note, ''), COALESCE(smd.id, 0), COALESCE(smd.platform, ''), COALESCE(smd.url, '') 
 	FROM 
 		"client" as c
 			LEFT JOIN 
-		"social_media_data" as smd ON c.social_media_id = smd.social_media_id
-	ORDER BY c.id, smd.id
-	LIMIT ? OFFSET ?`, paginationQueryParams.Limit, paginationQueryParams.Offset).ToPgsql()
+		"social_media_data" as smd ON c.social_media_id = smd.social_media_id`)
+
+	// -- Add query if exists
+	if paginationQueryParams.Query != "" {
+		bqbQuery.Space(`WHERE c.name ILIKE ?`, "%"+paginationQueryParams.Query+"%")
+	}
+
+	// -- Complete query
+	bqbQuery.Space("ORDER BY c.id, smd.id OFFSET ? LIMIT ?", paginationQueryParams.Offset, paginationQueryParams.Limit)
+
+	query, params, err := bqbQuery.ToPgsql()
 	if err != nil {
 		log.Printf("Error preparing sql query: %v\n", err)
 		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
@@ -174,7 +182,13 @@ func (handler *ClientHandler) List(c *gin.Context) {
 	}
 
 	// -- Count total clients
-	query, params, err = bqb.New(`SELECT COUNT(*) FROM "client"`).ToPgsql()
+	bqbQuery = bqb.New(`SELECT COUNT(*) FROM "client"`)
+
+	if paginationQueryParams.Query != "" {
+		bqbQuery.Space(`WHERE name ILIKE ?`, "%"+paginationQueryParams.Query+"%")
+	}
+
+	query, params, err = bqbQuery.ToPgsql()
 	if err != nil {
 		log.Printf("Error preparing sql query: %v\n", err)
 		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))

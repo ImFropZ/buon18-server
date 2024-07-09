@@ -147,11 +147,19 @@ func (handler *QuoteHandler) List(c *gin.Context) {
 	paginationQueryParams.Parse(c)
 
 	// -- Prepare sql query
-	query, params, err := bqb.New(`SELECT q.id, q.code, q.date, q.expiry_date, COALESCE(q.note, ''), q.subtotal, q.discount, q.total, q.client_id, q.account_id, q.status, q.cid, COALESCE(qt.id, 0), COALESCE(qt.name, ''), COALESCE(qt.description, ''), COALESCE(qt.quantity, 0), COALESCE(qt.unit_price, 0)
+	bqbQuery := bqb.New(`SELECT q.id, q.code, q.date, q.expiry_date, COALESCE(q.note, ''), q.subtotal, q.discount, q.total, q.client_id, q.account_id, q.status, q.cid, COALESCE(qt.id, 0), COALESCE(qt.name, ''), COALESCE(qt.description, ''), COALESCE(qt.quantity, 0), COALESCE(qt.unit_price, 0)
 	FROM "quote" as q
-	LEFT JOIN "quote_item" as qt ON qt.quote_id = q.id 
-	ORDER BY q.id, qt.id
-	LIMIT ? OFFSET ?`, paginationQueryParams.Limit, paginationQueryParams.Offset).ToPgsql()
+	LEFT JOIN "quote_item" as qt ON qt.quote_id = q.id`)
+
+	// -- Add query if exists
+	if paginationQueryParams.Query != "" {
+		bqbQuery.Space(`WHERE q.code ILIKE ?`, "%"+paginationQueryParams.Query+"%")
+	}
+
+	// -- Complete query
+	bqbQuery.Space("ORDER BY q.id, qt.id OFFSET ? LIMIT ?", paginationQueryParams.Offset, paginationQueryParams.Limit)
+
+	query, params, err := bqbQuery.ToPgsql()
 	if err != nil {
 		log.Printf("Error preparing sql query: %v\n", err)
 		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
@@ -205,7 +213,13 @@ func (handler *QuoteHandler) List(c *gin.Context) {
 	}
 
 	// -- Count total quotes
-	query, params, err = bqb.New(`SELECT COUNT(*) FROM "quote"`).ToPgsql()
+	bqbQuery = bqb.New(`SELECT COUNT(*) FROM "quote"`)
+
+	if paginationQueryParams.Query != "" {
+		bqbQuery.Space(`WHERE code ILIKE ?`, "%"+paginationQueryParams.Query+"%")
+	}
+
+	query, params, err = bqbQuery.ToPgsql()
 	if err != nil {
 		log.Printf("Error preparing sql query: %v\n", err)
 		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
