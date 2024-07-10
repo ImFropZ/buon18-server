@@ -320,37 +320,39 @@ func (handler *AccountHandler) Create(c *gin.Context) {
 		}
 	}
 
-	// -- Prepare sql query (CREATE SOCIAL MEDIA DATA)
-	bqbQuery := bqb.New(`INSERT INTO "social_media_data" (social_media_id, platform, url, cid, ctime, mid, mtime) VALUES`)
-	socialMediaData := models.SocialMediaData{}
-	if err := socialMediaData.PrepareForCreate(userId, userId); err != nil {
-		tx.Rollback()
-		log.Printf("Error preparing social media for create: %v\n", err)
-		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
-		return
-	}
+	if len(req.SocialMedias) != 0 {
+		// -- Prepare sql query (CREATE SOCIAL MEDIA DATA)
+		bqbQuery := bqb.New(`INSERT INTO "social_media_data" (social_media_id, platform, url, cid, ctime, mid, mtime) VALUES`)
+		socialMediaData := models.SocialMediaData{}
+		if err := socialMediaData.PrepareForCreate(userId, userId); err != nil {
+			tx.Rollback()
+			log.Printf("Error preparing social media for create: %v\n", err)
+			c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
+			return
+		}
 
-	for _, sm := range req.SocialMedias {
-		// -- Append social media to bqb query
-		bqbQuery.Space("(?, ?, ?, ?, ?, ?, ?),", createdSocialMediaId, sm.Platform, sm.URL, socialMediaData.CId, socialMediaData.CTime, socialMediaData.MId, socialMediaData.MTime)
-	}
+		for _, sm := range req.SocialMedias {
+			// -- Append social media to bqb query
+			bqbQuery.Space("(?, ?, ?, ?, ?, ?, ?),", createdSocialMediaId, sm.Platform, sm.URL, socialMediaData.CId, socialMediaData.CTime, socialMediaData.MId, socialMediaData.MTime)
+		}
 
-	query, params, err = bqbQuery.ToPgsql()
-	if err != nil {
-		tx.Rollback()
-		log.Printf("Error preparing social media query: %v\n", err)
-		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
-		return
-	}
-	// -- Remove last comma
-	query = query[:len(query)-1]
+		query, params, err = bqbQuery.ToPgsql()
+		if err != nil {
+			tx.Rollback()
+			log.Printf("Error preparing social media query: %v\n", err)
+			c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
+			return
+		}
+		// -- Remove last comma
+		query = query[:len(query)-1]
 
-	// -- Get account from db
-	if _, err := tx.Exec(query, params...); err != nil {
-		tx.Rollback()
-		log.Printf("Error creating social media: %v\n", err)
-		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
-		return
+		// -- Get account from db
+		if _, err := tx.Exec(query, params...); err != nil {
+			tx.Rollback()
+			log.Printf("Error creating social media: %v\n", err)
+			c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
+			return
+		}
 	}
 
 	// -- Commit transaction
