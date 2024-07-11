@@ -305,6 +305,11 @@ func (handler *QuoteHandler) Create(c *gin.Context) {
 				c.JSON(400, utils.NewErrorResponse(400, "quote code already exists"))
 				return
 			}
+
+			if pqErr.Code == pq.ErrorCode(database.PQ_ERROR_CODES[database.VIOLATE_FOREIGN_KEY]) {
+				c.JSON(400, utils.NewErrorResponse(400, "client or account not found"))
+				return
+			}
 		}
 
 		log.Printf("Error inserting quote to database: %v\n", err)
