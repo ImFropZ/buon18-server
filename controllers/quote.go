@@ -257,7 +257,7 @@ func (handler *QuoteHandler) Create(c *gin.Context) {
 	}
 
 	// -- Validate date
-	if request.ExpiryDate.After(request.Date) {
+	if !request.ExpiryDate.After(request.Date) {
 		c.JSON(400, utils.NewErrorResponse(400, "invalid request body. expiry_date should be after date"))
 		return
 	}
