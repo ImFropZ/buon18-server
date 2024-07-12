@@ -15,44 +15,42 @@ import (
 	"github.com/nullism/bqb"
 )
 
-type Range struct {
-	Min float64
-	Max float64
-}
-
-type ClientParamsQuery struct {
-	NameILike      string
-	PhoneILike     string
-	LatitudeRange  Range
-	LongitudeRange Range
-}
-
-func (param *ClientParamsQuery) Parse(c *gin.Context) {
+func prepareClientQuery(c *gin.Context, bqbQuery *bqb.Query) {
+	// -- Apply query params
+	bqbQuery.Space("WHERE")
 	if str, ok := c.GetQuery("name_ilike"); ok {
-		param.NameILike = str
+		bqbQuery.Space(`c.name ILIKE ? AND`, "%"+str+"%")
 	}
 	if str, ok := c.GetQuery("phone_ilike"); ok {
-		param.PhoneILike = str
+		bqbQuery.Space(`c.phone ILIKE ? AND`, "%"+str+"%")
 	}
 	if str, ok := c.GetQuery("latitude_range"); ok {
 		if value := strings.Split(str, ","); len(value) == 2 {
 			if min, err := strconv.ParseFloat(value[0], 64); err == nil {
-				param.LatitudeRange.Min = min
-			}
-			if max, err := strconv.ParseFloat(value[1], 64); err == nil {
-				param.LatitudeRange.Max = max
+				if max, err := strconv.ParseFloat(value[1], 64); err == nil {
+					bqbQuery.Space(`c.latitude BETWEEN ? AND ? AND`, min, max)
+				}
 			}
 		}
 	}
 	if str, ok := c.GetQuery("longitude_range"); ok {
 		if value := strings.Split(str, ","); len(value) == 2 {
 			if min, err := strconv.ParseFloat(value[0], 64); err == nil {
-				param.LongitudeRange.Min = min
-			}
-			if max, err := strconv.ParseFloat(value[1], 64); err == nil {
-				param.LongitudeRange.Max = max
+				if max, err := strconv.ParseFloat(value[1], 64); err == nil {
+					bqbQuery.Space(`c.longitude BETWEEN ? AND ? AND`, min, max)
+				}
 			}
 		}
+	}
+
+	// -- Remove last AND or WHERE
+	if strings.HasSuffix(bqbQuery.Parts[len(bqbQuery.Parts)-1].Text, "WHERE") {
+		bqbQuery.Parts = bqbQuery.Parts[:len(bqbQuery.Parts)-1]
+	} else if strings.HasSuffix(bqbQuery.Parts[len(bqbQuery.Parts)-1].Text, "AND") {
+		text := bqbQuery.Parts[len(bqbQuery.Parts)-1].Text
+		arr := strings.Split(text, " ")
+
+		bqbQuery.Parts[len(bqbQuery.Parts)-1].Text = strings.Join(arr[:len(arr)-1], " ")
 	}
 }
 
@@ -159,33 +157,8 @@ func (handler *ClientHandler) List(c *gin.Context) {
 			LEFT JOIN 
 		"social_media_data" as smd ON c.social_media_id = smd.social_media_id`)
 
-	var clientParamsQuery ClientParamsQuery
-	clientParamsQuery.Parse(c)
-
 	// -- Apply query params
-	bqbQuery.Space("WHERE")
-	if clientParamsQuery.NameILike != "" {
-		bqbQuery.Space(`c.name ILIKE ? AND`, "%"+clientParamsQuery.NameILike+"%")
-	}
-	if clientParamsQuery.PhoneILike != "" {
-		bqbQuery.Space(`c.phone ILIKE ? AND`, "%"+clientParamsQuery.PhoneILike+"%")
-	}
-	if clientParamsQuery.LatitudeRange.Min != 0.0 || clientParamsQuery.LatitudeRange.Max != 0.0 {
-		bqbQuery.Space(`c.latitude BETWEEN ? AND ? AND`, clientParamsQuery.LatitudeRange.Min, clientParamsQuery.LatitudeRange.Max)
-	}
-	if clientParamsQuery.LongitudeRange.Min != 0.0 || clientParamsQuery.LongitudeRange.Max != 0.0 {
-		bqbQuery.Space(`c.longitude BETWEEN ? AND ? AND`, clientParamsQuery.LongitudeRange.Min, clientParamsQuery.LongitudeRange.Max)
-	}
-
-	// -- Remove last AND or WHERE
-	if bqbQuery.Parts[len(bqbQuery.Parts)-1].Text == "WHERE" {
-		bqbQuery.Parts = bqbQuery.Parts[:len(bqbQuery.Parts)-1]
-	} else if strings.HasSuffix(bqbQuery.Parts[len(bqbQuery.Parts)-1].Text, "AND") {
-		text := bqbQuery.Parts[len(bqbQuery.Parts)-1].Text
-		arr := strings.Split(text, " ")
-
-		bqbQuery.Parts[len(bqbQuery.Parts)-1].Text = strings.Join(arr[:len(arr)-1], " ")
-	}
+	prepareClientQuery(c, bqbQuery)
 
 	// -- Complete query
 	bqbQuery.Space("ORDER BY c.id, smd.id OFFSET ? LIMIT ?", paginationQueryParams.Offset, paginationQueryParams.Limit)
@@ -247,11 +220,9 @@ func (handler *ClientHandler) List(c *gin.Context) {
 	}
 
 	// -- Count total clients
-	bqbQuery = bqb.New(`SELECT COUNT(*) FROM "client"`)
+	bqbQuery = bqb.New(`SELECT COUNT(*) FROM "client" as c`)
 
-	if paginationQueryParams.Query != "" {
-		bqbQuery.Space(`WHERE name ILIKE ?`, "%"+paginationQueryParams.Query+"%")
-	}
+	prepareClientQuery(c, bqbQuery)
 
 	query, params, err = bqbQuery.ToPgsql()
 	if err != nil {
