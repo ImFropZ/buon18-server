@@ -18,6 +18,45 @@ import (
 	"golang.org/x/text/language"
 )
 
+func prepareQuoteQuery(c *gin.Context, bqbQuery *bqb.Query) {
+	// -- Apply query params
+	bqbQuery.Space("WHERE")
+	if str, ok := c.GetQuery("code_ilike"); ok {
+		bqbQuery.Space(`"quote".code ILIKE ? AND`, "%"+str+"%")
+	}
+	if str, ok := c.GetQuery("client_id_ilike"); ok {
+		bqbQuery.Space(`"quote".client_id ILIKE ? AND`, "%"+str+"%")
+	}
+	if str, ok := c.GetQuery("account_id_ilike"); ok {
+		bqbQuery.Space(`"quote".account_id ILIKE ? AND`, "%"+str+"%")
+	}
+	if str, ok := c.GetQuery("created_by_ilike"); ok {
+		bqbQuery.Space(`"quote".cid ILIKE ? AND`, "%"+str+"%")
+	}
+	if str, ok := c.GetQuery("date_min"); ok {
+		bqbQuery.Space(`"quote".date >= ? AND`, str)
+	}
+	if str, ok := c.GetQuery("date_max"); ok {
+		bqbQuery.Space(`"quote".date <= ? AND`, str)
+	}
+	if str, ok := c.GetQuery("expiry_date_min"); ok {
+		bqbQuery.Space(`"quote".expiry_date >= ? AND`, str)
+	}
+	if str, ok := c.GetQuery("expiry_date_max"); ok {
+		bqbQuery.Space(`"quote".expiry_date <= ? AND`, str)
+	}
+
+	// -- Remove last AND or WHERE
+	if strings.HasSuffix(bqbQuery.Parts[len(bqbQuery.Parts)-1].Text, "WHERE") {
+		bqbQuery.Parts = bqbQuery.Parts[:len(bqbQuery.Parts)-1]
+	} else if strings.HasSuffix(bqbQuery.Parts[len(bqbQuery.Parts)-1].Text, "AND") {
+		text := bqbQuery.Parts[len(bqbQuery.Parts)-1].Text
+		arr := strings.Split(text, " ")
+
+		bqbQuery.Parts[len(bqbQuery.Parts)-1].Text = strings.Join(arr[:len(arr)-1], " ")
+	}
+}
+
 type CreateQuoteRequest struct {
 	Code       string    `json:"code" binding:"required"`
 	Date       time.Time `json:"date" binding:"required"`
@@ -77,11 +116,11 @@ func (handler *QuoteHandler) First(c *gin.Context) {
 	}
 
 	// -- Prepare sql query
-	query, params, err := bqb.New(`SELECT q.id, q.code, q.date, q.expiry_date, COALESCE(q.note, ''), q.subtotal, q.discount, q.total, q.client_id, q.account_id, q.status, q.cid, COALESCE(qt.id, 0), COALESCE(qt.name, ''), COALESCE(qt.description, ''), COALESCE(qt.quantity, 0), COALESCE(qt.unit_price, 0)
-	FROM "quote" as q
-	LEFT JOIN "quote_item" as qt ON qt.quote_id = q.id
-	WHERE q.id = ? 
-	ORDER BY qt.id`, quoteId).ToPgsql()
+	query, params, err := bqb.New(`SELECT "quote".id, "quote".code, "quote".date, "quote".expiry_date, COALESCE("quote".note, ''), "quote".subtotal, "quote".discount, "quote".total, "quote".client_id, "quote".account_id, "quote".status, "quote".cid, COALESCE("quote_item".id, 0), COALESCE("quote_item".name, ''), COALESCE("quote_item".description, ''), COALESCE("quote_item".quantity, 0), COALESCE("quote_item".unit_price, 0)
+	FROM "quote"
+	LEFT JOIN "quote_item" ON "quote_item".quote_id = "quote".id
+	WHERE "quote".id = ? 
+	ORDER BY "quote_item".id`, quoteId).ToPgsql()
 	if err != nil {
 		log.Printf("Error preparing sql query: %v\n", err)
 		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
@@ -147,17 +186,15 @@ func (handler *QuoteHandler) List(c *gin.Context) {
 	paginationQueryParams.Parse(c)
 
 	// -- Prepare sql query
-	bqbQuery := bqb.New(`SELECT q.id, q.code, q.date, q.expiry_date, COALESCE(q.note, ''), q.subtotal, q.discount, q.total, q.client_id, q.account_id, q.status, q.cid, COALESCE(qt.id, 0), COALESCE(qt.name, ''), COALESCE(qt.description, ''), COALESCE(qt.quantity, 0), COALESCE(qt.unit_price, 0)
-	FROM "quote" as q
-	LEFT JOIN "quote_item" as qt ON qt.quote_id = q.id`)
+	bqbQuery := bqb.New(`SELECT "quote".id, "quote".code, "quote".date, "quote".expiry_date, COALESCE("quote".note, ''), "quote".subtotal, "quote".discount, "quote".total, "quote".client_id, "quote".account_id, "quote".status, "quote".cid, COALESCE("quote_item".id, 0), COALESCE("quote_item".name, ''), COALESCE("quote_item".description, ''), COALESCE("quote_item".quantity, 0), COALESCE("quote_item".unit_price, 0)
+	FROM "quote"
+	LEFT JOIN "quote_item" as "quote_item" ON "quote_item".quote_id = "quote".id`)
 
-	// -- Add query if exists
-	if paginationQueryParams.Query != "" {
-		bqbQuery.Space(`WHERE q.code ILIKE ?`, "%"+paginationQueryParams.Query+"%")
-	}
+	// -- Apply query params
+	prepareQuoteQuery(c, bqbQuery)
 
 	// -- Complete query
-	bqbQuery.Space("ORDER BY q.id, qt.id OFFSET ? LIMIT ?", paginationQueryParams.Offset, paginationQueryParams.Limit)
+	bqbQuery.Space(`ORDER BY "quote".id, "quote_item".id OFFSET ? LIMIT ?`, paginationQueryParams.Offset, paginationQueryParams.Limit)
 
 	query, params, err := bqbQuery.ToPgsql()
 	if err != nil {
@@ -215,9 +252,7 @@ func (handler *QuoteHandler) List(c *gin.Context) {
 	// -- Count total quotes
 	bqbQuery = bqb.New(`SELECT COUNT(*) FROM "quote"`)
 
-	if paginationQueryParams.Query != "" {
-		bqbQuery.Space(`WHERE code ILIKE ?`, "%"+paginationQueryParams.Query+"%")
-	}
+	prepareQuoteQuery(c, bqbQuery)
 
 	query, params, err = bqbQuery.ToPgsql()
 	if err != nil {
