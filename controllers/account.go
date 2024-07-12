@@ -19,16 +19,16 @@ func prepareAccountQuery(c *gin.Context, bqbQuery *bqb.Query) {
 	// -- Apply query params
 	bqbQuery.Space("WHERE")
 	if str, ok := c.GetQuery("name_ilike"); ok {
-		bqbQuery.Space(`a.name ILIKE ? AND`, "%"+str+"%")
+		bqbQuery.Space(`"account".name ILIKE ? AND`, "%"+str+"%")
 	}
 	if str, ok := c.GetQuery("email_ilike"); ok {
-		bqbQuery.Space(`a.email ILIKE ? AND`, "%"+str+"%")
+		bqbQuery.Space(`"account".email ILIKE ? AND`, "%"+str+"%")
 	}
 	if str, ok := c.GetQuery("address_ilike"); ok {
-		bqbQuery.Space(`a.address ILIKE ? AND`, "%"+str+"%")
+		bqbQuery.Space(`"account".address ILIKE ? AND`, "%"+str+"%")
 	}
 	if str, ok := c.GetQuery("phone_ilike"); ok {
-		bqbQuery.Space(`a.phone ILIKE ? AND`, "%"+str+"%")
+		bqbQuery.Space(`"account".phone ILIKE ? AND`, "%"+str+"%")
 	}
 
 	// -- Remove last AND or WHERE
@@ -80,14 +80,14 @@ func (handler *AccountHandler) First(c *gin.Context) {
 
 	// -- Prepare sql query
 	query, params, err := bqb.New(`SELECT 
-	a.id, a.code, a.name, a.gender, COALESCE(a.email, ''), COALESCE(a.address, ''), a.phone, COALESCE(a.secondary_phone, ''), COALESCE(smd.id, 0), COALESCE(smd.platform, ''), COALESCE(smd.url, '')
+	"account".id, "account".code, "account".name, "account".gender, COALESCE("account".email, ''), COALESCE("account".address, ''), "account".phone, COALESCE("account".secondary_phone, ''), COALESCE("social_media_data".id, 0), COALESCE("social_media_data".platform, ''), COALESCE("social_media_data".url, '')
 	FROM
-		"account" as a
+		"account"
 			LEFT JOIN
-		"social_media_data" as smd ON a.social_media_id = smd.social_media_id
+		"social_media_data" ON "account".social_media_id = "social_media_data".social_media_id
 	WHERE
-		a.id = ?
-	ORDER BY smd.id`, id).ToPgsql()
+		"account".id = ?
+	ORDER BY "social_media_data".id`, id).ToPgsql()
 	if err != nil {
 		log.Printf("Error preparing sql query: %v\n", err)
 		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
@@ -139,17 +139,17 @@ func (handler *AccountHandler) List(c *gin.Context) {
 
 	// -- Prepare sql query
 	bqbQuery := bqb.New(`SELECT 
-	a.id, a.code, a.name, a.gender, COALESCE(a.email, ''), COALESCE(a.address, ''), a.phone, COALESCE(a.secondary_phone, ''), COALESCE(smd.id, 0), COALESCE(smd.platform, ''), COALESCE(smd.url, '')
+	"account".id, "account".code, "account".name, "account".gender, COALESCE("account".email, ''), COALESCE("account".address, ''), "account".phone, COALESCE("account".secondary_phone, ''), COALESCE("social_media_data".id, 0), COALESCE("social_media_data".platform, ''), COALESCE("social_media_data".url, '')
 	FROM
-		"account" as a
+		"account"
 			LEFT JOIN
-		"social_media_data" as smd ON a.social_media_id = smd.social_media_id`)
+		"social_media_data" ON "account".social_media_id = "social_media_data".social_media_id`)
 
 	// -- Apply query params
 	prepareAccountQuery(c, bqbQuery)
 
 	// -- Complete query
-	bqbQuery.Space("ORDER BY a.id, smd.id OFFSET ? LIMIT ?", paginationQueryParams.Offset, paginationQueryParams.Limit)
+	bqbQuery.Space(`ORDER BY "account".id, "social_media_data".id OFFSET ? LIMIT ?`, paginationQueryParams.Offset, paginationQueryParams.Limit)
 
 	query, params, err := bqbQuery.ToPgsql()
 	if err != nil {
@@ -208,7 +208,7 @@ func (handler *AccountHandler) List(c *gin.Context) {
 	}
 
 	// -- Count total accounts
-	bqbQuery = bqb.New(`SELECT COUNT(*) FROM "account" as a`)
+	bqbQuery = bqb.New(`SELECT COUNT(*) FROM "account"`)
 
 	prepareAccountQuery(c, bqbQuery)
 
@@ -651,10 +651,10 @@ func (handler *AccountHandler) Delete(c *gin.Context) {
 	}
 
 	// -- Prepare sql query to delete social medias
-	query, params, err := bqb.New(`DELETE FROM "social_media_data" as smd
-	USING "account" AS a 
-	WHERE smd.social_media_id = a.social_media_id
-	AND a.id = ?`, id).ToPgsql()
+	query, params, err := bqb.New(`DELETE FROM "social_media_data"
+	USING "account"
+	WHERE "social_media_data".social_media_id = "account".social_media_id
+	AND "account".id = ?`, id).ToPgsql()
 	if err != nil {
 		log.Printf("Error preparing sql query: %v\n", err)
 		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))

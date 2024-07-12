@@ -19,16 +19,16 @@ func prepareClientQuery(c *gin.Context, bqbQuery *bqb.Query) {
 	// -- Apply query params
 	bqbQuery.Space("WHERE")
 	if str, ok := c.GetQuery("name_ilike"); ok {
-		bqbQuery.Space(`c.name ILIKE ? AND`, "%"+str+"%")
+		bqbQuery.Space(`"client".name ILIKE ? AND`, "%"+str+"%")
 	}
 	if str, ok := c.GetQuery("phone_ilike"); ok {
-		bqbQuery.Space(`c.phone ILIKE ? AND`, "%"+str+"%")
+		bqbQuery.Space(`"client".phone ILIKE ? AND`, "%"+str+"%")
 	}
 	if str, ok := c.GetQuery("latitude_range"); ok {
 		if value := strings.Split(str, ","); len(value) == 2 {
 			if min, err := strconv.ParseFloat(value[0], 64); err == nil {
 				if max, err := strconv.ParseFloat(value[1], 64); err == nil {
-					bqbQuery.Space(`c.latitude BETWEEN ? AND ? AND`, min, max)
+					bqbQuery.Space(`"client".latitude BETWEEN ? AND ? AND`, min, max)
 				}
 			}
 		}
@@ -37,7 +37,7 @@ func prepareClientQuery(c *gin.Context, bqbQuery *bqb.Query) {
 		if value := strings.Split(str, ","); len(value) == 2 {
 			if min, err := strconv.ParseFloat(value[0], 64); err == nil {
 				if max, err := strconv.ParseFloat(value[1], 64); err == nil {
-					bqbQuery.Space(`c.longitude BETWEEN ? AND ? AND`, min, max)
+					bqbQuery.Space(`"client".longitude BETWEEN ? AND ? AND`, min, max)
 				}
 			}
 		}
@@ -93,13 +93,13 @@ func (handler *ClientHandler) First(c *gin.Context) {
 
 	// -- Prepare sql query (GET CLIENT)
 	query, params, err := bqb.New(`SELECT 
-		c.id, c.code, c.name, COALESCE(c.address, ''), c.phone, c.latitude, c.longitude, COALESCE(c.note, ''), COALESCE(smd.id, 0), COALESCE(smd.platform, ''), COALESCE(smd.url, '') 
+		"client".id, "client".code, "client".name, COALESCE("client".address, ''), "client".phone, "client".latitude, "client".longitude, COALESCE("client".note, ''), COALESCE("social_media_data".id, 0), COALESCE("social_media_data".platform, ''), COALESCE("social_media_data".url, '') 
 		FROM 
-			"client" as c
+			"client"
 				LEFT JOIN 
-			"social_media_data" as smd ON c.social_media_id = smd.social_media_id
-		WHERE c.id = ?
-		ORDER BY smd.id`, id).ToPgsql()
+			"social_media_data" ON "client".social_media_id = "social_media_data".social_media_id
+		WHERE "client".id = ?
+		ORDER BY "social_media_data".id`, id).ToPgsql()
 	if err != nil {
 		log.Printf("Error preparing sql query: %v\n", err)
 		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
@@ -151,17 +151,17 @@ func (handler *ClientHandler) List(c *gin.Context) {
 
 	// -- Prepare sql query (GET CLIENTS)
 	bqbQuery := bqb.New(`SELECT 
-	c.id, c.code, c.name, COALESCE(c.address, ''), c.phone, c.latitude, c.longitude, COALESCE(c.note, ''), COALESCE(smd.id, 0), COALESCE(smd.platform, ''), COALESCE(smd.url, '') 
+	"client".id, "client".code, "client".name, COALESCE("client".address, ''), "client".phone, "client".latitude, "client".longitude, COALESCE("client".note, ''), COALESCE("social_media_data".id, 0), COALESCE("social_media_data".platform, ''), COALESCE("social_media_data".url, '') 
 	FROM 
-		"client" as c
+		"client"
 			LEFT JOIN 
-		"social_media_data" as smd ON c.social_media_id = smd.social_media_id`)
+		"social_media_data" ON "client".social_media_id = "social_media_data".social_media_id`)
 
 	// -- Apply query params
 	prepareClientQuery(c, bqbQuery)
 
 	// -- Complete query
-	bqbQuery.Space("ORDER BY c.id, smd.id OFFSET ? LIMIT ?", paginationQueryParams.Offset, paginationQueryParams.Limit)
+	bqbQuery.Space(`ORDER BY "client".id, "social_media_data".id OFFSET ? LIMIT ?`, paginationQueryParams.Offset, paginationQueryParams.Limit)
 
 	query, params, err := bqbQuery.ToPgsql()
 	if err != nil {
@@ -220,7 +220,7 @@ func (handler *ClientHandler) List(c *gin.Context) {
 	}
 
 	// -- Count total clients
-	bqbQuery = bqb.New(`SELECT COUNT(*) FROM "client" as c`)
+	bqbQuery = bqb.New(`SELECT COUNT(*) FROM "client"`)
 
 	prepareClientQuery(c, bqbQuery)
 
@@ -666,10 +666,10 @@ func (handler *ClientHandler) Delete(c *gin.Context) {
 	}
 
 	// -- Prepare sql query to delete social medias
-	query, params, err := bqb.New(`DELETE FROM "social_media_data" as smd
-	USING "client" AS c 
-	WHERE smd.social_media_id = c.social_media_id
-	AND c.id = ?`, id).ToPgsql()
+	query, params, err := bqb.New(`DELETE FROM "social_media_data"
+	USING "client"
+	WHERE "social_media_data".social_media_id = "client".social_media_id
+	AND "client".id = ?`, id).ToPgsql()
 	if err != nil {
 		log.Printf("Error preparing sql query: %v\n", err)
 		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))

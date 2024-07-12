@@ -216,11 +216,11 @@ func (handler *SalesOrderHandler) CreateInvoice(c *gin.Context) {
 	}
 
 	// -- Prepare sql query (GET Quote)
-	query, params, err = bqb.New(`SELECT q.code, q.account_id, q.client_id, q.subtotal, q.discount, q.total, qt.name, COALESCE(qt.description, ''), qt.quantity, qt.unit_price
-	FROM "quote" as q
-	LEFT JOIN "quote_item" as qt ON qt.quote_id = q.id
-	WHERE q.id = ? 
-	ORDER BY qt.id`, salesOrder.QuoteId).ToPgsql()
+	query, params, err = bqb.New(`SELECT "quote".code, "quote".account_id, "quote".client_id, "quote".subtotal, "quote".discount, "quote".total, "quote_item".name, COALESCE("quote_item".description, ''), "quote_item".quantity, "quote_item".unit_price
+	FROM "quote"
+	LEFT JOIN "quote_item" ON "quote_item".quote_id = "quote".id
+	WHERE "quote".id = ? 
+	ORDER BY "quote_item".id`, salesOrder.QuoteId).ToPgsql()
 	if err != nil {
 		log.Printf("Error preparing query: %v", err)
 		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
@@ -276,9 +276,7 @@ func (handler *SalesOrderHandler) CreateInvoice(c *gin.Context) {
 	// -- Prepare sql query (GET Client)
 	query, params, err = bqb.New(`SELECT 
 	code, name, COALESCE(address, ''), phone
-	FROM 
-		"client" as c
-	WHERE id = ?`, quote.ClientId).ToPgsql()
+	FROM "client" WHERE id = ?`, quote.ClientId).ToPgsql()
 	if err != nil {
 		log.Printf("Error preparing query: %v", err)
 		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))

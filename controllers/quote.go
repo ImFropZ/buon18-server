@@ -188,7 +188,7 @@ func (handler *QuoteHandler) List(c *gin.Context) {
 	// -- Prepare sql query
 	bqbQuery := bqb.New(`SELECT "quote".id, "quote".code, "quote".date, "quote".expiry_date, COALESCE("quote".note, ''), "quote".subtotal, "quote".discount, "quote".total, "quote".client_id, "quote".account_id, "quote".status, "quote".cid, COALESCE("quote_item".id, 0), COALESCE("quote_item".name, ''), COALESCE("quote_item".description, ''), COALESCE("quote_item".quantity, 0), COALESCE("quote_item".unit_price, 0)
 	FROM "quote"
-	LEFT JOIN "quote_item" as "quote_item" ON "quote_item".quote_id = "quote".id`)
+	LEFT JOIN "quote_item" ON "quote_item".quote_id = "quote".id`)
 
 	// -- Apply query params
 	prepareQuoteQuery(c, bqbQuery)
