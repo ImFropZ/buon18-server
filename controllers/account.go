@@ -8,11 +8,39 @@ import (
 	"server/models"
 	"server/utils"
 	"strconv"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/lib/pq"
 	"github.com/nullism/bqb"
 )
+
+func prepareAccountQuery(c *gin.Context, bqbQuery *bqb.Query) {
+	// -- Apply query params
+	bqbQuery.Space("WHERE")
+	if str, ok := c.GetQuery("name_ilike"); ok {
+		bqbQuery.Space(`a.name ILIKE ? AND`, "%"+str+"%")
+	}
+	if str, ok := c.GetQuery("email_ilike"); ok {
+		bqbQuery.Space(`a.email ILIKE ? AND`, "%"+str+"%")
+	}
+	if str, ok := c.GetQuery("address_ilike"); ok {
+		bqbQuery.Space(`a.address ILIKE ? AND`, "%"+str+"%")
+	}
+	if str, ok := c.GetQuery("phone_ilike"); ok {
+		bqbQuery.Space(`a.phone ILIKE ? AND`, "%"+str+"%")
+	}
+
+	// -- Remove last AND or WHERE
+	if strings.HasSuffix(bqbQuery.Parts[len(bqbQuery.Parts)-1].Text, "WHERE") {
+		bqbQuery.Parts = bqbQuery.Parts[:len(bqbQuery.Parts)-1]
+	} else if strings.HasSuffix(bqbQuery.Parts[len(bqbQuery.Parts)-1].Text, "AND") {
+		text := bqbQuery.Parts[len(bqbQuery.Parts)-1].Text
+		arr := strings.Split(text, " ")
+
+		bqbQuery.Parts[len(bqbQuery.Parts)-1].Text = strings.Join(arr[:len(arr)-1], " ")
+	}
+}
 
 type CreateAccountRequest struct {
 	Code           string                            `json:"code" binding:"required"`
@@ -117,10 +145,8 @@ func (handler *AccountHandler) List(c *gin.Context) {
 			LEFT JOIN
 		"social_media_data" as smd ON a.social_media_id = smd.social_media_id`)
 
-	// -- Add query if exists
-	if paginationQueryParams.Query != "" {
-		bqbQuery.Space(`WHERE a.name ILIKE ?`, "%"+paginationQueryParams.Query+"%")
-	}
+	// -- Apply query params
+	prepareAccountQuery(c, bqbQuery)
 
 	// -- Complete query
 	bqbQuery.Space("ORDER BY a.id, smd.id OFFSET ? LIMIT ?", paginationQueryParams.Offset, paginationQueryParams.Limit)
@@ -182,11 +208,9 @@ func (handler *AccountHandler) List(c *gin.Context) {
 	}
 
 	// -- Count total accounts
-	bqbQuery = bqb.New(`SELECT COUNT(*) FROM "account"`)
+	bqbQuery = bqb.New(`SELECT COUNT(*) FROM "account" as a`)
 
-	if paginationQueryParams.Query != "" {
-		bqbQuery.Space(`WHERE name ILIKE ?`, "%"+paginationQueryParams.Query+"%")
-	}
+	prepareAccountQuery(c, bqbQuery)
 
 	query, params, err = bqbQuery.ToPgsql()
 	if err != nil {
