@@ -7,12 +7,53 @@ import (
 	"server/models"
 	"server/utils"
 	"strconv"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/nullism/bqb"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
 )
+
+func prepareSalesOrderQuery(c *gin.Context, bqbQuery *bqb.Query) {
+	// -- Apply query params
+	bqbQuery.Space("WHERE")
+	if str, ok := c.GetQuery("code_ilike"); ok {
+		bqbQuery.Space(`"sales_order".code ILIKE ? AND`, "%"+str+"%")
+	}
+	if str, ok := c.GetQuery("quote_id_ilike"); ok {
+		bqbQuery.Space(`"sales_order".quote_id ILIKE ? AND`, "%"+str+"%")
+	}
+	if str, ok := c.GetQuery("status"); ok {
+		// -- Validate status
+		caser := cases.Title(language.English)
+		if status := caser.String(str); status == "On-Going" || status == "Sent" || status == "Done" || status == "Cancel" {
+			bqbQuery.Space(`"sales_order".status = ? AND`, status)
+		}
+	}
+	if str, ok := c.GetQuery("accept_date_min"); ok {
+		bqbQuery.Space(`"sales_order".accept_date >= ? AND`, str)
+	}
+	if str, ok := c.GetQuery("accept_date_max"); ok {
+		bqbQuery.Space(`"sales_order".accept_date <= ? AND`, str)
+	}
+	if str, ok := c.GetQuery("delivery_date_min"); ok {
+		bqbQuery.Space(`"sales_order".delivery_date >= ? AND`, str)
+	}
+	if str, ok := c.GetQuery("delivery_date_max"); ok {
+		bqbQuery.Space(`"sales_order".delivery_date <= ? AND`, str)
+	}
+
+	// -- Remove last AND or WHERE
+	if strings.HasSuffix(bqbQuery.Parts[len(bqbQuery.Parts)-1].Text, "WHERE") {
+		bqbQuery.Parts = bqbQuery.Parts[:len(bqbQuery.Parts)-1]
+	} else if strings.HasSuffix(bqbQuery.Parts[len(bqbQuery.Parts)-1].Text, "AND") {
+		text := bqbQuery.Parts[len(bqbQuery.Parts)-1].Text
+		arr := strings.Split(text, " ")
+
+		bqbQuery.Parts[len(bqbQuery.Parts)-1].Text = strings.Join(arr[:len(arr)-1], " ")
+	}
+}
 
 type UpdateSalesOrderStatusRequest struct {
 	Action string `json:"action" binding:"required"`
@@ -69,14 +110,11 @@ func (handler *SalesOrderHandler) List(c *gin.Context) {
 	paginationQueryParams.Parse(c)
 
 	// -- Prepare sql query
-	bqbQuery := bqb.New(`SELECT id, code, COALESCE(note, ''), status, accept_date, delivery_date, quote_id, cid 
-	FROM 
-		"sales_order"`)
+	bqbQuery := bqb.New(`SELECT 
+	id, code, COALESCE(note, ''), status, accept_date, delivery_date, quote_id, cid 
+	FROM "sales_order"`)
 
-	// -- Add query if exists
-	if paginationQueryParams.Query != "" {
-		bqbQuery.Space(`WHERE code ILIKE ?`, "%"+paginationQueryParams.Query+"%")
-	}
+	prepareSalesOrderQuery(c, bqbQuery)
 
 	// -- Complete query
 	bqbQuery.Space("ORDER BY id OFFSET ? LIMIT ?", paginationQueryParams.Offset, paginationQueryParams.Limit)
@@ -112,9 +150,7 @@ func (handler *SalesOrderHandler) List(c *gin.Context) {
 	// -- Count total sales orders
 	bqbQuery = bqb.New(`SELECT COUNT(*) FROM "sales_order"`)
 
-	if paginationQueryParams.Query != "" {
-		bqbQuery.Space(`WHERE code ILIKE ?`, "%"+paginationQueryParams.Query+"%")
-	}
+	prepareSalesOrderQuery(c, bqbQuery)
 
 	query, params, err = bqbQuery.ToPgsql()
 	if err != nil {
