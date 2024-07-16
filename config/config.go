@@ -65,7 +65,7 @@ func GetConfigInstance() *Config {
 			aMethods := Env("ALLOW_METHODS")
 			allowMethods := []string{}
 			if aMethods == "" {
-				allowMethods = append(allowMethods, "GET", "POST", "PUT", "DELETE")
+				allowMethods = append(allowMethods, "GET", "POST", "PATCH", "DELETE", "OPTIONS")
 			} else {
 				allowMethods = append(allowMethods, strings.Split(aMethods, ",")...)
 			}
@@ -73,7 +73,7 @@ func GetConfigInstance() *Config {
 			aHeaders := Env("ALLOW_HEADERS")
 			allowHeaders := []string{}
 			if aHeaders == "" {
-				allowHeaders = append(allowHeaders, "Origin", "Content-Type", "Authorization")
+				allowHeaders = append(allowHeaders, "*")
 			} else {
 				allowHeaders = append(allowHeaders, strings.Split(aHeaders, ",")...)
 			}
@@ -81,13 +81,13 @@ func GetConfigInstance() *Config {
 			eHeaders := Env("EXPOSE_HEADERS")
 			exposeHeaders := []string{}
 			if eHeaders == "" {
-				exposeHeaders = append(exposeHeaders, "Content-Length", "Content-Range")
+				exposeHeaders = append(exposeHeaders, "Content-Length")
 			} else {
 				exposeHeaders = append(exposeHeaders, strings.Split(eHeaders, ",")...)
 			}
 
 			mAge := Env("MAX_AGE")
-			maxAge := 0
+			maxAge := 120
 			if mAge != "" {
 				maxAge, err = strconv.Atoi(mAge)
 				if err != nil {

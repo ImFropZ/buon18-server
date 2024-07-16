@@ -747,7 +747,7 @@ func (handler *QuoteHandler) Update(c *gin.Context) {
 	}
 
 	// -- Check if there are changes
-	if len(bqbQuery.Parts) > 1 {
+	if len(bqbQuery.Parts) > 1 || len(request.Items) > 0 || len(request.DeleteItems) > 0 {
 		// -- Remove last comma
 		query, params, err = bqbQuery.Space(`status = ?, mid = ?, mtime = ? WHERE id = ?`, "Draft", tmpQuote.MId, tmpQuote.MTime, quoteId).ToPgsql()
 		if err != nil {
