@@ -823,18 +823,25 @@ func (handler *QuoteHandler) Update(c *gin.Context) {
 		// -- Prepare sql query
 		bqbQuery = bqb.New(`UPDATE "quote_item" SET`)
 		if item.Name != "" {
-			bqbQuery.Space(`name = ?`, item.Name)
+			bqbQuery.Space(`name = ?,`, item.Name)
 		}
 		if item.Description != "" {
-			bqbQuery.Space(`description = ?`, item.Description)
+			bqbQuery.Space(`description = ?,`, item.Description)
 		}
 		if item.Quantity > 0 {
-			bqbQuery.Space(`quantity = ?`, item.Quantity)
+			bqbQuery.Space(`quantity = ?,`, item.Quantity)
 		}
 		if item.UnitPrice > 0 {
-			bqbQuery.Space(`unit_price = ?`, item.UnitPrice)
+			bqbQuery.Space(`unit_price = ?,`, item.UnitPrice)
 		}
-		bqbQuery.Space(`mid, mtime = ? WHERE id = ?`, userId, quote.MTime, item.Id)
+		query, params, err = bqbQuery.Space(`mid = ?, mtime = ? WHERE id = ?`, userId, quote.MTime, item.Id).ToPgsql()
+		if err != nil {
+			tx.Rollback()
+			log.Printf("Error preparing sql query: %v\n", err)
+			c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
+			return
+		}
+
 		if _, err := tx.Exec(query, params...); err != nil {
 			tx.Rollback()
 			log.Printf("Error updating quote items: %v\n", err)
