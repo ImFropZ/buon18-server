@@ -61,42 +61,43 @@ type CreateQuoteRequest struct {
 	Code       string    `json:"code" binding:"required"`
 	Date       time.Time `json:"date" binding:"required"`
 	ExpiryDate time.Time `json:"expiry_date" binding:"required"`
-	Note       string    `json:"note"`
-	Discount   float64   `json:"discount"`
+	Note       *string   `json:"note"`
+	Discount   *float64  `json:"discount"`
 	ClientId   uint      `json:"client_id" binding:"required"`
 	AccountId  uint      `json:"account_id" binding:"required"`
 	Items      []struct {
 		Name        string  `json:"name" binding:"required"`
-		Description string  `json:"description"`
+		Description *string `json:"description"`
 		Quantity    uint    `json:"quantity" binding:"required"`
 		UnitPrice   float64 `json:"unit_price" binding:"required"`
 	} `json:"items" binding:"required"`
 }
 
 type UpdateQuoteRequest struct {
-	Code       string    `json:"code"`
-	Date       time.Time `json:"date"`
-	ExpiryDate time.Time `json:"expiry_date"`
-	Note       string    `json:"note"`     // -- WARN: Note = "no" means no note
-	Discount   float64   `json:"discount"` // -- WARN: Discount = -1 means 0 discount since 0 value means default value
-	ClientId   uint      `json:"client_id"`
-	AccountId  uint      `json:"account_id"`
-	Items      []struct {
-		Id          uint    `json:"id"`
-		Name        string  `json:"name"`
-		Description string  `json:"description"`
-		Quantity    uint    `json:"quantity"`
-		UnitPrice   float64 `json:"unit_price"`
+	Code       *string    `json:"code"`
+	Date       *time.Time `json:"date"`
+	ExpiryDate *time.Time `json:"expiry_date"`
+	Note       *string    `json:"note"`
+	Discount   *float64   `json:"discount"`
+	ClientId   *uint      `json:"client_id"`
+	AccountId  *uint      `json:"account_id"`
+	Items      *[]struct {
+		Id          *uint    `json:"id"`
+		Name        *string  `json:"name"`
+		Description *string  `json:"description"`
+		Quantity    *uint    `json:"quantity"`
+		UnitPrice   *float64 `json:"unit_price"`
 	} `json:"items"`
 
 	// -- Delete items
-	DeleteItems []uint `json:"delete_item_ids"`
+	DeleteItems *[]uint `json:"delete_item_ids"`
 }
 
 type CreateSalesOrderRequest struct {
-	Code         string    `json:"code" binding:"required"`
-	DeliveryDate time.Time `json:"delivery_date" binding:"required"`
-	Note         string    `json:"note"`
+	Code         string     `json:"code" binding:"required"`
+	AcceptDate   *time.Time `json:"accept_date"`
+	DeliveryDate time.Time  `json:"delivery_date" binding:"required"`
+	Note         *string    `json:"note"`
 }
 
 type UpdateQuoteStatusRequest struct {
@@ -312,7 +313,10 @@ func (handler *QuoteHandler) Create(c *gin.Context) {
 	for _, item := range request.Items {
 		subtotal += float64(item.Quantity) * item.UnitPrice
 	}
-	total := subtotal - request.Discount
+	total := subtotal
+	if request.Discount != nil { // WARN: Discount nil means 0 discount
+		total -= *request.Discount
+	}
 
 	// -- Insert quote
 	query, params, err := bqb.New(`INSERT INTO "quote" (code, date, expiry_date, note, discount, subtotal, total, client_id, account_id, status, cid, ctime, mid, mtime) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`, request.Code, request.Date, request.ExpiryDate, request.Note, request.Discount, subtotal, total, request.ClientId, request.AccountId, "Draft", tmpQuote.CId, tmpQuote.CTime, tmpQuote.MId, tmpQuote.MTime).ToPgsql()
@@ -607,11 +611,18 @@ func (handler *QuoteHandler) CreateSalesOrder(c *gin.Context) {
 	tmpSalesOrder := models.SalesOrder{}
 	tmpSalesOrder.PrepareForCreate(userId)
 
+	var acceptDate time.Time
+	if request.AcceptDate == nil {
+		acceptDate = time.Now()
+	} else {
+		acceptDate = *request.AcceptDate
+	}
+
 	// -- Prepare sql query
 	query, params, err = bqb.New(`INSERT INTO "sales_order" 
 	(code, accept_date, delivery_date, note, quote_id, cid, ctime, mid, mtime) 
 	VALUES 
-	(?, ?, ?, ?, ?, ?, ?, ?, ?)`, request.Code, time.Now(), request.DeliveryDate, request.Note, quoteId, tmpSalesOrder.CId, tmpSalesOrder.CTime, tmpSalesOrder.MId, tmpSalesOrder.MTime).ToPgsql()
+	(?, ?, ?, ?, ?, ?, ?, ?, ?)`, request.Code, acceptDate, request.DeliveryDate, *request.Note, quoteId, tmpSalesOrder.CId, tmpSalesOrder.CTime, tmpSalesOrder.MId, tmpSalesOrder.MTime).ToPgsql()
 	if err != nil {
 		tx.Rollback()
 		log.Printf("Error preparing sql query: %v\n", err)
@@ -662,9 +673,15 @@ func (handler *QuoteHandler) Update(c *gin.Context) {
 	}
 
 	// -- Parse request body
-	var request UpdateQuoteRequest
-	if err := c.ShouldBindJSON(&request); err != nil {
+	var req UpdateQuoteRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(400, utils.NewErrorResponse(400, "invalid request body."))
+		return
+	}
+
+	// -- Check if all fields are nil
+	if utils.IsAllFieldsNil(req) {
+		c.JSON(400, utils.NewErrorResponse(400, "invalid request body. at least one field should be updated"))
 		return
 	}
 
@@ -715,39 +732,50 @@ func (handler *QuoteHandler) Update(c *gin.Context) {
 
 	// -- Update code
 	var isDiscountUpdated bool
-	if request.Code != "" && request.Code != quote.Code {
-		bqbQuery.Space(`code = ?,`, request.Code)
+	if req.Code != nil {
+		bqbQuery.Space(`code = ?,`, *req.Code)
 	}
-	if request.Date.IsZero() && request.Date.Equal(quote.Date) {
-		bqbQuery.Space(`date = ?,`, request.Date)
-	}
-	if request.ExpiryDate.IsZero() && request.ExpiryDate.Equal(quote.ExpiryDate) && request.ExpiryDate.After(quote.Date) {
-		bqbQuery.Space(`expiry_date = ?,`, request.ExpiryDate)
-	}
-	if request.Note != "" && request.Note != quote.Note {
-		// -- Handle no note
-		if request.Note == "no" {
-			request.Note = ""
+	if req.Date != nil || req.ExpiryDate != nil {
+		if req.Date != nil && req.ExpiryDate != nil {
+			if !req.Date.Before(*req.ExpiryDate) {
+				bqbQuery.Space(`date = ?, expiry_date = ?,`, *req.Date, *req.ExpiryDate)
+			} else {
+				c.JSON(400, utils.NewErrorResponse(400, "invalid request body. expiry_date should be after date"))
+				return
+			}
+		} else if req.Date != nil {
+			if !req.Date.Before(quote.ExpiryDate) {
+				bqbQuery.Space(`date = ?,`, *req.Date)
+			} else {
+				c.JSON(400, utils.NewErrorResponse(400, "invalid request body. expiry_date should be after date"))
+				return
+			}
+		} else if req.ExpiryDate != nil {
+			if !quote.Date.Before(*req.ExpiryDate) {
+				bqbQuery.Space(`expiry_date = ?,`, *req.ExpiryDate)
+			} else {
+				c.JSON(400, utils.NewErrorResponse(400, "invalid request body. expiry_date should be after date"))
+				return
+			}
 		}
-		bqbQuery.Space(`note = ?,`, request.Note)
 	}
-	if request.Discount != 0 && request.Discount != quote.Discount {
-		// -- Handle no discount
-		if request.Discount == -1 {
-			request.Discount = 0
-		}
-		bqbQuery.Space(`discount = ?,`, request.Discount)
+
+	if req.Note != nil {
+		bqbQuery.Space(`note = ?,`, req.Note)
+	}
+	if req.Discount != nil {
+		bqbQuery.Space(`discount = ?,`, req.Discount)
 		isDiscountUpdated = true
 	}
-	if request.ClientId != 0 && request.ClientId != quote.ClientId {
-		bqbQuery.Space(`client_id = ?,`, request.ClientId)
+	if req.ClientId != nil {
+		bqbQuery.Space(`client_id = ?,`, req.ClientId)
 	}
-	if request.AccountId != 0 && request.AccountId != quote.AccountId {
-		bqbQuery.Space(`account_id = ?,`, request.AccountId)
+	if req.AccountId != nil {
+		bqbQuery.Space(`account_id = ?,`, req.AccountId)
 	}
 
 	// -- Check if there are changes
-	if len(bqbQuery.Parts) > 1 || len(request.Items) > 0 || len(request.DeleteItems) > 0 {
+	if len(bqbQuery.Parts) > 1 {
 		// -- Remove last comma
 		query, params, err = bqbQuery.Space(`status = ?, mid = ?, mtime = ? WHERE id = ?`, "Draft", tmpQuote.MId, tmpQuote.MTime, quoteId).ToPgsql()
 		if err != nil {
@@ -767,7 +795,7 @@ func (handler *QuoteHandler) Update(c *gin.Context) {
 	}
 
 	// -- Check if there are items to update, insert or delete
-	if len(request.Items) == 0 && len(request.DeleteItems) == 0 {
+	if (req.Items == nil || len(*req.Items) == 0) && (req.DeleteItems == nil || len(*req.DeleteItems) == 0) {
 		// Check if discount is updated
 		if isDiscountUpdated {
 			// -- Prepare sql query
@@ -794,19 +822,22 @@ func (handler *QuoteHandler) Update(c *gin.Context) {
 	}
 
 	// -- Separate quote items to update and insert
-	var updateQuoteItems []models.QuoteItem
-	var insertQuoteItems []models.QuoteItem
-	for _, item := range request.Items {
-		if item.Id == 0 {
-			insertQuoteItems = append(insertQuoteItems, models.QuoteItem{
-				Name:        item.Name,
+	var insertQuoteItems []models.QuoteItemCreate
+	var updateQuoteItems []models.QuoteItemUpdate
+	for _, item := range *req.Items {
+		if item.Id == nil {
+			if item.Name == nil || item.Quantity == nil || item.UnitPrice == nil {
+				continue
+			}
+			insertQuoteItems = append(insertQuoteItems, models.QuoteItemCreate{
+				Name:        *item.Name,
 				Description: item.Description,
-				Quantity:    item.Quantity,
-				UnitPrice:   item.UnitPrice,
+				Quantity:    *item.Quantity,
+				UnitPrice:   *item.UnitPrice,
 			})
 		} else {
-			updateQuoteItems = append(updateQuoteItems, models.QuoteItem{
-				Id:          item.Id,
+			updateQuoteItems = append(updateQuoteItems, models.QuoteItemUpdate{
+				Id:          *item.Id,
 				Name:        item.Name,
 				Description: item.Description,
 				Quantity:    item.Quantity,
@@ -817,22 +848,22 @@ func (handler *QuoteHandler) Update(c *gin.Context) {
 
 	// -- Update quote items
 	for _, item := range updateQuoteItems {
-		if item.Name == "" && item.Description == "" && item.Quantity < 1 && item.UnitPrice <= 0 {
+		if item.Name == nil && item.Description == nil && item.Quantity == nil && item.UnitPrice == nil {
 			continue
 		}
 		// -- Prepare sql query
 		bqbQuery = bqb.New(`UPDATE "quote_item" SET`)
-		if item.Name != "" {
-			bqbQuery.Space(`name = ?,`, item.Name)
+		if item.Name != nil {
+			bqbQuery.Space(`name = ?,`, *item.Name)
 		}
-		if item.Description != "" {
-			bqbQuery.Space(`description = ?,`, item.Description)
+		if item.Description != nil {
+			bqbQuery.Space(`description = ?,`, *item.Description)
 		}
-		if item.Quantity > 0 {
-			bqbQuery.Space(`quantity = ?,`, item.Quantity)
+		if item.Quantity != nil {
+			bqbQuery.Space(`quantity = ?,`, *item.Quantity)
 		}
-		if item.UnitPrice > 0 {
-			bqbQuery.Space(`unit_price = ?,`, item.UnitPrice)
+		if item.UnitPrice != nil {
+			bqbQuery.Space(`unit_price = ?,`, *item.UnitPrice)
 		}
 		query, params, err = bqbQuery.Space(`mid = ?, mtime = ? WHERE id = ?`, userId, quote.MTime, item.Id).ToPgsql()
 		if err != nil {
@@ -851,17 +882,17 @@ func (handler *QuoteHandler) Update(c *gin.Context) {
 	}
 
 	// -- Prepare sql query
-	var createCount int
+	hasCreate := false
 	bqbQuery = bqb.New(`INSERT INTO "quote_item" (quote_id, name, description, quantity, unit_price, cid, ctime, mid, mtime) VALUES`)
 	for _, item := range insertQuoteItems {
-		if item.Name == "" && item.Description == "" && item.Quantity < 1 && item.UnitPrice <= 0 {
+		if item.Description == nil && item.Quantity < 1 && item.UnitPrice <= 0 {
 			continue
 		}
 		bqbQuery.Space(`(?, ?, ?, ?, ?, ?, ?, ?, ?),`, quoteId, item.Name, item.Description, item.Quantity, item.UnitPrice, tmpQuote.CId, tmpQuote.CTime, tmpQuote.MId, tmpQuote.MTime)
-		createCount++
+		hasCreate = true
 	}
 
-	if createCount > 0 {
+	if hasCreate {
 		// -- Remove last comma
 		query, params, err = bqbQuery.ToPgsql()
 		if err != nil {
@@ -881,7 +912,7 @@ func (handler *QuoteHandler) Update(c *gin.Context) {
 		}
 	}
 
-	if len(request.DeleteItems) > 0 {
+	if req.DeleteItems != nil && len(*req.DeleteItems) > 0 {
 		// -- Prepare sql query
 		query, params, err := bqb.New(`SELECT Count(*) FROM "quote_item" WHERE quote_id = ?`, quoteId).ToPgsql()
 		if err != nil {
@@ -900,7 +931,7 @@ func (handler *QuoteHandler) Update(c *gin.Context) {
 			return
 		}
 
-		if uint(len(request.DeleteItems))+1 > count {
+		if uint(len(*req.DeleteItems))+1 > count {
 			tx.Rollback()
 			c.JSON(400, utils.NewErrorResponse(400, "invalid request body. delete items should not exceed total quote items or empty the quote items"))
 			return
@@ -908,7 +939,7 @@ func (handler *QuoteHandler) Update(c *gin.Context) {
 
 		// -- Prepare sql query
 		bqbQuery = bqb.New(`DELETE FROM "quote_item" WHERE id IN (`)
-		for _, id := range request.DeleteItems {
+		for _, id := range *req.DeleteItems {
 			bqbQuery.Space(`?,`, id)
 		}
 

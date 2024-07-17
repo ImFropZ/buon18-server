@@ -2,8 +2,11 @@ package utils
 
 import "strings"
 
-func SerializeGender(g string) string {
-	switch strings.ToLower(g) {
+func SerializeGender(g *string) string {
+	if g == nil {
+		return "U"
+	}
+	switch strings.ToLower(*g) {
 	case "m":
 		return "M"
 	case "f":

@@ -55,28 +55,28 @@ func prepareClientQuery(c *gin.Context, bqbQuery *bqb.Query) {
 }
 
 type CreateClientRequest struct {
-	Code         string                            `json:"code" binding:"required"`
-	Name         string                            `json:"name" binding:"required"`
-	Address      string                            `json:"address"`
-	Phone        string                            `json:"phone" binding:"required"`
-	Latitude     float64                           `json:"latitude" binding:"required"`
-	Longitude    float64                           `json:"longitude" binding:"required"`
-	Note         string                            `json:"note"`
-	SocialMedias []models.CreateSocialMediaRequest `json:"social_medias"`
+	Code         string                             `json:"code" binding:"required"`
+	Name         string                             `json:"name" binding:"required"`
+	Address      *string                            `json:"address"`
+	Phone        string                             `json:"phone" binding:"required"`
+	Latitude     float64                            `json:"latitude" binding:"required"`
+	Longitude    float64                            `json:"longitude" binding:"required"`
+	Note         *string                            `json:"note"`
+	SocialMedias *[]models.CreateSocialMediaRequest `json:"social_medias"`
 }
 
 type UpdateClientRequest struct {
-	Code         string                            `json:"code"`
-	Name         string                            `json:"name"`
-	Address      string                            `json:"address"`
-	Phone        string                            `json:"phone"`
-	Latitude     float64                           `json:"latitude"`
-	Longitude    float64                           `json:"longitude"`
-	Note         string                            `json:"note"`
-	SocialMedias []models.UpdateSocialMediaRequest `json:"social_medias"`
+	Code         *string                            `json:"code"`
+	Name         *string                            `json:"name"`
+	Address      *string                            `json:"address"`
+	Phone        *string                            `json:"phone"`
+	Latitude     *float64                           `json:"latitude"`
+	Longitude    *float64                           `json:"longitude"`
+	Note         *string                            `json:"note"`
+	SocialMedias *[]models.UpdateSocialMediaRequest `json:"social_medias"`
 
 	// -- Delete social medias
-	DeleteSocialMedias []uint `json:"delete_social_media_ids"`
+	DeleteSocialMedias *[]uint `json:"delete_social_media_ids"`
 }
 
 type ClientHandler struct {
@@ -280,11 +280,11 @@ func (handler *ClientHandler) Create(c *gin.Context) {
 	}
 
 	// -- Add provided fields
-	if req.Address != "" {
-		client.Address = req.Address
+	if req.Address != nil {
+		client.Address = *req.Address
 	}
-	if req.Note != "" {
-		client.Note = req.Note
+	if req.Note != nil {
+		client.Note = *req.Note
 	}
 
 	// -- Prepare sql query (CREATE SOCIAL MEDIA)
@@ -355,7 +355,7 @@ func (handler *ClientHandler) Create(c *gin.Context) {
 		}
 	}
 
-	if len(req.SocialMedias) != 0 {
+	if req.SocialMedias != nil && len(*req.SocialMedias) != 0 {
 		// -- Prepare sql query (CREATE SOCIAL MEDIA DATA)
 		bqbQuery := bqb.New(`INSERT INTO "social_media_data" (social_media_id, platform, url, cid, ctime, mid, mtime) VALUES`)
 		socialMediaData := models.SocialMediaData{}
@@ -366,7 +366,7 @@ func (handler *ClientHandler) Create(c *gin.Context) {
 			return
 		}
 
-		for _, sm := range req.SocialMedias {
+		for _, sm := range *req.SocialMedias {
 			// -- Append social media to bqb query
 			bqbQuery.Space("(?, ?, ?, ?, ?, ?, ?),", createdSocialMediaId, sm.Platform, sm.URL, socialMediaData.CId, socialMediaData.CTime, socialMediaData.MId, socialMediaData.MTime)
 		}
@@ -411,6 +411,13 @@ func (handler *ClientHandler) Update(c *gin.Context) {
 		userId = id.(uint)
 	}
 
+	// -- Get id
+	targetClientId, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		c.JSON(400, utils.NewErrorResponse(400, "invalid user Id. user Id should be an integer"))
+		return
+	}
+
 	// -- Parse request
 	var req UpdateClientRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -418,10 +425,9 @@ func (handler *ClientHandler) Update(c *gin.Context) {
 		return
 	}
 
-	// -- Get id
-	targetClientId, err := strconv.Atoi(c.Param("id"))
-	if err != nil {
-		c.JSON(400, utils.NewErrorResponse(400, "invalid user Id. user Id should be an integer"))
+	// -- Check if request all fields are nil
+	if utils.IsAllFieldsNil(req) {
+		c.JSON(400, utils.NewErrorResponse(400, "invalid request. at least one field should be provided"))
 		return
 	}
 
@@ -474,30 +480,30 @@ func (handler *ClientHandler) Update(c *gin.Context) {
 		return
 	}
 
-	if req.Code != "" && req.Code != client.Code {
-		bqbQuery.Space(" code = ?,", req.Code)
+	if req.Code != nil {
+		bqbQuery.Space("code = ?,", req.Code)
 	}
-	if req.Name != "" && req.Name != client.Name {
-		bqbQuery.Space(" name = ?,", req.Name)
+	if req.Name != nil {
+		bqbQuery.Space("name = ?,", req.Name)
 	}
-	if req.Address != "" && req.Address != client.Address {
-		bqbQuery.Space(" address = ?,", req.Address)
+	if req.Address != nil {
+		bqbQuery.Space("address = ?,", req.Address)
 	}
-	if req.Phone != "" && req.Phone != client.Phone {
-		bqbQuery.Space(" phone = ?,", req.Phone)
+	if req.Phone != nil {
+		bqbQuery.Space("phone = ?,", req.Phone)
 	}
-	if req.Latitude != 0.0 && req.Latitude != client.Latitude {
-		bqbQuery.Space(" latitude = ?,", req.Latitude)
+	if req.Latitude != nil {
+		bqbQuery.Space("latitude = ?,", req.Latitude)
 	}
-	if req.Longitude != 0.0 && req.Longitude != client.Longitude {
-		bqbQuery.Space(" longitude = ?,", req.Longitude)
+	if req.Longitude != nil {
+		bqbQuery.Space("longitude = ?,", req.Longitude)
 	}
-	if req.Note != "" && req.Note != client.Note {
-		bqbQuery.Space(" note = ?,", req.Note)
+	if req.Note != nil {
+		bqbQuery.Space("note = ?,", req.Note)
 	}
 
 	// -- Append mid and mtime
-	query, params, err = bqbQuery.Space(" mid = ?, mtime = ? WHERE id = ? RETURNING id", tmpClient.MId, tmpClient.MTime, targetClientId).ToPgsql()
+	query, params, err = bqbQuery.Space("mid = ?, mtime = ? WHERE id = ? RETURNING id", tmpClient.MId, tmpClient.MTime, targetClientId).ToPgsql()
 	if err != nil {
 		tx.Rollback()
 		log.Printf("Error preparing sql query: %v\n", err)
@@ -514,7 +520,7 @@ func (handler *ClientHandler) Update(c *gin.Context) {
 	}
 
 	// -- Update social medias
-	if len(req.SocialMedias) == 0 && len(req.DeleteSocialMedias) == 0 {
+	if (req.SocialMedias == nil || len(*req.SocialMedias) == 0) && (*req.DeleteSocialMedias == nil || len(*req.DeleteSocialMedias) == 0) {
 		// -- Commit transaction
 		if err := tx.Commit(); err != nil {
 			log.Printf("Error commiting transaction: %v\n", err)
@@ -538,7 +544,7 @@ func (handler *ClientHandler) Update(c *gin.Context) {
 	// -- Separate social medias to create and update
 	var createSocialMedias []models.SocialMediaData
 	var updateSocialMedias []models.SocialMediaData
-	for _, sm := range req.SocialMedias {
+	for _, sm := range *req.SocialMedias {
 		if sm.Id == 0 {
 			createSocialMedias = append(createSocialMedias, models.SocialMediaData{
 				Platform: sm.Platform,
@@ -620,10 +626,10 @@ func (handler *ClientHandler) Update(c *gin.Context) {
 	}
 
 	// -- Delete social medias
-	if len(req.DeleteSocialMedias) > 0 {
+	if req.DeleteSocialMedias != nil && len(*req.DeleteSocialMedias) > 0 {
 		// -- Prepare sql query
 		bqbQuery = bqb.New(`DELETE FROM "social_media_data" WHERE id IN (`)
-		for _, smid := range req.DeleteSocialMedias {
+		for _, smid := range *req.DeleteSocialMedias {
 			bqbQuery.Space("?,", smid)
 		}
 

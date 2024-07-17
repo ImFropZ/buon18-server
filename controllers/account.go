@@ -43,28 +43,28 @@ func prepareAccountQuery(c *gin.Context, bqbQuery *bqb.Query) {
 }
 
 type CreateAccountRequest struct {
-	Code           string                            `json:"code" binding:"required"`
-	Name           string                            `json:"name" binding:"required"`
-	Email          string                            `json:"email"`
-	Gender         string                            `json:"gender"`
-	Address        string                            `json:"address"`
-	Phone          string                            `json:"phone" binding:"required"`
-	SecondaryPhone string                            `json:"secondary_phone"`
-	SocialMedias   []models.CreateSocialMediaRequest `json:"social_medias"`
+	Code           string                             `json:"code" binding:"required"`
+	Name           string                             `json:"name" binding:"required"`
+	Email          *string                            `json:"email"`
+	Gender         *string                            `json:"gender"`
+	Address        *string                            `json:"address"`
+	Phone          string                             `json:"phone" binding:"required"`
+	SecondaryPhone *string                            `json:"secondary_phone"`
+	SocialMedias   *[]models.CreateSocialMediaRequest `json:"social_medias"`
 }
 
 type UpdateAccountRequest struct {
-	Code           string                            `json:"code"`
-	Name           string                            `json:"name"`
-	Email          string                            `json:"email"`
-	Gender         string                            `json:"gender"`
-	Address        string                            `json:"address"`
-	SecondaryPhone string                            `json:"secondary_phone"`
-	Phone          string                            `json:"phone"`
-	SocialMedias   []models.UpdateSocialMediaRequest `json:"social_medias"`
+	Code           *string                            `json:"code"`
+	Name           *string                            `json:"name"`
+	Email          *string                            `json:"email"`
+	Gender         *string                            `json:"gender"`
+	Address        *string                            `json:"address"`
+	SecondaryPhone *string                            `json:"secondary_phone"`
+	Phone          *string                            `json:"phone"`
+	SocialMedias   *[]models.UpdateSocialMediaRequest `json:"social_medias"`
 
 	// - Fields to delete social medias
-	DeleteSocialMedias []uint `json:"delete_social_media_ids"`
+	DeleteSocialMedias *[]uint `json:"delete_social_media_ids"`
 }
 
 type AccountHandler struct {
@@ -265,14 +265,14 @@ func (handler *AccountHandler) Create(c *gin.Context) {
 	}
 
 	// -- Add provided fields
-	if req.Email != "" {
-		account.Email = req.Email
+	if req.Email != nil {
+		account.Email = *req.Email
 	}
-	if req.Address != "" {
-		account.Address = req.Address
+	if req.Address != nil {
+		account.Address = *req.Address
 	}
-	if req.SecondaryPhone != "" {
-		account.SecondaryPhone = req.SecondaryPhone
+	if req.SecondaryPhone != nil {
+		account.SecondaryPhone = *req.SecondaryPhone
 	}
 	account.Gender = utils.SerializeGender(req.Gender)
 
@@ -344,7 +344,7 @@ func (handler *AccountHandler) Create(c *gin.Context) {
 		}
 	}
 
-	if len(req.SocialMedias) != 0 {
+	if req.SocialMedias != nil && len(*req.SocialMedias) != 0 {
 		// -- Prepare sql query (CREATE SOCIAL MEDIA DATA)
 		bqbQuery := bqb.New(`INSERT INTO "social_media_data" (social_media_id, platform, url, cid, ctime, mid, mtime) VALUES`)
 		socialMediaData := models.SocialMediaData{}
@@ -355,7 +355,7 @@ func (handler *AccountHandler) Create(c *gin.Context) {
 			return
 		}
 
-		for _, sm := range req.SocialMedias {
+		for _, sm := range *req.SocialMedias {
 			// -- Append social media to bqb query
 			bqbQuery.Space("(?, ?, ?, ?, ?, ?, ?),", createdSocialMediaId, sm.Platform, sm.URL, socialMediaData.CId, socialMediaData.CTime, socialMediaData.MId, socialMediaData.MTime)
 		}
@@ -400,6 +400,13 @@ func (handler *AccountHandler) Update(c *gin.Context) {
 		userId = id.(uint)
 	}
 
+	// -- Get account id
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		c.JSON(400, utils.NewErrorResponse(400, "invalid user Id. user Id should be an integer"))
+		return
+	}
+
 	// -- Parse request
 	var req UpdateAccountRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -407,10 +414,9 @@ func (handler *AccountHandler) Update(c *gin.Context) {
 		return
 	}
 
-	// -- Get account id
-	id, err := strconv.Atoi(c.Param("id"))
-	if err != nil {
-		c.JSON(400, utils.NewErrorResponse(400, "invalid user Id. user Id should be an integer"))
+	// -- Check if all fields are nil
+	if utils.IsAllFieldsNil(&req) {
+		c.JSON(400, utils.NewErrorResponse(400, "no fields to update"))
 		return
 	}
 
@@ -457,32 +463,32 @@ func (handler *AccountHandler) Update(c *gin.Context) {
 		return
 	}
 
-	if req.Code != "" && req.Code != account.Code {
-		bqbQuery.Space(" code = ?,", req.Code)
+	if req.Code != nil {
+		bqbQuery.Space("code = ?,", *req.Code)
 	}
-	if req.Name != "" && req.Name != account.Name {
-		bqbQuery.Space(" name = ?,", req.Name)
+	if req.Name != nil {
+		bqbQuery.Space("name = ?,", *req.Name)
 	}
-	if req.Email != "" && req.Email != account.Email {
-		bqbQuery.Space(" email = ?,", req.Email)
+	if req.Email != nil {
+		bqbQuery.Space("email = ?,", *req.Email)
 	}
-	if req.Gender != "" {
+	if req.Gender != nil {
 		if g := utils.SerializeGender(req.Gender); g != account.Gender {
-			bqbQuery.Space(` gender = ?,`, g)
+			bqbQuery.Space(`gender = ?,`, g)
 		}
 	}
-	if req.Address != "" && req.Address != account.Address {
-		bqbQuery.Space(" address = ?,", req.Address)
+	if req.Address != nil {
+		bqbQuery.Space("address = ?,", *req.Address)
 	}
-	if req.Phone != "" && req.Phone != account.Phone {
-		bqbQuery.Space(" phone = ?,", req.Phone)
+	if req.Phone != nil {
+		bqbQuery.Space("phone = ?,", *req.Phone)
 	}
-	if req.SecondaryPhone != "" && req.SecondaryPhone != account.SecondaryPhone {
-		bqbQuery.Space(" secondary_phone = ?,", req.SecondaryPhone)
+	if req.SecondaryPhone != nil {
+		bqbQuery.Space("secondary_phone = ?,", *req.SecondaryPhone)
 	}
 
 	// -- Append mid and mtime
-	query, params, err = bqbQuery.Space(" mid = ?, mtime = ? WHERE id = ? RETURNING id", tmpAccount.MId, tmpAccount.MTime, id).ToPgsql()
+	query, params, err = bqbQuery.Space("mid = ?, mtime = ? WHERE id = ? RETURNING id", tmpAccount.MId, tmpAccount.MTime, id).ToPgsql()
 	if err != nil {
 		tx.Rollback()
 		log.Printf("Error preparing sql query: %v\n", err)
@@ -499,7 +505,7 @@ func (handler *AccountHandler) Update(c *gin.Context) {
 	}
 
 	// -- Update social medias
-	if len(req.SocialMedias) == 0 && len(req.DeleteSocialMedias) == 0 {
+	if (req.SocialMedias == nil || len(*req.SocialMedias) == 0) && (req.DeleteSocialMedias == nil || len(*req.DeleteSocialMedias) == 0) {
 		// -- Commit transaction
 		if err := tx.Commit(); err != nil {
 			log.Printf("Error commiting transaction: %v\n", err)
@@ -523,7 +529,7 @@ func (handler *AccountHandler) Update(c *gin.Context) {
 	// -- Separate social medias to create and update
 	var createSocialMedias []models.SocialMediaData
 	var updateSocialMedias []models.SocialMediaData
-	for _, sm := range req.SocialMedias {
+	for _, sm := range *req.SocialMedias {
 		if sm.Id == 0 {
 			createSocialMedias = append(createSocialMedias, models.SocialMediaData{
 				Platform: sm.Platform,
@@ -605,10 +611,10 @@ func (handler *AccountHandler) Update(c *gin.Context) {
 	}
 
 	// -- Delete social medias
-	if len(req.DeleteSocialMedias) > 0 {
+	if *req.DeleteSocialMedias != nil && len(*req.DeleteSocialMedias) > 0 {
 		// -- Prepare sql query
 		bqbQuery = bqb.New(`DELETE FROM "social_media_data" WHERE id IN (`)
-		for _, smid := range req.DeleteSocialMedias {
+		for _, smid := range *req.DeleteSocialMedias {
 			bqbQuery.Space("?,", smid)
 		}
 

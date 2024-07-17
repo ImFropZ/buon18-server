@@ -36,6 +36,21 @@ type QuoteItem struct {
 	MTime       time.Time
 }
 
+type QuoteItemCreate struct {
+	Name        string
+	Description *string
+	Quantity    uint
+	UnitPrice   float64
+}
+
+type QuoteItemUpdate struct {
+	Id          uint
+	Name        *string
+	Description *string
+	Quantity    *uint
+	UnitPrice   *float64
+}
+
 type QuoteResponse struct {
 	Id          uint                `json:"id"`
 	Code        string              `json:"code"`

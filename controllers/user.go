@@ -24,11 +24,11 @@ type CreateUserRequest struct {
 }
 
 type UpdateUserRequest struct {
-	Name     string `json:"name"`
-	Email    string `json:"email"`
-	Password string `json:"password"`
-	Role     string `json:"role"`
-	Deleted  string `json:"deleted"`
+	Name     *string `json:"name"`
+	Email    *string `json:"email"`
+	Password *string `json:"password"`
+	Role     *string `json:"role"`
+	Deleted  *string `json:"deleted"`
 }
 
 type UserHandler struct {
@@ -261,16 +261,22 @@ func (handler *UserHandler) Update(c *gin.Context) {
 	}
 
 	// -- Bind request
-	var request UpdateUserRequest
-	if err := c.ShouldBindJSON(&request); err != nil {
+	var req UpdateUserRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(400, utils.NewErrorResponse(400, "invalid request. request should contain either one of name, email, password, and role fields"))
+		return
+	}
+
+	// -- Check if all fields are nil
+	if utils.IsAllFieldsNil(req) {
+		c.JSON(400, utils.NewErrorResponse(400, "invalid request. at least one of name, email, password, or role fields should be provided"))
 		return
 	}
 
 	// -- Validate role
 	var role string
-	if request.Role != "" {
-		if roleStr, ok := utils.ValidateRole(request.Role); !ok {
+	if req.Role != nil {
+		if roleStr, ok := utils.ValidateRole(*req.Role); !ok {
 			c.JSON(400, utils.NewErrorResponse(400, "invalid role"))
 			return
 		} else {
@@ -310,7 +316,7 @@ func (handler *UserHandler) Update(c *gin.Context) {
 
 	// -- Check if user already deleted
 	if user.Deleted {
-		if lower := strings.ToLower(request.Deleted); lower != "false" || lower == "true" {
+		if lower := strings.ToLower(*req.Deleted); lower != "false" || lower == "true" {
 			tx.Rollback()
 			c.JSON(400, utils.NewErrorResponse(400, "user already deleted"))
 			return
@@ -355,14 +361,14 @@ func (handler *UserHandler) Update(c *gin.Context) {
 
 	// -- Update user
 	bqbQuery := bqb.New(`UPDATE "user" SET`)
-	if request.Name != "" && request.Name != user.Name {
-		bqbQuery.Space(`name = ?,`, request.Name)
+	if req.Name != nil {
+		bqbQuery.Space(`name = ?,`, *req.Name)
 	}
-	if request.Email != "" && request.Email != user.Email {
-		bqbQuery.Space(`email = ?,`, request.Email)
+	if req.Email != nil {
+		bqbQuery.Space(`email = ?,`, *req.Email)
 	}
-	if request.Password != "" {
-		hashedPwd, err := utils.HashPwd(request.Password)
+	if req.Password != nil {
+		hashedPwd, err := utils.HashPwd(*req.Password)
 		if err != nil {
 			tx.Rollback()
 			log.Printf("Error hashing password: %v\n", err)
@@ -371,11 +377,13 @@ func (handler *UserHandler) Update(c *gin.Context) {
 		}
 		bqbQuery.Space(`pwd = ?,`, hashedPwd)
 	}
-	if role != "" && role != user.Role {
+	if role != "" {
 		bqbQuery.Space(`role = ?,`, role)
 	}
-	if lower := strings.ToLower(request.Deleted); lower == "true" || lower == "false" {
-		bqbQuery.Space(`deleted = ?,`, lower == "true")
+	if req.Deleted != nil {
+		if lower := strings.ToLower(*req.Deleted); lower == "true" || lower == "false" {
+			bqbQuery.Space(`deleted = ?,`, lower == "true")
+		}
 	}
 
 	// -- Uppdate timestamp
@@ -390,22 +398,11 @@ func (handler *UserHandler) Update(c *gin.Context) {
 	}
 
 	// -- Update user to database
-	if result, err := tx.Exec(query, params...); err != nil {
+	if _, err := tx.Exec(query, params...); err != nil {
 		tx.Rollback()
 		log.Printf("Error updating user: %v\n", err)
 		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
 		return
-	} else {
-		if n, err := result.RowsAffected(); err != nil {
-			tx.Rollback()
-			log.Printf("Error getting rows affected: %v\n", err)
-			c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
-			return
-		} else if n == 0 {
-			tx.Rollback()
-			c.JSON(400, utils.NewErrorResponse(400, "user not updated"))
-			return
-		}
 	}
 
 	// -- Commit transaction
