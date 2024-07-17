@@ -15,4 +15,5 @@ func SalesOrder(e *gin.Engine, db *sql.DB) {
 	e.GET("/api/sales-orders/:id", handler.First)
 	e.POST("/api/sales-orders/:id/invoice", middlewares.Authorize(middlewares.Editor), handler.CreateInvoice)
 	e.POST("/api/sales-orders/:id/status", middlewares.Authorize(middlewares.Editor), handler.UpdateStatus)
+	e.PATCH("/api/sales-orders/:id", middlewares.Authorize(middlewares.Editor), handler.Update)
 }

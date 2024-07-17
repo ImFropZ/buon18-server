@@ -8,6 +8,7 @@ import (
 	"server/utils"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/nullism/bqb"
@@ -57,6 +58,13 @@ func prepareSalesOrderQuery(c *gin.Context, bqbQuery *bqb.Query) {
 
 type UpdateSalesOrderStatusRequest struct {
 	Action string `json:"action" binding:"required"`
+}
+
+type UpdateSalesOrderRequest struct {
+	Code         *string    `json:"code"`
+	AcceptDate   *time.Time `json:"accept_date"`
+	DeliveryDate *time.Time `json:"delivery_date"`
+	Note         *string    `json:"note"`
 }
 
 type SalesOrderHandler struct {
@@ -430,6 +438,135 @@ func (handler *SalesOrderHandler) UpdateStatus(c *gin.Context) {
 	if err != nil {
 		tx.Rollback()
 		log.Printf("Error updating status: %v", err)
+		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
+		return
+	}
+
+	// -- Commit transaction
+	err = tx.Commit()
+	if err != nil {
+		log.Printf("Error committing transaction: %v", err)
+		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
+		return
+	}
+
+	c.JSON(200, utils.NewResponse(200, fmt.Sprintf("sales order %d updated successfully", salesOrderId), nil))
+}
+
+func (handler *SalesOrderHandler) Update(c *gin.Context) {
+	// -- Get user id
+	var userId uint
+	if id, ok := c.Get("user_id"); !ok {
+		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
+		return
+	} else {
+		userId = id.(uint)
+	}
+
+	// -- Get id
+	salesOrderId, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		c.JSON(400, utils.NewErrorResponse(400, "invalid quote Id. sales order Id should be an integer"))
+		return
+	}
+
+	// -- Parse request
+	var request UpdateSalesOrderRequest
+	if err := c.ShouldBindJSON(&request); err != nil {
+		c.JSON(400, utils.NewErrorResponse(400, "invalid request body. action is required"))
+		return
+	}
+
+	// -- Check if all fields are nil
+	if utils.IsAllFieldsNil(&request) {
+		c.JSON(400, utils.NewErrorResponse(400, "invalid request body. at least one field should be provided"))
+		return
+	}
+
+	// -- Prepare sql query
+	query, params, err := bqb.New(`SELECT status, accept_date, delivery_date FROM "sales_order" WHERE id = ?`, salesOrderId).ToPgsql()
+	if err != nil {
+		log.Printf("Error preparing query: %v", err)
+		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
+		return
+	}
+
+	// -- Begin transaction
+	tx, err := handler.DB.Begin()
+	if err != nil {
+		log.Printf("Error beginning transaction: %v", err)
+		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
+		return
+	}
+
+	// -- Get status
+	var status string
+	var acceptDate, deliveryDate time.Time
+	err = tx.QueryRow(query, params...).Scan(&status, &acceptDate, &deliveryDate)
+	if err != nil {
+		tx.Rollback()
+
+		if err == sql.ErrNoRows {
+			c.JSON(404, utils.NewErrorResponse(404, fmt.Sprintf("sales order %d not found", salesOrderId)))
+			return
+		}
+
+		log.Printf("Error getting status: %v", err)
+		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
+		return
+	}
+
+	// -- Validate status
+	if status == "Done" || status == "Cancel" {
+		tx.Rollback()
+		c.JSON(400, utils.NewErrorResponse(400, "invalid action. sales order is already done or cancel"))
+		return
+	}
+
+	// -- Prepare sql query
+	tmpSalesOrder := models.SalesOrder{}
+	tmpSalesOrder.PrepareForUpdate(userId)
+
+	bqbQuery := bqb.New(`UPDATE "sales_order" SET`)
+	if request.Code != nil {
+		bqbQuery.Space(`code = ?,`, *request.Code)
+	}
+	if request.AcceptDate != nil {
+		if request.DeliveryDate != nil {
+			if request.AcceptDate.Before(*request.DeliveryDate) {
+				bqbQuery.Space(`accept_date = ?,`, *request.AcceptDate)
+			}
+		} else if request.AcceptDate.Before(deliveryDate) {
+			bqbQuery.Space(`accept_date = ?,`, *request.AcceptDate)
+		}
+	}
+	if request.DeliveryDate != nil {
+		if request.AcceptDate != nil {
+			if request.DeliveryDate.After(*request.AcceptDate) {
+				bqbQuery.Space(`delivery_date = ?,`, *request.DeliveryDate)
+			}
+		} else if request.DeliveryDate.After(acceptDate) {
+			bqbQuery.Space(`delivery_date = ?,`, *request.DeliveryDate)
+		}
+	}
+	if request.Note != nil {
+		bqbQuery.Space(`note = ?,`, *request.Note)
+	}
+	bqbQuery.Space(`status = ?, mid = ?, mtime = ? WHERE id = ?`, "On-Going", tmpSalesOrder.MId, tmpSalesOrder.MTime, salesOrderId)
+
+	query, params, err = bqbQuery.ToPgsql()
+	if err != nil {
+		tx.Rollback()
+		log.Printf("Error preparing query: %v", err)
+		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
+		return
+	}
+
+	// -- Update sales order
+	_, err = tx.Exec(query, params...)
+	if err != nil {
+		tx.Rollback()
+		log.Printf("Error updating sales order: %v", err)
 		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
 		return
 	}
