@@ -426,7 +426,7 @@ func (handler *ClientHandler) Update(c *gin.Context) {
 	}
 
 	// -- Check if request all fields are nil
-	if utils.IsAllFieldsNil(req) {
+	if utils.IsAllFieldsNil(&req) {
 		c.JSON(400, utils.NewErrorResponse(400, "invalid request. at least one field should be provided"))
 		return
 	}

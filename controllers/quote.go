@@ -680,7 +680,7 @@ func (handler *QuoteHandler) Update(c *gin.Context) {
 	}
 
 	// -- Check if all fields are nil
-	if utils.IsAllFieldsNil(req) {
+	if utils.IsAllFieldsNil(&req) {
 		c.JSON(400, utils.NewErrorResponse(400, "invalid request body. at least one field should be updated"))
 		return
 	}

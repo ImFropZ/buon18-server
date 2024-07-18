@@ -471,14 +471,14 @@ func (handler *SalesOrderHandler) Update(c *gin.Context) {
 	}
 
 	// -- Parse request
-	var request UpdateSalesOrderRequest
-	if err := c.ShouldBindJSON(&request); err != nil {
+	var req UpdateSalesOrderRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(400, utils.NewErrorResponse(400, "invalid request body. action is required"))
 		return
 	}
 
 	// -- Check if all fields are nil
-	if utils.IsAllFieldsNil(&request) {
+	if utils.IsAllFieldsNil(&req) {
 		c.JSON(400, utils.NewErrorResponse(400, "invalid request body. at least one field should be provided"))
 		return
 	}
@@ -528,29 +528,29 @@ func (handler *SalesOrderHandler) Update(c *gin.Context) {
 	tmpSalesOrder.PrepareForUpdate(userId)
 
 	bqbQuery := bqb.New(`UPDATE "sales_order" SET`)
-	if request.Code != nil {
-		bqbQuery.Space(`code = ?,`, *request.Code)
+	if req.Code != nil {
+		bqbQuery.Space(`code = ?,`, *req.Code)
 	}
-	if request.AcceptDate != nil {
-		if request.DeliveryDate != nil {
-			if request.AcceptDate.Before(*request.DeliveryDate) {
-				bqbQuery.Space(`accept_date = ?,`, *request.AcceptDate)
+	if req.AcceptDate != nil {
+		if req.DeliveryDate != nil {
+			if req.AcceptDate.Before(*req.DeliveryDate) {
+				bqbQuery.Space(`accept_date = ?,`, *req.AcceptDate)
 			}
-		} else if request.AcceptDate.Before(deliveryDate) {
-			bqbQuery.Space(`accept_date = ?,`, *request.AcceptDate)
+		} else if req.AcceptDate.Before(deliveryDate) {
+			bqbQuery.Space(`accept_date = ?,`, *req.AcceptDate)
 		}
 	}
-	if request.DeliveryDate != nil {
-		if request.AcceptDate != nil {
-			if request.DeliveryDate.After(*request.AcceptDate) {
-				bqbQuery.Space(`delivery_date = ?,`, *request.DeliveryDate)
+	if req.DeliveryDate != nil {
+		if req.AcceptDate != nil {
+			if req.DeliveryDate.After(*req.AcceptDate) {
+				bqbQuery.Space(`delivery_date = ?,`, *req.DeliveryDate)
 			}
-		} else if request.DeliveryDate.After(acceptDate) {
-			bqbQuery.Space(`delivery_date = ?,`, *request.DeliveryDate)
+		} else if req.DeliveryDate.After(acceptDate) {
+			bqbQuery.Space(`delivery_date = ?,`, *req.DeliveryDate)
 		}
 	}
-	if request.Note != nil {
-		bqbQuery.Space(`note = ?,`, *request.Note)
+	if req.Note != nil {
+		bqbQuery.Space(`note = ?,`, *req.Note)
 	}
 	bqbQuery.Space(`status = ?, mid = ?, mtime = ? WHERE id = ?`, "On-Going", tmpSalesOrder.MId, tmpSalesOrder.MTime, salesOrderId)
 

@@ -61,7 +61,7 @@ type UpdateUserRequest struct {
 	Email    *string `json:"email"`
 	Password *string `json:"password"`
 	Role     *string `json:"role"`
-	Deleted  *string `json:"deleted"`
+	Deleted  *bool   `json:"deleted"`
 }
 
 type UserHandler struct {
@@ -298,7 +298,7 @@ func (handler *UserHandler) Update(c *gin.Context) {
 	}
 
 	// -- Check if all fields are nil
-	if utils.IsAllFieldsNil(req) {
+	if utils.IsAllFieldsNil(&req) {
 		c.JSON(400, utils.NewErrorResponse(400, "invalid request. at least one of name, email, password, or role fields should be provided"))
 		return
 	}
@@ -345,8 +345,8 @@ func (handler *UserHandler) Update(c *gin.Context) {
 	}
 
 	// -- Check if user already deleted
-	if user.Deleted {
-		if lower := strings.ToLower(*req.Deleted); lower != "false" || lower == "true" {
+	if req.Deleted != nil {
+		if user.Deleted && *req.Deleted {
 			tx.Rollback()
 			c.JSON(400, utils.NewErrorResponse(400, "user already deleted"))
 			return
@@ -411,9 +411,7 @@ func (handler *UserHandler) Update(c *gin.Context) {
 		bqbQuery.Space(`role = ?,`, role)
 	}
 	if req.Deleted != nil {
-		if lower := strings.ToLower(*req.Deleted); lower == "true" || lower == "false" {
-			bqbQuery.Space(`deleted = ?,`, lower == "true")
-		}
+		bqbQuery.Space(`deleted = ?,`, *req.Deleted)
 	}
 
 	// -- Uppdate timestamp
