@@ -16,6 +16,39 @@ import (
 	"github.com/nullism/bqb"
 )
 
+func prepareUserQuery(c *gin.Context, bqbQuery *bqb.Query) {
+	// -- Apply query params
+	bqbQuery.Space("WHERE")
+	if str, ok := c.GetQuery("name_ilike"); ok {
+		bqbQuery.Space(`"user".name ILIKE ? AND`, "%"+str+"%")
+	}
+	if str, ok := c.GetQuery("email_ilike"); ok {
+		bqbQuery.Space(`"user".email ILIKE ? AND`, "%"+str+"%")
+	}
+	if str, ok := c.GetQuery("role"); ok {
+		// -- Convert string to role
+		if role, ok := utils.ValidateRole(str); ok {
+			bqbQuery.Space(`"user".role = ? AND`, role)
+		}
+	}
+	if str, ok := c.GetQuery("deleted"); ok {
+		// -- Convert string to boolean
+		if lower := strings.ToLower(str); lower == "true" || lower == "false" {
+			bqbQuery.Space(`"user".deleted = ? AND`, lower == "true")
+		}
+	}
+
+	// -- Remove last AND or WHERE
+	if strings.HasSuffix(bqbQuery.Parts[len(bqbQuery.Parts)-1].Text, "WHERE") {
+		bqbQuery.Parts = bqbQuery.Parts[:len(bqbQuery.Parts)-1]
+	} else if strings.HasSuffix(bqbQuery.Parts[len(bqbQuery.Parts)-1].Text, "AND") {
+		text := bqbQuery.Parts[len(bqbQuery.Parts)-1].Text
+		arr := strings.Split(text, " ")
+
+		bqbQuery.Parts[len(bqbQuery.Parts)-1].Text = strings.Join(arr[:len(arr)-1], " ")
+	}
+}
+
 type CreateUserRequest struct {
 	Name     string `json:"name" binding:"required"`
 	Email    string `json:"email" binding:"required"`
@@ -83,10 +116,8 @@ func (handler *UserHandler) List(c *gin.Context) {
 	// -- Prepare sql query
 	bqbQuery := bqb.New(`SELECT id, name, email, role, deleted FROM "user"`)
 
-	// -- Add query if exists
-	if paginationQueryParams.Query != "" {
-		bqbQuery.Space(`WHERE name ILIKE ?`, "%"+paginationQueryParams.Query+"%")
-	}
+	// -- Prepare query
+	prepareUserQuery(c, bqbQuery)
 
 	// -- Complete query
 	bqbQuery.Space("ORDER BY id OFFSET ? LIMIT ?", paginationQueryParams.Offset, paginationQueryParams.Limit)
@@ -119,9 +150,8 @@ func (handler *UserHandler) List(c *gin.Context) {
 	// -- Count total users
 	bqbQuery = bqb.New(`SELECT COUNT(*) FROM "user"`)
 
-	if paginationQueryParams.Query != "" {
-		bqbQuery.Space(`WHERE name ILIKE ?`, "%"+paginationQueryParams.Query+"%")
-	}
+	// -- Prepare query
+	prepareUserQuery(c, bqbQuery)
 
 	query, params, err = bqbQuery.ToPgsql()
 	if err != nil {
