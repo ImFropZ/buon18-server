@@ -316,6 +316,14 @@ func (handler *AccountHandler) Create(c *gin.Context) {
 	RETURNING id`, account.Code, account.Name, account.Phone, account.Email, account.Address, account.SecondaryPhone, account.Gender, createdSocialMediaId, account.CId, account.CTime, account.MId, account.MTime).ToPgsql()
 	if err != nil {
 		tx.Rollback()
+
+		if pqErr, ok := err.(*pq.Error); ok {
+			if pqErr.Code == pq.ErrorCode(database.PQ_ERROR_CODES[database.DUPLICATE]) {
+				c.JSON(400, utils.NewErrorResponse(400, "code or phone already exists"))
+				return
+			}
+		}
+
 		log.Printf("Error preparing sql query: %v\n", err)
 		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
 		return
@@ -499,6 +507,14 @@ func (handler *AccountHandler) Update(c *gin.Context) {
 	// -- Update account
 	if _, err := tx.Exec(query, params...); err != nil {
 		tx.Rollback()
+
+		if pqErr, ok := err.(*pq.Error); ok {
+			if pqErr.Code == pq.ErrorCode(database.PQ_ERROR_CODES[database.DUPLICATE]) {
+				c.JSON(400, utils.NewErrorResponse(400, "code or phone already exists"))
+				return
+			}
+		}
+
 		log.Printf("Error updating account: %v\n", err)
 		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
 		return
