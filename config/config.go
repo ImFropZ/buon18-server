@@ -26,6 +26,10 @@ type Config struct {
 	ALLOW_HEADERS  []string
 	EXPOSE_HEADERS []string
 	MAX_AGE        time.Duration
+
+	// -- TLS
+	CERT_FILE string
+	KEY_FILE  string
 }
 
 var configInstance *Config
@@ -114,6 +118,10 @@ func GetConfigInstance() *Config {
 				ALLOW_HEADERS:  allowHeaders,
 				EXPOSE_HEADERS: exposeHeaders,
 				MAX_AGE:        time.Duration(maxAge) * time.Second,
+
+				// -- TLS
+				CERT_FILE: Env("CERT_FILE"),
+				KEY_FILE:  Env("KEY_FILE"),
 			}
 		}
 	}

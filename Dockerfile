@@ -16,6 +16,7 @@ RUN apk --no-cache add ca-certificates
 
 COPY --from=builder /build /build
 
-EXPOSE 8080
+EXPOSE 80
+EXPOSE 443
 
 CMD ["/build"]

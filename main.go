@@ -2,6 +2,8 @@ package main
 
 import (
 	"database/sql"
+	"log"
+	"net/http"
 	"server/config"
 	"server/database"
 	"server/middlewares"
@@ -44,5 +46,28 @@ func main() {
 
 	router.Routes()
 
-	router.Run() // listen and serve on 0.0.0.0:8080 (for windows "localhost:8080")
+	// -- Start HTTP Server
+	if config.CERT_FILE == "" || config.KEY_FILE == "" {
+		server := &http.Server{
+			Addr:    ":80",
+			Handler: router,
+		}
+
+		log.Printf("Server started at port %s\n", server.Addr)
+
+		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Fatalf("listen: %s\n", err)
+		}
+	} else {
+		server := &http.Server{
+			Addr:    ":443",
+			Handler: router,
+		}
+
+		log.Printf("Server started at port %s\n", server.Addr)
+
+		if err := server.ListenAndServeTLS(config.CERT_FILE, config.KEY_FILE); err != nil && err != http.ErrServerClosed {
+			log.Fatalf("listen: %s\n", err)
+		}
+	}
 }
