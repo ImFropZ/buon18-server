@@ -1,15 +1,16 @@
+name: buon18-system
 services:
   db:
     image: postgres:alpine
-    container_name: server-db
+    container_name: buon18-system-database
     restart: unless-stopped
     environment:
       - POSTGRES_PASSWORD=postgres
     ports:
       - "5432:5432"
   server:
-    build: .
-    container_name: server
+    image: buon18/system-server:1.0.1
+    container_name: buon18-system-server
     restart: unless-stopped
     depends_on:
       - db
