@@ -4,6 +4,8 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
+	"reflect"
+	"server/database"
 	"server/models"
 	"server/utils"
 	"strconv"
@@ -11,6 +13,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/lib/pq"
 	"github.com/nullism/bqb"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
@@ -523,35 +526,47 @@ func (handler *SalesOrderHandler) Update(c *gin.Context) {
 		return
 	}
 
+	// -- Loop through request fields
+	updateFeilds := make(map[string]string)
+	v := reflect.ValueOf(req)
+	if v.Kind() == reflect.Struct {
+		for i := 0; i < v.NumField(); i++ {
+			field := v.Field(i)
+			if field.IsNil() {
+				continue
+			}
+
+			fieldName := utils.PascalToSnake(v.Type().Field(i).Name)
+
+			switch fieldName {
+			case "code":
+				updateFeilds[fieldName] = *field.Interface().(*string)
+			case "accept_date":
+				t := *field.Interface().(*time.Time)
+				updateFeilds[fieldName] = t.Format(time.RFC3339)
+			case "delivery_date":
+				t := *field.Interface().(*time.Time)
+				updateFeilds[fieldName] = t.Format(time.RFC3339)
+			case "note":
+				updateFeilds[fieldName] = *field.Interface().(*string)
+			default:
+				c.JSON(400, utils.NewErrorResponse(400, "invalid field"))
+				return
+			}
+		}
+	}
+
 	// -- Prepare sql query
 	tmpSalesOrder := models.SalesOrder{}
 	tmpSalesOrder.PrepareForUpdate(userId)
 
 	bqbQuery := bqb.New(`UPDATE "sales_order" SET`)
-	if req.Code != nil {
-		bqbQuery.Space(`code = ?,`, *req.Code)
+
+	// -- Update fields
+	for key, value := range updateFeilds {
+		bqbQuery.Space(fmt.Sprintf(`%s = ?,`, key), value)
 	}
-	if req.AcceptDate != nil {
-		if req.DeliveryDate != nil {
-			if req.AcceptDate.Before(*req.DeliveryDate) {
-				bqbQuery.Space(`accept_date = ?,`, *req.AcceptDate)
-			}
-		} else if req.AcceptDate.Before(deliveryDate) {
-			bqbQuery.Space(`accept_date = ?,`, *req.AcceptDate)
-		}
-	}
-	if req.DeliveryDate != nil {
-		if req.AcceptDate != nil {
-			if req.DeliveryDate.After(*req.AcceptDate) {
-				bqbQuery.Space(`delivery_date = ?,`, *req.DeliveryDate)
-			}
-		} else if req.DeliveryDate.After(acceptDate) {
-			bqbQuery.Space(`delivery_date = ?,`, *req.DeliveryDate)
-		}
-	}
-	if req.Note != nil {
-		bqbQuery.Space(`note = ?,`, *req.Note)
-	}
+
 	bqbQuery.Space(`status = ?, mid = ?, mtime = ? WHERE id = ?`, "On-Going", tmpSalesOrder.MId, tmpSalesOrder.MTime, salesOrderId)
 
 	query, params, err = bqbQuery.ToPgsql()
@@ -566,6 +581,16 @@ func (handler *SalesOrderHandler) Update(c *gin.Context) {
 	_, err = tx.Exec(query, params...)
 	if err != nil {
 		tx.Rollback()
+
+		if pqErr, ok := err.(*pq.Error); ok {
+			if pqErr.Code == pq.ErrorCode(database.PQ_ERROR_CODES[database.VIOLATE_CHECK]) {
+				if pqErr.Constraint == database.CHK_DELIVERY_DATE {
+					c.JSON(400, utils.NewErrorResponse(400, "expiry_date should be after date"))
+					return
+				}
+			}
+		}
+
 		log.Printf("Error updating sales order: %v", err)
 		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
 		return

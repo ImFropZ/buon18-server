@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
+	"reflect"
 	"server/database"
 	"server/models"
 	"server/utils"
@@ -470,8 +471,42 @@ func (handler *ClientHandler) Update(c *gin.Context) {
 		}
 	}
 
-	// -- Prepare sql query (UPDATE CLIENT)
-	bqbQuery := bqb.New(`UPDATE "client" SET`)
+	// -- Loop through request fields
+	updateFeilds := make(map[string]string)
+	v := reflect.ValueOf(req)
+	if v.Kind() == reflect.Struct {
+		for i := 0; i < v.NumField(); i++ {
+			field := v.Field(i)
+			if field.IsNil() {
+				continue
+			}
+
+			fieldName := utils.PascalToSnake(v.Type().Field(i).Name)
+			if fieldName == "social_medias" || fieldName == "delete_social_medias" {
+				continue
+			}
+
+			switch fieldName {
+			case "code":
+				updateFeilds[fieldName] = *field.Interface().(*string)
+			case "name":
+				updateFeilds[fieldName] = *field.Interface().(*string)
+			case "address":
+				updateFeilds[fieldName] = *field.Interface().(*string)
+			case "phone":
+				updateFeilds[fieldName] = *field.Interface().(*string)
+			case "latitude":
+				updateFeilds[fieldName] = *field.Interface().(*string)
+			case "longitude":
+				updateFeilds[fieldName] = *field.Interface().(*string)
+			case "note":
+				updateFeilds[fieldName] = *field.Interface().(*string)
+			default:
+				c.JSON(400, utils.NewErrorResponse(400, "invalid field"))
+				return
+			}
+		}
+	}
 
 	tmpClient := models.Client{}
 	if err := tmpClient.PrepareForUpdate(userId); err != nil {
@@ -480,26 +515,11 @@ func (handler *ClientHandler) Update(c *gin.Context) {
 		return
 	}
 
-	if req.Code != nil {
-		bqbQuery.Space("code = ?,", req.Code)
-	}
-	if req.Name != nil {
-		bqbQuery.Space("name = ?,", req.Name)
-	}
-	if req.Address != nil {
-		bqbQuery.Space("address = ?,", req.Address)
-	}
-	if req.Phone != nil {
-		bqbQuery.Space("phone = ?,", req.Phone)
-	}
-	if req.Latitude != nil {
-		bqbQuery.Space("latitude = ?,", req.Latitude)
-	}
-	if req.Longitude != nil {
-		bqbQuery.Space("longitude = ?,", req.Longitude)
-	}
-	if req.Note != nil {
-		bqbQuery.Space("note = ?,", req.Note)
+	// -- Prepare sql query (UPDATE CLIENT)
+	bqbQuery := bqb.New(`UPDATE "client" SET`)
+
+	for key, value := range updateFeilds {
+		bqbQuery.Space(fmt.Sprintf(`%s = ?,`, key), value)
 	}
 
 	// -- Append mid and mtime

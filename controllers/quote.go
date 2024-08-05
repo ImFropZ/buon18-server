@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
+	"reflect"
 	"server/database"
 	"server/models"
 	"server/utils"
@@ -97,7 +98,7 @@ type CreateSalesOrderRequest struct {
 	Code         string     `json:"code" binding:"required"`
 	AcceptDate   *time.Time `json:"accept_date"`
 	DeliveryDate time.Time  `json:"delivery_date" binding:"required"`
-	Note         *string    `json:"note"`
+	Note         string     `json:"note"`
 }
 
 type UpdateQuoteStatusRequest struct {
@@ -316,6 +317,8 @@ func (handler *QuoteHandler) Create(c *gin.Context) {
 	total := subtotal
 	if request.Discount != nil { // WARN: Discount nil means 0 discount
 		total -= *request.Discount
+	} else {
+		request.Discount = new(float64)
 	}
 
 	// -- Insert quote
@@ -565,6 +568,8 @@ func (handler *QuoteHandler) CreateSalesOrder(c *gin.Context) {
 	// -- Parse request body
 	var request CreateSalesOrderRequest
 	if err := c.ShouldBindJSON(&request); err != nil {
+		fmt.Printf("Error binding request body: %v\n", err)
+
 		c.JSON(400, utils.NewErrorResponse(400, "invalid request body. required fields: code, delivery_date"))
 		return
 	}
@@ -622,7 +627,7 @@ func (handler *QuoteHandler) CreateSalesOrder(c *gin.Context) {
 	query, params, err = bqb.New(`INSERT INTO "sales_order" 
 	(code, accept_date, delivery_date, note, quote_id, cid, ctime, mid, mtime) 
 	VALUES 
-	(?, ?, ?, ?, ?, ?, ?, ?, ?)`, request.Code, acceptDate, request.DeliveryDate, *request.Note, quoteId, tmpSalesOrder.CId, tmpSalesOrder.CTime, tmpSalesOrder.MId, tmpSalesOrder.MTime).ToPgsql()
+	(?, ?, ?, ?, ?, ?, ?, ?, ?)`, request.Code, acceptDate, request.DeliveryDate, request.Note, quoteId, tmpSalesOrder.CId, tmpSalesOrder.CTime, tmpSalesOrder.MId, tmpSalesOrder.MTime).ToPgsql()
 	if err != nil {
 		tx.Rollback()
 		log.Printf("Error preparing sql query: %v\n", err)
@@ -637,6 +642,13 @@ func (handler *QuoteHandler) CreateSalesOrder(c *gin.Context) {
 			if pqErr.Code == pq.ErrorCode(database.PQ_ERROR_CODES[database.DUPLICATE]) {
 				c.JSON(400, utils.NewErrorResponse(400, "sales order code already exists"))
 				return
+			}
+
+			if pqErr.Code == pq.ErrorCode(database.PQ_ERROR_CODES[database.VIOLATE_CHECK]) {
+				if pqErr.Constraint == database.CHK_DELIVERY_DATE {
+					c.JSON(400, utils.NewErrorResponse(400, "delivery_date should be after accept_date or provide accept_date before delivery_date"))
+					return
+				}
 			}
 		}
 
@@ -727,56 +739,54 @@ func (handler *QuoteHandler) Update(c *gin.Context) {
 		return
 	}
 
-	// -- Prepare sql query
-	bqbQuery := bqb.New(`UPDATE "quote" SET`)
+	// -- Loop through request fields
+	isDiscountUpdated := false
+	updateFeilds := make(map[string]string)
+	v := reflect.ValueOf(req)
+	if v.Kind() == reflect.Struct {
+		for i := 0; i < v.NumField(); i++ {
+			field := v.Field(i)
+			if field.IsNil() {
+				continue
+			}
 
-	// -- Update code
-	var isDiscountUpdated bool
-	if req.Code != nil {
-		bqbQuery.Space(`code = ?,`, *req.Code)
-	}
-	if req.Date != nil || req.ExpiryDate != nil {
-		if req.Date != nil && req.ExpiryDate != nil {
-			if !req.Date.Before(*req.ExpiryDate) {
-				bqbQuery.Space(`date = ?, expiry_date = ?,`, *req.Date, *req.ExpiryDate)
-			} else {
-				c.JSON(400, utils.NewErrorResponse(400, "invalid request body. expiry_date should be after date"))
-				return
-			}
-		} else if req.Date != nil {
-			if !req.Date.Before(quote.ExpiryDate) {
-				bqbQuery.Space(`date = ?,`, *req.Date)
-			} else {
-				c.JSON(400, utils.NewErrorResponse(400, "invalid request body. expiry_date should be after date"))
-				return
-			}
-		} else if req.ExpiryDate != nil {
-			if !quote.Date.Before(*req.ExpiryDate) {
-				bqbQuery.Space(`expiry_date = ?,`, *req.ExpiryDate)
-			} else {
-				c.JSON(400, utils.NewErrorResponse(400, "invalid request body. expiry_date should be after date"))
+			fieldName := utils.PascalToSnake(v.Type().Field(i).Name)
+
+			switch fieldName {
+			case "code":
+				updateFeilds[fieldName] = *field.Interface().(*string)
+			case "date":
+				t := *field.Interface().(*time.Time)
+				updateFeilds[fieldName] = t.Format(time.RFC3339)
+			case "expiry_date":
+				t := *field.Interface().(*time.Time)
+				updateFeilds[fieldName] = t.Format(time.RFC3339)
+			case "note":
+				updateFeilds[fieldName] = *field.Interface().(*string)
+			case "discount":
+				updateFeilds[fieldName] = *field.Interface().(*string)
+				isDiscountUpdated = true
+			case "client_id":
+				updateFeilds[fieldName] = *field.Interface().(*string)
+			case "account_id":
+				updateFeilds[fieldName] = *field.Interface().(*string)
+			default:
+				c.JSON(400, utils.NewErrorResponse(400, "invalid field"))
 				return
 			}
 		}
 	}
 
-	if req.Note != nil {
-		bqbQuery.Space(`note = ?,`, req.Note)
-	}
-	if req.Discount != nil {
-		bqbQuery.Space(`discount = ?,`, req.Discount)
-		isDiscountUpdated = true
-	}
-	if req.ClientId != nil {
-		bqbQuery.Space(`client_id = ?,`, req.ClientId)
-	}
-	if req.AccountId != nil {
-		bqbQuery.Space(`account_id = ?,`, req.AccountId)
+	// -- Prepare sql query
+	bqbQuery := bqb.New(`UPDATE "quote" SET`)
+
+	// -- Update fields
+	for key, value := range updateFeilds {
+		bqbQuery.Space(fmt.Sprintf(`%s = ?,`, key), value)
 	}
 
 	// -- Check if there are changes
-	if len(bqbQuery.Parts) > 1 {
-		// -- Remove last comma
+	if len(updateFeilds) > 0 {
 		query, params, err = bqbQuery.Space(`status = ?, mid = ?, mtime = ? WHERE id = ?`, "Draft", tmpQuote.MId, tmpQuote.MTime, quoteId).ToPgsql()
 		if err != nil {
 			tx.Rollback()
@@ -788,6 +798,16 @@ func (handler *QuoteHandler) Update(c *gin.Context) {
 		// -- Update quote
 		if _, err := tx.Exec(query, params...); err != nil {
 			tx.Rollback()
+
+			if pqErr, ok := err.(*pq.Error); ok {
+				if pqErr.Code == pq.ErrorCode(database.PQ_ERROR_CODES[database.VIOLATE_CHECK]) {
+					if pqErr.Constraint == database.CHK_EXPIRY_DATE {
+						c.JSON(400, utils.NewErrorResponse(400, "expiry_date should be after date"))
+						return
+					}
+				}
+			}
+
 			log.Printf("Error updating quote: %v\n", err)
 			c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
 			return

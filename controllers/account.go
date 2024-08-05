@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
+	"reflect"
 	"server/database"
 	"server/models"
 	"server/utils"
@@ -461,8 +462,42 @@ func (handler *AccountHandler) Update(c *gin.Context) {
 		}
 	}
 
-	// -- Prepare sql query (UPDATE ACCOUNT)
-	bqbQuery := bqb.New(`UPDATE "account" SET`)
+	// -- Loop through request fields
+	updateFeilds := make(map[string]string)
+	v := reflect.ValueOf(req)
+	if v.Kind() == reflect.Struct {
+		for i := 0; i < v.NumField(); i++ {
+			field := v.Field(i)
+			if field.IsNil() {
+				continue
+			}
+
+			fieldName := utils.PascalToSnake(v.Type().Field(i).Name)
+			if fieldName == "social_medias" || fieldName == "delete_social_medias" {
+				continue
+			}
+
+			switch fieldName {
+			case "code":
+				updateFeilds[fieldName] = *field.Interface().(*string)
+			case "name":
+				updateFeilds[fieldName] = *field.Interface().(*string)
+			case "email":
+				updateFeilds[fieldName] = *field.Interface().(*string)
+			case "gender":
+				updateFeilds[fieldName] = utils.SerializeGender(field.Interface().(*string))
+			case "address":
+				updateFeilds[fieldName] = *field.Interface().(*string)
+			case "phone":
+				updateFeilds[fieldName] = *field.Interface().(*string)
+			case "secondary_phone":
+				updateFeilds[fieldName] = *field.Interface().(*string)
+			default:
+				c.JSON(400, utils.NewErrorResponse(400, "invalid field"))
+				return
+			}
+		}
+	}
 
 	tmpAccount := models.Account{}
 	if err := tmpAccount.PrepareForUpdate(userId); err != nil {
@@ -471,28 +506,11 @@ func (handler *AccountHandler) Update(c *gin.Context) {
 		return
 	}
 
-	if req.Code != nil {
-		bqbQuery.Space("code = ?,", *req.Code)
-	}
-	if req.Name != nil {
-		bqbQuery.Space("name = ?,", *req.Name)
-	}
-	if req.Email != nil {
-		bqbQuery.Space("email = ?,", *req.Email)
-	}
-	if req.Gender != nil {
-		if g := utils.SerializeGender(req.Gender); g != account.Gender {
-			bqbQuery.Space(`gender = ?,`, g)
-		}
-	}
-	if req.Address != nil {
-		bqbQuery.Space("address = ?,", *req.Address)
-	}
-	if req.Phone != nil {
-		bqbQuery.Space("phone = ?,", *req.Phone)
-	}
-	if req.SecondaryPhone != nil {
-		bqbQuery.Space("secondary_phone = ?,", *req.SecondaryPhone)
+	// -- Prepare sql query (UPDATE ACCOUNT)
+	bqbQuery := bqb.New(`UPDATE "account" SET`)
+
+	for key, value := range updateFeilds {
+		bqbQuery.Space(fmt.Sprintf(`%s = ?,`, key), value)
 	}
 
 	// -- Append mid and mtime
