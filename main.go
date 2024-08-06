@@ -6,8 +6,6 @@ import (
 	"net/http"
 	"server/config"
 	"server/database"
-	"server/middlewares"
-	"server/routes"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
@@ -34,15 +32,15 @@ func main() {
 
 	// -- Routes
 	// -- Public
-	routes.Auth(router, DB)
+	// routes.Auth(router, DB)
 
 	// -- Private
-	router.Use(middlewares.Authenticate(DB))
-	routes.User(router, DB)
-	routes.Account(router, DB)
-	routes.Client(router, DB)
-	routes.Quote(router, DB)
-	routes.SalesOrder(router, DB)
+	// router.Use(middlewares.Authenticate(DB))
+	// routes.User(router, DB)
+	// routes.Account(router, DB)
+	// routes.Client(router, DB)
+	// routes.Quote(router, DB)
+	// routes.SalesOrder(router, DB)
 
 	router.Routes()
 

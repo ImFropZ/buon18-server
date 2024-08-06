@@ -1,11 +1,26 @@
 INSERT INTO
-    "user" (
+    "setting.role" (id, name, description, cid, ctime, mid, mtime)
+VALUES
+    (1, 'bot', 'BOT', 1, NOW(), 1, NOW());
+
+INSERT INTO
+    "setting.permission" (id, name, cid, ctime, mid, mtime)
+VALUES
+    (1, 'full access', 1, NOW(), 1, NOW());
+
+INSERT INTO
+    "setting.role_permission" (setting_role_id, setting_permission_id, cid, ctime, mid, mtime)
+VALUES
+    (1, 1, 1, NOW(), 1, NOW());
+
+INSERT INTO
+    "setting.user" (
         id,
-        email,
         name,
         pwd,
+        email,
         typ,
-        role,
+        setting_role_id,
         cid,
         ctime,
         mid,
@@ -14,13 +29,25 @@ INSERT INTO
 VALUES
     (
         1,
-        'system_bot',
-        'BOT',
+        'bot',
         '',
-        'Sys',
-        'Admin',
+        'bot@buon18.com',
+        'bot',
         1,
-        '2024-06-20 17:58:04',
         1,
-        '2024-06-20 17:58:04'
+        NOW(),
+        1,
+        NOW()
+    ),
+    (
+        2,
+        'admin',
+        '',
+        'admin@buon18.com',
+        'user',
+        1,
+        1,
+        NOW(),
+        1,
+        NOW()
     );
