@@ -1,6 +1,8 @@
 package utils
 
-import "reflect"
+import (
+	"reflect"
+)
 
 func IsAllFieldsNil(v interface{}) bool {
 	val := reflect.ValueOf(v).Elem()

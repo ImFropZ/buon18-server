@@ -4,15 +4,15 @@ import "strings"
 
 func SerializeGender(g *string) string {
 	if g == nil {
-		return "U"
+		return "u"
 	}
 	switch strings.ToLower(*g) {
 	case "m":
-		return "M"
+		return "m"
 	case "f":
-		return "F"
+		return "f"
 	default:
-		return "U"
+		return "u"
 	}
 }
 

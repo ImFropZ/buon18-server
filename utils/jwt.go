@@ -9,8 +9,9 @@ import (
 )
 
 type WebTokenClaims struct {
-	Email string `json:"email"`
-	Role  string `json:"role"`
+	Email       string   `json:"email"`
+	Role        string   `json:"role"`
+	Permissions []string `json:"permissions"`
 	jwt.Claims
 }
 
@@ -36,9 +37,10 @@ func GenerateWebToken(c WebTokenClaims) (string, error) {
 
 	// Create the Claims
 	claims := &jwt.MapClaims{
-		"email": c.Email,
-		"role":  c.Role,
-		"exp":   time.Now().Add(time.Second * time.Duration(config.TOKEN_DURATION_SEC)).Unix(),
+		"email":       c.Email,
+		"role":        c.Role,
+		"permissions": c.Permissions,
+		"exp":         time.Now().Add(time.Second * time.Duration(config.TOKEN_DURATION_SEC)).Unix(),
 	}
 
 	// Generate token
@@ -80,15 +82,25 @@ func ValidateWebToken(tokenString string) (WebTokenClaims, error) {
 	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
 		return []byte(config.TOKEN_KEY), nil
 	})
-
 	if err != nil {
 		return WebTokenClaims{}, err
 	}
 
 	if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
+		permissions, ok := claims["permissions"]
+		if !ok {
+			return WebTokenClaims{}, fmt.Errorf("unable to get permissions")
+		}
+
+		permissionsArr := make([]string, 0)
+		for _, permission := range permissions.([]interface{}) {
+			permissionsArr = append(permissionsArr, permission.(string))
+		}
+
 		return WebTokenClaims{
-			Email: claims["email"].(string),
-			Role:  claims["role"].(string),
+			Email:       claims["email"].(string),
+			Role:        claims["role"].(string),
+			Permissions: permissionsArr,
 		}, nil
 	}
 
