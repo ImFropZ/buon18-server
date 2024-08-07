@@ -41,16 +41,20 @@ func TestAuthRoutes(t *testing.T) {
 	router := gin.Default()
 	routes.Auth(router, DB)
 
+	token, err := utils.GenerateWebToken(utils.WebTokenClaims{
+		Email:       "admin@buon18.com",
+		Role:        "bot",
+		Permissions: []string{"FULL_ACCESS"},
+	})
+	assert.NoError(t, err)
+
+	refreshToken, err := utils.GenerateRefreshToken(utils.RefreshTokenClaims{
+		Email: "admin@buon18.com",
+	})
+	assert.NoError(t, err)
+
 	t.Run("GET /api/auth/me", func(t *testing.T) {
 		w := httptest.NewRecorder()
-
-		// Set token to header
-		token, err := utils.GenerateWebToken(utils.WebTokenClaims{
-			Email:       "admin@buon18.com",
-			Role:        "bot",
-			Permissions: []string{"FULL_ACCESS"},
-		})
-		assert.NoError(t, err)
 
 		req := httptest.NewRequest("GET", "/api/auth/me", nil)
 		req.Header.Add("Authorization", "Bearer "+token)
@@ -70,14 +74,6 @@ func TestAuthRoutes(t *testing.T) {
 		updatePasswordJson, err := json.Marshal(updatePassword)
 		assert.NoError(t, err)
 
-		// Set token to header
-		token, err := utils.GenerateWebToken(utils.WebTokenClaims{
-			Email:       "admin@buon18.com",
-			Role:        "bot",
-			Permissions: []string{"FULL_ACCESS"},
-		})
-		assert.NoError(t, err)
-
 		req := httptest.NewRequest("POST", "/api/auth/update-password", strings.NewReader(string(updatePasswordJson)))
 		req.Header.Add("Authorization", "Bearer "+token)
 		router.ServeHTTP(w, req)
@@ -94,14 +90,6 @@ func TestAuthRoutes(t *testing.T) {
 		}
 
 		updatePasswordJson, err := json.Marshal(updatePassword)
-		assert.NoError(t, err)
-
-		// Set token to header
-		token, err := utils.GenerateWebToken(utils.WebTokenClaims{
-			Email:       "admin@buon18.com",
-			Role:        "bot",
-			Permissions: []string{"FULL_ACCESS"},
-		})
 		assert.NoError(t, err)
 
 		req := httptest.NewRequest("POST", "/api/auth/update-password", strings.NewReader(string(updatePasswordJson)))
@@ -148,11 +136,6 @@ func TestAuthRoutes(t *testing.T) {
 	t.Run("POST /api/auth/refresh-token", func(t *testing.T) {
 		w := httptest.NewRecorder()
 
-		refreshToken, err := utils.GenerateRefreshToken(utils.RefreshTokenClaims{
-			Email: "admin@buon18.com",
-		})
-		assert.NoError(t, err)
-
 		refreshTokenRequest := controllers.RefreshTokenRequest{
 			RefreshToken: refreshToken,
 		}
@@ -174,14 +157,6 @@ func TestAuthRoutes(t *testing.T) {
 		}
 
 		updateProfileJson, err := json.Marshal(*updateProfile)
-		assert.NoError(t, err)
-
-		// Set token to header
-		token, err := utils.GenerateWebToken(utils.WebTokenClaims{
-			Email:       "admin@buon18.com",
-			Role:        "bot",
-			Permissions: []string{"FULL_ACCESS"},
-		})
 		assert.NoError(t, err)
 
 		req := httptest.NewRequest("PATCH", "/api/auth/me", strings.NewReader(string(updateProfileJson)))
