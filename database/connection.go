@@ -3,14 +3,11 @@ package database
 import (
 	"database/sql"
 	"log"
-	"server/config"
 
 	_ "github.com/lib/pq"
 )
 
-func InitSQL() *sql.DB {
-	connectionString := config.GetConfigInstance().DB_CONNECTION_STRING
-
+func InitSQL(connectionString string) *sql.DB {
 	db, err := sql.Open("postgres", connectionString)
 	if err != nil {
 		log.Fatalf("Error connecting to database: %v\n", err)

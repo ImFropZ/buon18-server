@@ -18,7 +18,7 @@ var DB *sql.DB
 func main() {
 	// -- Initialize
 	config := config.GetConfigInstance()
-	DB = database.InitSQL()
+	DB = database.InitSQL(config.DB_CONNECTION_STRING)
 	defer DB.Close()
 
 	router := gin.Default()
