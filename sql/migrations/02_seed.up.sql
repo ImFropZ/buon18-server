@@ -7,7 +7,7 @@ VALUES
 INSERT INTO
     "setting.permission" (id, name, cid, ctime, mid, mtime)
 VALUES
-    (1, 'FULL_ACESS', 1, NOW(), 1, NOW()), -- Permissions
+    (1, 'FULL_ACCESS', 1, NOW(), 1, NOW()), -- Permissions
     (2, 'FULL_AUTH', 1, NOW(), 1, NOW()),
     (3, 'FULL_SETTING', 1, NOW(), 1, NOW()),
     (4, 'FULL_SALES', 1, NOW(), 1, NOW()),

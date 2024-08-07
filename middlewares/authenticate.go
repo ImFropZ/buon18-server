@@ -42,7 +42,6 @@ func Authenticate(DB *sql.DB) gin.HandlerFunc {
 			"setting.user".id, 
 			"setting.user".name, 
 			"setting.user".email, 
-			COALESCE("setting.user".pwd, ''), 
 			"setting.user".typ, 
 			COALESCE("setting.role".id, 0), 
 			COALESCE("setting.role".name, ''), 
@@ -76,7 +75,7 @@ func Authenticate(DB *sql.DB) gin.HandlerFunc {
 			return
 		} else {
 			var tmpPermission models.SettingPermission
-			if err := row.Scan(&user.Id, &user.Name, &user.Email, &user.Pwd, &user.Typ, &role.Id, &role.Name, &role.Description, &tmpPermission.Id, &tmpPermission.Name); err != nil {
+			if err := row.Scan(&user.Id, &user.Name, &user.Email, &user.Typ, &role.Id, &role.Name, &role.Description, &tmpPermission.Id, &tmpPermission.Name); err != nil {
 				if err == sql.ErrNoRows {
 					c.JSON(401, utils.NewErrorResponse(401, "contact your administrator to create an account"))
 					c.Abort()

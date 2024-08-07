@@ -44,7 +44,7 @@ func (handler *AuthHandler) Me(c *gin.Context) {
 	}
 
 	c.JSON(200, utils.NewResponse(200, "", gin.H{
-		"data": models.SettingUserToResponse(ctx.User, ctx.Role, ctx.Permissions),
+		"user": models.SettingUserToResponse(ctx.User, ctx.Role, ctx.Permissions),
 	}))
 }
 
