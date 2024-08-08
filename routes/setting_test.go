@@ -180,4 +180,24 @@ func TestSettingRoutes(t *testing.T) {
 
 		assert.Equal(t, `{"code":200,"message":"","data":{"roles":[{"id":2,"name":"user","description":"User","Permissions":[{"id":6,"name":"VIEW_PROFILE"},{"id":7,"name":"UPDATE_PROFILE"}]},{"id":1,"name":"bot","description":"BOT","Permissions":[{"id":1,"name":"FULL_ACCESS"}]}]}}`, w.Body.String())
 	})
+
+	t.Run("SuccessGetRoleById", func(t *testing.T) {
+		w := httptest.NewRecorder()
+
+		req := httptest.NewRequest("GET", "/api/setting/roles/2", nil)
+		req.Header.Add("Authorization", "Bearer "+token)
+		router.ServeHTTP(w, req)
+
+		assert.Equal(t, `{"code":200,"message":"","data":{"role":{"id":2,"name":"user","description":"User","Permissions":[{"id":6,"name":"VIEW_PROFILE"},{"id":7,"name":"UPDATE_PROFILE"}]}}}`, w.Body.String())
+	})
+
+	t.Run("NotFoundGetRoleById", func(t *testing.T) {
+		w := httptest.NewRecorder()
+
+		req := httptest.NewRequest("GET", "/api/setting/roles/0", nil)
+		req.Header.Add("Authorization", "Bearer "+token)
+		router.ServeHTTP(w, req)
+
+		assert.Equal(t, `{"code":404,"message":"role not found","data":null}`, w.Body.String())
+	})
 }
