@@ -51,7 +51,7 @@ func TestSettingRoutes(t *testing.T) {
 	})
 	assert.NoError(t, err)
 
-	t.Run("GET /api/setting/users", func(t *testing.T) {
+	t.Run("SuccessGetListOfUsers", func(t *testing.T) {
 		w := httptest.NewRecorder()
 
 		req := httptest.NewRequest("GET", "/api/setting/users", nil)
@@ -61,7 +61,7 @@ func TestSettingRoutes(t *testing.T) {
 		assert.Equal(t, `{"code":200,"message":"","data":{"users":[{"id":1,"name":"bot","email":"bot@buon18.com","type":"bot","role":{"id":1,"name":"bot","description":"BOT","Permissions":[{"id":1,"name":"FULL_ACCESS"}]}},{"id":2,"name":"admin","email":"admin@buon18.com","type":"user","role":{"id":1,"name":"bot","description":"BOT","Permissions":[{"id":1,"name":"FULL_ACCESS"}]}}]}}`, w.Body.String())
 	})
 
-	t.Run("GET /api/setting/users?name-like=bot", func(t *testing.T) {
+	t.Run("FilterSuccessGetListOfUsers", func(t *testing.T) {
 		w := httptest.NewRecorder()
 
 		req := httptest.NewRequest("GET", "/api/setting/users?name-like=bot", nil)
@@ -71,7 +71,7 @@ func TestSettingRoutes(t *testing.T) {
 		assert.Equal(t, `{"code":200,"message":"","data":{"users":[{"id":1,"name":"bot","email":"bot@buon18.com","type":"bot","role":{"id":1,"name":"bot","description":"BOT","Permissions":[{"id":1,"name":"FULL_ACCESS"}]}}]}}`, w.Body.String())
 	})
 
-	t.Run("GET /api/setting/users?sort-email=asc", func(t *testing.T) {
+	t.Run("SortSuccessGetListOfUsers", func(t *testing.T) {
 		w := httptest.NewRecorder()
 
 		req := httptest.NewRequest("GET", "/api/setting/users?sort-email=asc", nil)
@@ -81,7 +81,7 @@ func TestSettingRoutes(t *testing.T) {
 		assert.Equal(t, `{"code":200,"message":"","data":{"users":[{"id":2,"name":"admin","email":"admin@buon18.com","type":"user","role":{"id":1,"name":"bot","description":"BOT","Permissions":[{"id":1,"name":"FULL_ACCESS"}]}},{"id":1,"name":"bot","email":"bot@buon18.com","type":"bot","role":{"id":1,"name":"bot","description":"BOT","Permissions":[{"id":1,"name":"FULL_ACCESS"}]}}]}}`, w.Body.String())
 	})
 
-	t.Run("GET /api/setting/users?offset=1&limit=1", func(t *testing.T) {
+	t.Run("LimitAndOffsetSuccessGetListOfUsers", func(t *testing.T) {
 		w := httptest.NewRecorder()
 
 		req := httptest.NewRequest("GET", "/api/setting/users?offset=1&limit=1", nil)
@@ -91,7 +91,7 @@ func TestSettingRoutes(t *testing.T) {
 		assert.Equal(t, `{"code":200,"message":"","data":{"users":[{"id":2,"name":"admin","email":"admin@buon18.com","type":"user","role":{"id":1,"name":"bot","description":"BOT","Permissions":[{"id":1,"name":"FULL_ACCESS"}]}}]}}`, w.Body.String())
 	})
 
-	t.Run("GET /api/setting/users/1", func(t *testing.T) {
+	t.Run("SuccessGetUserById", func(t *testing.T) {
 		w := httptest.NewRecorder()
 
 		req := httptest.NewRequest("GET", "/api/setting/users/1", nil)
@@ -101,7 +101,7 @@ func TestSettingRoutes(t *testing.T) {
 		assert.Equal(t, `{"code":200,"message":"","data":{"user":{"id":1,"name":"bot","email":"bot@buon18.com","type":"bot","role":{"id":1,"name":"bot","description":"BOT","Permissions":[{"id":1,"name":"FULL_ACCESS"}]}}}}`, w.Body.String())
 	})
 
-	t.Run("GET /api/setting/users/999 - Not found", func(t *testing.T) {
+	t.Run("NotFoundGetUserById", func(t *testing.T) {
 		w := httptest.NewRecorder()
 
 		req := httptest.NewRequest("GET", "/api/setting/users/999", nil)
@@ -111,7 +111,7 @@ func TestSettingRoutes(t *testing.T) {
 		assert.Equal(t, `{"code":404,"message":"user not found","data":null}`, w.Body.String())
 	})
 
-	t.Run("GET /api/setting/customers", func(t *testing.T) {
+	t.Run("SucessGetListOfCustomers", func(t *testing.T) {
 		w := httptest.NewRecorder()
 
 		req := httptest.NewRequest("GET", "/api/setting/customers", nil)
@@ -121,7 +121,7 @@ func TestSettingRoutes(t *testing.T) {
 		assert.Equal(t, `{"code":200,"message":"","data":{"customers":[{"id":500,"full_name":"John Doe","gender":"m","email":"jd@dummy-data.com","phone":"096123456","additional_information":{"note":"This is a dummy data from john doe"}},{"id":501,"full_name":"Jane Doe","gender":"f","email":"jad@dummy-data.com","phone":"064456789","additional_information":{"note":"This is a dummy data from jane doe"}},{"id":502,"full_name":"John Foo","gender":"u","email":"jf@dummy-data.com","phone":"012789123","additional_information":{"note":"This is a dummy data from john foo"}}]}}`, w.Body.String())
 	})
 
-	t.Run("GET /api/setting/customers?fullname-like=Jane", func(t *testing.T) {
+	t.Run("SucessFilterGetListOfCustomers", func(t *testing.T) {
 		w := httptest.NewRecorder()
 
 		req := httptest.NewRequest("GET", "/api/setting/customers?fullname-like=Jane", nil)
@@ -129,5 +129,25 @@ func TestSettingRoutes(t *testing.T) {
 		router.ServeHTTP(w, req)
 
 		assert.Equal(t, `{"code":200,"message":"","data":{"customers":[{"id":501,"full_name":"Jane Doe","gender":"f","email":"jad@dummy-data.com","phone":"064456789","additional_information":{"note":"This is a dummy data from jane doe"}}]}}`, w.Body.String())
+	})
+
+	t.Run("NotFoundGetCustomerById", func(t *testing.T) {
+		w := httptest.NewRecorder()
+
+		req := httptest.NewRequest("GET", "/api/setting/customers/500", nil)
+		req.Header.Add("Authorization", "Bearer "+token)
+		router.ServeHTTP(w, req)
+
+		assert.Equal(t, `{"code":200,"message":"","data":{"customer":{"id":500,"full_name":"John Doe","gender":"m","email":"jd@dummy-data.com","phone":"096123456","additional_information":{"note":"This is a dummy data from john doe"}}}}`, w.Body.String())
+	})
+
+	t.Run("SuccessGetCustomerById", func(t *testing.T) {
+		w := httptest.NewRecorder()
+
+		req := httptest.NewRequest("GET", "/api/setting/customers/999", nil)
+		req.Header.Add("Authorization", "Bearer "+token)
+		router.ServeHTTP(w, req)
+
+		assert.Equal(t, `{"code":404,"message":"customer not found","data":null}`, w.Body.String())
 	})
 }

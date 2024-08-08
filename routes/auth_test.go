@@ -53,7 +53,7 @@ func TestAuthRoutes(t *testing.T) {
 	})
 	assert.NoError(t, err)
 
-	t.Run("GET /api/auth/me", func(t *testing.T) {
+	t.Run("SuccessGetProfile", func(t *testing.T) {
 		w := httptest.NewRecorder()
 
 		req := httptest.NewRequest("GET", "/api/auth/me", nil)
@@ -63,7 +63,7 @@ func TestAuthRoutes(t *testing.T) {
 		assert.Equal(t, 200, w.Code)
 	})
 
-	t.Run("POST /api/auth/update-password - Add password to user", func(t *testing.T) {
+	t.Run("AddPasswordToUserWithoutPassword", func(t *testing.T) {
 		w := httptest.NewRecorder()
 
 		updatePassword := services.UpdatePasswordRequest{
@@ -81,7 +81,7 @@ func TestAuthRoutes(t *testing.T) {
 		assert.Equal(t, 200, w.Code)
 	})
 
-	t.Run("POST /api/auth/update-password - Wrong old password", func(t *testing.T) {
+	t.Run("WrongOldPasswordUpdatePassword", func(t *testing.T) {
 		w := httptest.NewRecorder()
 
 		updatePassword := services.UpdatePasswordRequest{
@@ -99,7 +99,7 @@ func TestAuthRoutes(t *testing.T) {
 		assert.Equal(t, 401, w.Code)
 	})
 
-	t.Run("POST /api/auth/login - Wrong password", func(t *testing.T) {
+	t.Run("WrongPasswordLogin", func(t *testing.T) {
 		w := httptest.NewRecorder()
 
 		login := services.LoginRequest{
@@ -116,7 +116,7 @@ func TestAuthRoutes(t *testing.T) {
 		assert.Equal(t, 401, w.Code)
 	})
 
-	t.Run("POST /api/auth/login - Correct password", func(t *testing.T) {
+	t.Run("CorrectPasswordLogin", func(t *testing.T) {
 		w := httptest.NewRecorder()
 
 		login := services.LoginRequest{
@@ -133,7 +133,7 @@ func TestAuthRoutes(t *testing.T) {
 		assert.Equal(t, 200, w.Code)
 	})
 
-	t.Run("POST /api/auth/refresh-token", func(t *testing.T) {
+	t.Run("SuccessRefreshToken", func(t *testing.T) {
 		w := httptest.NewRecorder()
 
 		refreshTokenRequest := services.RefreshTokenRequest{
@@ -148,7 +148,7 @@ func TestAuthRoutes(t *testing.T) {
 		assert.Equal(t, 200, w.Code)
 	})
 
-	t.Run("PATCH /api/auth/me", func(t *testing.T) {
+	t.Run("SuccessUpdateProfile", func(t *testing.T) {
 		w := httptest.NewRecorder()
 
 		updateName := "Admin"
