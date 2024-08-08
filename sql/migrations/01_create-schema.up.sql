@@ -132,7 +132,6 @@ CREATE TABLE IF NOT EXISTS
         validity_date TIMESTAMP WITH TIME ZONE NOT NULL,
         discount DECIMAL(19, 4) NOT NULL DEFAULT 0,
         amount_delivery DECIMAL(19, 4) NOT NULL DEFAULT 0,
-        amount_total DECIMAL(19, 4) NOT NULL DEFAULT 0,
         status sales_quotation_status_typ NOT NULL DEFAULT 'quotation',
         setting_customer_id BIGINT NOT NULL,
         -- Timestamps
@@ -140,8 +139,7 @@ CREATE TABLE IF NOT EXISTS
         ctime TIMESTAMP WITH TIME ZONE NOT NULL,
         mid BIGINT NOT NULL,
         mtime TIMESTAMP WITH TIME ZONE NOT NULL,
-        FOREIGN KEY (setting_customer_id) REFERENCES "setting.customer" (id) ON DELETE RESTRICT,
-        CHECK (amount_total >= discount)
+        FOREIGN KEY (setting_customer_id) REFERENCES "setting.customer" (id) ON DELETE RESTRICT
     );
 
 CREATE TABLE IF NOT EXISTS
@@ -266,7 +264,6 @@ CREATE TABLE IF NOT EXISTS
         name VARCHAR(64) NOT NULL UNIQUE, -- Journal Entry Number
         date TIMESTAMP WITH TIME ZONE NOT NULL,
         note TEXT NOT NULL DEFAULT '',
-        amount_total DECIMAL(19, 4) NOT NULL DEFAULT 0,
         status accounting_journal_entry_status_typ NOT NULL DEFAULT 'draft',
         accounting_journal_id BIGINT NOT NULL,
         -- Timestamps
