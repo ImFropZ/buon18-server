@@ -146,3 +146,17 @@ func (handler *SettingHandler) Roles(c *gin.Context) {
 		"roles": roles,
 	}))
 }
+
+func (handler *SettingHandler) Role(c *gin.Context) {
+	id := c.Param("id")
+
+	role, statusCode, err := handler.SettingRoleService.Role(id)
+	if err != nil {
+		c.JSON(statusCode, utils.NewErrorResponse(statusCode, err.Error()))
+		return
+	}
+
+	c.JSON(200, utils.NewResponse(200, "", gin.H{
+		"role": role,
+	}))
+}

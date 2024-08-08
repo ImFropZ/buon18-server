@@ -2,11 +2,16 @@ package setting
 
 import (
 	"database/sql"
+	"errors"
 	"log"
 	"server/models"
 	"server/utils"
 
 	"github.com/nullism/bqb"
+)
+
+var (
+	ErrRoleNotFound = errors.New("role not found")
 )
 
 type SettingRoleService struct {
@@ -90,4 +95,55 @@ func (service *SettingRoleService) Roles(qp *utils.QueryParams) ([]models.Settin
 	}
 
 	return roles, total, 0, nil
+}
+
+func (service *SettingRoleService) Role(id string) (models.SettingRoleResponse, int, error) {
+	bqbQuery := bqb.New(`
+	WITH "limited_roles" AS (
+		SELECT
+			id, name, description
+		FROM "setting.role"
+		WHERE id = ?
+	)
+	SELECT 
+		"limited_roles".id,
+		"limited_roles".name,
+		"limited_roles".description,
+		"setting.permission".id,
+		"setting.permission".name
+	FROM "limited_roles"
+	LEFT JOIN "setting.role_permission" ON "limited_roles".id = "setting.role_permission".setting_role_id
+	LEFT JOIN "setting.permission" ON "setting.role_permission".setting_permission_id = "setting.permission".id
+	ORDER BY "limited_roles".id ASC, "setting.permission".id ASC`, id)
+
+	query, params, err := bqbQuery.ToPgsql()
+	if err != nil {
+		log.Printf("%s", err)
+		return models.SettingRoleResponse{}, 500, utils.ErrInternalServer
+	}
+
+	rows, err := service.DB.Query(query, params...)
+	if err != nil {
+		log.Printf("%s\n", err)
+		return models.SettingRoleResponse{}, 500, utils.ErrInternalServer
+	}
+
+	var role models.SettingRole
+	permissions := make([]models.SettingPermission, 0)
+	for rows.Next() {
+		tmpPermission := models.SettingPermission{}
+		err := rows.Scan(&role.Id, &role.Name, &role.Description, &tmpPermission.Id, &tmpPermission.Name)
+		if err != nil {
+			log.Printf("%s\n", err)
+			return models.SettingRoleResponse{}, 500, utils.ErrInternalServer
+		}
+
+		permissions = append(permissions, tmpPermission)
+	}
+
+	if role.Id == 0 {
+		return models.SettingRoleResponse{}, 404, ErrRoleNotFound
+	}
+
+	return models.SettingRoleToResponse(role, permissions), 0, nil
 }
