@@ -47,3 +47,17 @@ func (handler *SettingHandler) Users(c *gin.Context) {
 		"users": users,
 	}))
 }
+
+func (handler *SettingHandler) User(c *gin.Context) {
+	id := c.Param("id")
+
+	user, statusCode, err := handler.SettingUserService.User(id)
+	if err != nil {
+		c.JSON(statusCode, utils.NewErrorResponse(statusCode, err.Error()))
+		return
+	}
+
+	c.JSON(200, utils.NewResponse(200, "", gin.H{
+		"user": user,
+	}))
+}
