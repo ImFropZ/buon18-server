@@ -25,7 +25,11 @@ func TestSettingRoutes(t *testing.T) {
 		postgres.WithDatabase("postgres"),
 		postgres.WithUsername("postgres"),
 		postgres.WithPassword("postgres"),
-		postgres.WithInitScripts(filepath.Join("..", "database", "dev_scripts", "create-schema.sh"), filepath.Join("..", "database", "dev_scripts", "seed.sh")),
+		postgres.WithInitScripts(
+			filepath.Join("..", "database", "dev_scripts", "create-schema.sh"),
+			filepath.Join("..", "database", "dev_scripts", "seed.sh"),
+			filepath.Join("..", "database", "dev_scripts", "seed-customer.sh"),
+		),
 		postgres.BasicWaitStrategies(),
 	)
 	assert.NoError(t, err)
@@ -105,5 +109,25 @@ func TestSettingRoutes(t *testing.T) {
 		router.ServeHTTP(w, req)
 
 		assert.Equal(t, `{"code":404,"message":"user not found","data":null}`, w.Body.String())
+	})
+
+	t.Run("GET /api/setting/customers", func(t *testing.T) {
+		w := httptest.NewRecorder()
+
+		req := httptest.NewRequest("GET", "/api/setting/customers", nil)
+		req.Header.Add("Authorization", "Bearer "+token)
+		router.ServeHTTP(w, req)
+
+		assert.Equal(t, `{"code":200,"message":"","data":{"customers":[{"id":500,"full_name":"John Doe","gender":"m","email":"jd@dummy-data.com","phone":"096123456","additional_information":{"note":"This is a dummy data from john doe"}},{"id":501,"full_name":"Jane Doe","gender":"f","email":"jad@dummy-data.com","phone":"064456789","additional_information":{"note":"This is a dummy data from jane doe"}},{"id":502,"full_name":"John Foo","gender":"u","email":"jf@dummy-data.com","phone":"012789123","additional_information":{"note":"This is a dummy data from john foo"}}]}}`, w.Body.String())
+	})
+
+	t.Run("GET /api/setting/customers?fullname-like=Jane", func(t *testing.T) {
+		w := httptest.NewRecorder()
+
+		req := httptest.NewRequest("GET", "/api/setting/customers?fullname-like=Jane", nil)
+		req.Header.Add("Authorization", "Bearer "+token)
+		router.ServeHTTP(w, req)
+
+		assert.Equal(t, `{"code":200,"message":"","data":{"customers":[{"id":501,"full_name":"Jane Doe","gender":"f","email":"jad@dummy-data.com","phone":"064456789","additional_information":{"note":"This is a dummy data from jane doe"}}]}}`, w.Body.String())
 	})
 }
