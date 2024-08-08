@@ -1,17 +1,7 @@
 package models
 
-type SettingPermission struct {
-	*CommonModel
-	Id   uint
-	Name string
-}
-
-type SettingRole struct {
-	*CommonModel
-	Id          uint
-	Name        string
-	Description string
-}
+var SettingUserAllowFilterFieldsAndOps = []string{"name-like", "email-like", "type-eq", "role_id-eq"}
+var SettingUserAllowSortFields = []string{"name", "email", "type"}
 
 type SettingUser struct {
 	*CommonModel
@@ -24,39 +14,12 @@ type SettingUser struct {
 	SettingRoleId uint
 }
 
-type SettingPermissionResponse struct {
-	Id   uint   `json:"id"`
-	Name string `json:"name"`
-}
-
-type SettingRoleResponse struct {
-	Id          uint   `json:"id"`
-	Name        string `json:"name"`
-	Description string `json:"description"`
-	Permissions []SettingPermissionResponse
-}
-
 type SettingUserResponse struct {
 	Id    uint                `json:"id"`
 	Name  string              `json:"name"`
 	Email string              `json:"email"`
 	Type  string              `json:"type"`
 	Role  SettingRoleResponse `json:"role"`
-}
-
-var SettingUserAllowFilterFieldsAndOps = []string{"name-like", "email-like", "type-eq", "role_id-eq"}
-
-var SettingUserAllowSortFields = []string{"name", "email", "type"}
-
-func SettingPermissionsToResponse(permissions []SettingPermission) []SettingPermissionResponse {
-	result := make([]SettingPermissionResponse, 0)
-	for _, permission := range permissions {
-		result = append(result, SettingPermissionResponse{
-			Id:   permission.Id,
-			Name: permission.Name,
-		})
-	}
-	return result
 }
 
 func SettingUserToResponse(user SettingUser, role SettingRole, permissions []SettingPermission) SettingUserResponse {
