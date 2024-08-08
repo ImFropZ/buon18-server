@@ -6,9 +6,9 @@ import (
 	"net/http/httptest"
 	"path/filepath"
 	"server/config"
-	"server/controllers"
 	"server/database"
 	"server/routes"
+	"server/services"
 	"server/utils"
 	"strings"
 	"testing"
@@ -66,7 +66,7 @@ func TestAuthRoutes(t *testing.T) {
 	t.Run("POST /api/auth/update-password - Add password to user", func(t *testing.T) {
 		w := httptest.NewRecorder()
 
-		updatePassword := controllers.UpdatePasswordRequest{
+		updatePassword := services.UpdatePasswordRequest{
 			OldPassword: "no-password", // -- No password test
 			NewPassword: "new-password",
 		}
@@ -84,7 +84,7 @@ func TestAuthRoutes(t *testing.T) {
 	t.Run("POST /api/auth/update-password - Wrong old password", func(t *testing.T) {
 		w := httptest.NewRecorder()
 
-		updatePassword := controllers.UpdatePasswordRequest{
+		updatePassword := services.UpdatePasswordRequest{
 			OldPassword: "wrong-password",
 			NewPassword: "new-password",
 		}
@@ -96,13 +96,13 @@ func TestAuthRoutes(t *testing.T) {
 		req.Header.Add("Authorization", "Bearer "+token)
 		router.ServeHTTP(w, req)
 
-		assert.Equal(t, 400, w.Code)
+		assert.Equal(t, 401, w.Code)
 	})
 
 	t.Run("POST /api/auth/login - Wrong password", func(t *testing.T) {
 		w := httptest.NewRecorder()
 
-		login := controllers.LoginRequest{
+		login := services.LoginRequest{
 			Email:    "admin@buon18.com",
 			Password: "wrong-password",
 		}
@@ -119,7 +119,7 @@ func TestAuthRoutes(t *testing.T) {
 	t.Run("POST /api/auth/login - Correct password", func(t *testing.T) {
 		w := httptest.NewRecorder()
 
-		login := controllers.LoginRequest{
+		login := services.LoginRequest{
 			Email:    "admin@buon18.com",
 			Password: "new-password",
 		}
@@ -136,7 +136,7 @@ func TestAuthRoutes(t *testing.T) {
 	t.Run("POST /api/auth/refresh-token", func(t *testing.T) {
 		w := httptest.NewRecorder()
 
-		refreshTokenRequest := controllers.RefreshTokenRequest{
+		refreshTokenRequest := services.RefreshTokenRequest{
 			RefreshToken: refreshToken,
 		}
 		refreshTokenJson, err := json.Marshal(refreshTokenRequest)
@@ -152,7 +152,7 @@ func TestAuthRoutes(t *testing.T) {
 		w := httptest.NewRecorder()
 
 		updateName := "Admin"
-		updateProfile := &controllers.UpdateProfileRequest{
+		updateProfile := &services.UpdateProfileRequest{
 			Name: &updateName,
 		}
 

@@ -97,8 +97,6 @@ func Authenticate(DB *sql.DB) gin.HandlerFunc {
 		c.Set("role", role)
 		c.Set("permissions", permissions)
 
-		log.Printf("Permissions: %v\n", permissions)
-
 		c.Next()
 	}
 }
