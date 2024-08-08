@@ -96,3 +96,17 @@ func (handler *SettingHandler) Customers(c *gin.Context) {
 		"customers": customers,
 	}))
 }
+
+func (handler *SettingHandler) Customer(c *gin.Context) {
+	id := c.Param("id")
+
+	customer, statusCode, err := handler.SettingCustomerService.Customer(id)
+	if err != nil {
+		c.JSON(statusCode, utils.NewErrorResponse(statusCode, err.Error()))
+		return
+	}
+
+	c.JSON(200, utils.NewResponse(200, "", gin.H{
+		"customer": customer,
+	}))
+}
