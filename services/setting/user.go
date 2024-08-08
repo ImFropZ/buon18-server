@@ -148,45 +148,23 @@ func (service *SettingUserService) User(id string) (models.SettingUserResponse, 
 		return models.SettingUserResponse{}, 500, utils.ErrInternalServer
 	}
 
-	usersResponse := make([]models.SettingUserResponse, 0)
+	var user models.SettingUser
+	var role models.SettingRole
 	permission := make([]models.SettingPermission, 0)
-	var lastUser models.SettingUser
-	var lastRole models.SettingRole
 	for rows.Next() {
-		var tmpUser models.SettingUser
-		var tmpRole models.SettingRole
 		var tmpPermission models.SettingPermission
-		err := rows.Scan(&tmpUser.Id, &tmpUser.Name, &tmpUser.Email, &tmpUser.Typ, &tmpRole.Id, &tmpRole.Name, &tmpRole.Description, &tmpPermission.Id, &tmpPermission.Name)
+		err := rows.Scan(&user.Id, &user.Name, &user.Email, &user.Typ, &role.Id, &role.Name, &role.Description, &tmpPermission.Id, &tmpPermission.Name)
 		if err != nil {
 			log.Printf("%s", err)
 			return models.SettingUserResponse{}, 500, utils.ErrInternalServer
 		}
 
-		if lastUser.Id != tmpUser.Id && lastUser.Id != 0 {
-			usersResponse = append(usersResponse, models.SettingUserToResponse(lastUser, lastRole, permission))
-			lastUser = tmpUser
-			lastRole = tmpRole
-			permission = make([]models.SettingPermission, 0)
-			permission = append(permission, tmpPermission)
-			continue
-		}
-
-		if lastUser.Id == 0 {
-			lastUser = tmpUser
-			lastRole = tmpRole
-		}
-
-		if tmpPermission.Id != 0 {
-			permission = append(permission, tmpPermission)
-		}
-	}
-	if lastUser.Id != 0 {
-		usersResponse = append(usersResponse, models.SettingUserToResponse(lastUser, lastRole, permission))
+		permission = append(permission, tmpPermission)
 	}
 
-	if len(usersResponse) == 0 {
+	if user.Id == 0 {
 		return models.SettingUserResponse{}, 404, ErrUserNotFound
 	}
 
-	return usersResponse[0], 200, nil
+	return models.SettingUserToResponse(user, role, permission), 200, nil
 }

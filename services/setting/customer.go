@@ -99,21 +99,18 @@ func (service *SettingCustomerService) Customer(id string) (models.SettingCustom
 		return models.SettingCustomerResponse{}, 500, utils.ErrInternalServer
 	}
 
-	customerResponse := models.SettingCustomerResponse{}
+	var customer models.SettingCustomer
 	for rows.Next() {
-		tmpCustomer := models.SettingCustomer{}
-		err := rows.Scan(&tmpCustomer.Id, &tmpCustomer.FullName, &tmpCustomer.Gender, &tmpCustomer.Email, &tmpCustomer.Phone, &tmpCustomer.AdditionalInformation)
+		err := rows.Scan(&customer.Id, &customer.FullName, &customer.Gender, &customer.Email, &customer.Phone, &customer.AdditionalInformation)
 		if err != nil {
 			log.Printf("%s", err)
 			return models.SettingCustomerResponse{}, 500, utils.ErrInternalServer
 		}
-
-		customerResponse = models.SettingCustomerToResponse(tmpCustomer)
 	}
 
-	if customerResponse.Id == 0 {
+	if customer.Id == 0 {
 		return models.SettingCustomerResponse{}, 404, ErrCustomerNotFound
 	}
 
-	return customerResponse, 0, nil
+	return models.SettingCustomerToResponse(customer), 0, nil
 }
