@@ -42,6 +42,7 @@ func (handler *SettingHandler) Users(c *gin.Context) {
 	users, total, statusCode, err := handler.SettingUserService.Users(qp)
 	if err != nil {
 		c.JSON(statusCode, utils.NewErrorResponse(statusCode, err.Error()))
+		return
 	}
 
 	c.Header("X-Total-Count", fmt.Sprintf("%d", total))

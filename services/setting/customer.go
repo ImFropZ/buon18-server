@@ -3,7 +3,6 @@ package setting
 import (
 	"database/sql"
 	"errors"
-	"fmt"
 	"log"
 	"server/models"
 	"server/utils"
@@ -30,29 +29,9 @@ func (service *SettingCustomerService) Customers(qp *utils.QueryParams) ([]model
 		"setting.customer".additional_information
 	FROM "setting.customer"`)
 
-	if len(qp.Fitlers) > 0 {
-		bqbQuery.Space("WHERE")
-		for index, filter := range qp.Fitlers {
-			bqbQuery.Space(fmt.Sprintf("%s %s ?", filter.Field, utils.MAPPED_FILTER_OPERATORS_TO_SQL[filter.Operator]), filter.Value)
-			if index < len(qp.Fitlers)-1 {
-				bqbQuery.Space("AND")
-			}
-		}
-	}
-
-	if len(qp.OrderBy) > 0 {
-		bqbQuery.Space("ORDER BY")
-		for index, sort := range qp.OrderBy {
-			bqbQuery.Space(sort)
-			if index < len(qp.Fitlers)-1 {
-				bqbQuery.Space(",")
-			}
-		}
-	} else {
-		bqbQuery.Space(`ORDER BY "setting.customer".id ASC`)
-	}
-
-	bqbQuery.Space(`OFFSET ? LIMIT ?`, qp.Pagination.Offset, qp.Pagination.Limit)
+	qp.FilterIntoBqb(bqbQuery)
+	qp.OrderByIntoBqb(bqbQuery, `"setting.customer".id ASC`)
+	qp.PaginationIntoBqb(bqbQuery)
 
 	query, params, err := bqbQuery.ToPgsql()
 	if err != nil {
@@ -79,15 +58,7 @@ func (service *SettingCustomerService) Customers(qp *utils.QueryParams) ([]model
 	}
 
 	bqbQuery = bqb.New(`SELECT COUNT(*) FROM "setting.customer"`)
-	if len(qp.Fitlers) > 0 {
-		bqbQuery.Space("WHERE")
-		for index, filter := range qp.Fitlers {
-			bqbQuery.Space(fmt.Sprintf("%s %s ?", filter.Field, utils.MAPPED_FILTER_OPERATORS_TO_SQL[filter.Operator]), filter.Value)
-			if index < len(qp.Fitlers)-1 {
-				bqbQuery.Space("AND")
-			}
-		}
-	}
+	qp.FilterIntoBqb(bqbQuery)
 
 	query, params, err = bqbQuery.ToPgsql()
 	if err != nil {

@@ -3,6 +3,8 @@ package utils
 import (
 	"fmt"
 	"strings"
+
+	"github.com/nullism/bqb"
 )
 
 var ALLOWED_FILTER_OPERATORS = []string{"eq", "ne", "gt", "lt", "gte", "lte", "like", "in", "nin"}
@@ -63,10 +65,6 @@ func (qp *QueryParams) AddFilter(filter string) *QueryParams {
 		return qp
 	}
 
-	if operator == "in" || operator == "nin" {
-		value = fmt.Sprintf("(%s)", value)
-	}
-
 	if operator == "like" {
 		value = "%" + value + "%"
 	}
@@ -108,4 +106,49 @@ func (qp *QueryParams) AddOrderBy(orderBy string) *QueryParams {
 
 	qp.OrderBy = append(qp.OrderBy, fmt.Sprintf("%s %s", field, strings.ToUpper(sort)))
 	return qp
+}
+
+func (qp *QueryParams) FilterIntoBqb(bqbQuery *bqb.Query) {
+	if len(qp.Fitlers) > 0 {
+		bqbQuery.Space("WHERE")
+		for index, filter := range qp.Fitlers {
+			if filter.Operator == "in" || filter.Operator == "nin" {
+				values := strings.Split(filter.Value, ",")
+				bqbQuery.Space(fmt.Sprintf("%s %s (", filter.Field, MAPPED_FILTER_OPERATORS_TO_SQL[filter.Operator]))
+				for i, value := range values {
+					bqbQuery.Space("?", value)
+					if i < len(values)-1 {
+						bqbQuery.Space(",")
+					}
+				}
+				bqbQuery.Space(")")
+			} else {
+				bqbQuery.Space(fmt.Sprintf("%s %s ?", filter.Field, MAPPED_FILTER_OPERATORS_TO_SQL[filter.Operator]), filter.Value)
+			}
+			if index < len(qp.Fitlers)-1 {
+				bqbQuery.Space("AND")
+			}
+		}
+	}
+}
+
+func (qp *QueryParams) OrderByIntoBqb(bqbQuery *bqb.Query, defaultOrderBy string) {
+	if len(qp.OrderBy) > 0 {
+		bqbQuery.Space("ORDER BY")
+		for index, sort := range qp.OrderBy {
+			bqbQuery.Space(sort)
+			if index < len(qp.OrderBy)-1 {
+				bqbQuery.Space(",")
+			}
+		}
+		if defaultOrderBy != "" {
+			bqbQuery.Space(fmt.Sprintf(", %s", defaultOrderBy))
+		}
+	} else {
+		bqbQuery.Space(`ORDER BY` + defaultOrderBy)
+	}
+}
+
+func (qp *QueryParams) PaginationIntoBqb(bqbQuery *bqb.Query) {
+	bqbQuery.Space(`OFFSET ? LIMIT ?`, qp.Pagination.Offset, qp.Pagination.Limit)
 }

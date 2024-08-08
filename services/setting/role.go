@@ -2,7 +2,6 @@ package setting
 
 import (
 	"database/sql"
-	"fmt"
 	"log"
 	"server/models"
 	"server/utils"
@@ -21,17 +20,10 @@ func (service *SettingRoleService) Roles(qp *utils.QueryParams) ([]models.Settin
 			id, name, description
 		FROM "setting.role"`)
 
-	if len(qp.Fitlers) > 0 {
-		bqbQuery.Space("WHERE")
-		for index, filter := range qp.Fitlers {
-			bqbQuery.Space(fmt.Sprintf(`%s %s ?`, filter.Field, utils.MAPPED_FILTER_OPERATORS_TO_SQL[filter.Operator]), filter.Value)
-			if index < len(qp.Fitlers)-1 {
-				bqbQuery.Space("AND")
-			}
-		}
-	}
+	qp.FilterIntoBqb(bqbQuery)
+	qp.PaginationIntoBqb(bqbQuery)
 
-	bqbQuery.Space(`OFFSET ? LIMIT ? )
+	bqbQuery.Space(`)
 	SELECT 
 		"limited_roles".id,
 		"limited_roles".name,
@@ -40,19 +32,9 @@ func (service *SettingRoleService) Roles(qp *utils.QueryParams) ([]models.Settin
 		"setting.permission".name
 	FROM "limited_roles"
 	LEFT JOIN "setting.role_permission" ON "limited_roles".id = "setting.role_permission".setting_role_id
-	LEFT JOIN "setting.permission" ON "setting.role_permission".setting_permission_id = "setting.permission".id`, qp.Pagination.Offset, qp.Pagination.Limit)
+	LEFT JOIN "setting.permission" ON "setting.role_permission".setting_permission_id = "setting.permission".id`)
 
-	if len(qp.OrderBy) > 0 {
-		bqbQuery.Space("ORDER BY")
-		for index, sort := range qp.OrderBy {
-			bqbQuery.Space(sort)
-			if index < len(qp.OrderBy)-1 {
-				bqbQuery.Space(",")
-			}
-		}
-	} else {
-		bqbQuery.Space(`ORDER BY "limited_roles".id ASC, "setting.permission".id ASC`)
-	}
+	qp.OrderByIntoBqb(bqbQuery, `"limited_roles".id ASC, "setting.permission".id ASC`)
 
 	query, params, err := bqbQuery.ToPgsql()
 	if err != nil {
@@ -92,15 +74,7 @@ func (service *SettingRoleService) Roles(qp *utils.QueryParams) ([]models.Settin
 	}
 
 	bqbQuery = bqb.New(`SELECT COUNT(*) FROM "setting.role"`)
-	if len(qp.Fitlers) > 0 {
-		bqbQuery.Space("WHERE")
-		for index, filter := range qp.Fitlers {
-			bqbQuery.Space(fmt.Sprintf(`%s %s ?`, filter.Field, utils.MAPPED_FILTER_OPERATORS_TO_SQL[filter.Operator]), filter.Value)
-			if index < len(qp.Fitlers)-1 {
-				bqbQuery.Space("AND")
-			}
-		}
-	}
+	qp.FilterIntoBqb(bqbQuery)
 
 	query, params, err = bqbQuery.ToPgsql()
 	if err != nil {

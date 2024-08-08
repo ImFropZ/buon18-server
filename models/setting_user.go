@@ -1,6 +1,6 @@
 package models
 
-var SettingUserAllowFilterFieldsAndOps = []string{"name-like", "email-like", "type-eq", "role_id-eq"}
+var SettingUserAllowFilterFieldsAndOps = []string{"name-like", "email-like", "typ-in", "role_id-eq"}
 var SettingUserAllowSortFields = []string{"name", "email", "type"}
 
 type SettingUser struct {
