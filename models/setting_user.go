@@ -44,8 +44,12 @@ type SettingUserResponse struct {
 	Role  SettingRoleResponse `json:"role"`
 }
 
+var SettingUserAllowFilterFieldsAndOps = []string{"name-like", "email-like", "type-eq", "role_id-eq"}
+
+var SettingUserAllowSortFields = []string{"name", "email", "type"}
+
 func SettingPermissionsToResponse(permissions []SettingPermission) []SettingPermissionResponse {
-	var result []SettingPermissionResponse
+	result := make([]SettingPermissionResponse, 0)
 	for _, permission := range permissions {
 		result = append(result, SettingPermissionResponse{
 			Id:   permission.Id,

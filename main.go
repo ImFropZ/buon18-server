@@ -38,6 +38,7 @@ func main() {
 
 	// -- Private
 	router.Use(middlewares.Authenticate(DB))
+	routes.Setting(router, DB)
 
 	router.Routes()
 
