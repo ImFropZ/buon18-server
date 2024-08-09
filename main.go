@@ -39,6 +39,7 @@ func main() {
 	// -- Private
 	router.Use(middlewares.Authenticate(DB))
 	routes.Setting(router, DB)
+	routes.Sales(router, DB)
 
 	router.Routes()
 
