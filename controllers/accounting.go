@@ -48,3 +48,17 @@ func (handler *AccountingHandler) PaymentTerms(c *gin.Context) {
 		"payment_terms": paymentTerms,
 	}))
 }
+
+func (handler *AccountingHandler) PaymentTerm(c *gin.Context) {
+	id := c.Param("id")
+
+	paymentTerm, statusCode, err := handler.AccountingPaymentTermService.PaymentTerm(id)
+	if err != nil {
+		c.JSON(statusCode, utils.NewErrorResponse(statusCode, err.Error()))
+		return
+	}
+
+	c.JSON(statusCode, utils.NewResponse(statusCode, "", gin.H{
+		"payment_term": paymentTerm,
+	}))
+}

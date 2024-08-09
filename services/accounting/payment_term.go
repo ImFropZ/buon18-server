@@ -2,11 +2,16 @@ package accounting
 
 import (
 	"database/sql"
+	"errors"
 	"log"
 	"server/models/accounting"
 	"server/utils"
 
 	"github.com/nullism/bqb"
+)
+
+var (
+	ErrPaymentTermNotFound = errors.New("payment term not found")
 )
 
 type AccountingPaymentTermService struct {
@@ -108,4 +113,67 @@ func (service *AccountingPaymentTermService) PaymentTerms(qp *utils.QueryParams)
 	}
 
 	return paymentTermsResponse, total, 200, nil
+}
+
+func (service *AccountingPaymentTermService) PaymentTerm(id string) (accounting.AccountingPaymentTermResponse, int, error) {
+	bqbQuery := bqb.New(`
+	WITH "limited_payment_terms" AS (
+		SELECT
+			id,
+			name,
+			description
+		FROM
+			"accounting.payment_term"
+		WHERE id = ?)
+	SELECT 
+		"limited_payment_terms".id,
+		"limited_payment_terms".name,
+		"limited_payment_terms".description,
+		"accounting.payment_term_line".id,
+		"accounting.payment_term_line".sequence,
+		"accounting.payment_term_line".value_amount_percent,
+		"accounting.payment_term_line".number_of_days
+	FROM
+		"limited_payment_terms"
+	INNER JOIN "accounting.payment_term_line" ON "limited_payment_terms".id = "accounting.payment_term_line".accounting_payment_term_id
+	ORDER BY "limited_payment_terms".id ASC, "accounting.payment_term_line".sequence ASC`, id)
+
+	query, params, err := bqbQuery.ToPgsql()
+	if err != nil {
+		log.Printf("%v", err)
+		return accounting.AccountingPaymentTermResponse{}, 500, utils.ErrInternalServer
+	}
+
+	rows, err := service.DB.Query(query, params...)
+	if err != nil {
+		log.Printf("%v", err)
+		return accounting.AccountingPaymentTermResponse{}, 500, utils.ErrInternalServer
+	}
+
+	paymentTerm := accounting.AccountingPaymentTerm{}
+	paymentTermLines := make([]accounting.AccountingPaymentTermLine, 0)
+	for rows.Next() {
+		tmpPaymentTermLine := accounting.AccountingPaymentTermLine{}
+		err = rows.Scan(
+			&paymentTerm.Id,
+			&paymentTerm.Name,
+			&paymentTerm.Description,
+			&tmpPaymentTermLine.Id,
+			&tmpPaymentTermLine.Sequence,
+			&tmpPaymentTermLine.ValueAmountPercent,
+			&tmpPaymentTermLine.NumberOfDays,
+		)
+		if err != nil {
+			log.Printf("%v", err)
+			return accounting.AccountingPaymentTermResponse{}, 500, utils.ErrInternalServer
+		}
+
+		paymentTermLines = append(paymentTermLines, tmpPaymentTermLine)
+	}
+
+	if paymentTerm.Id == 0 {
+		return accounting.AccountingPaymentTermResponse{}, 404, ErrPaymentTermNotFound
+	}
+
+	return accounting.AccountingPaymentTermToResponse(paymentTerm, paymentTermLines), 200, nil
 }
