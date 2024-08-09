@@ -13,7 +13,7 @@ import (
 func Auth(e *gin.Engine, db *sql.DB) {
 	handler := controllers.AuthHandler{
 		DB:          db,
-		AuthService: services.AuthService{DB: db},
+		AuthService: &services.AuthService{DB: db},
 	}
 	authPermissions := utils.PREDEFINED_PERMISSIONS.AUTH
 

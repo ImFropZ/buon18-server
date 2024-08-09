@@ -12,9 +12,9 @@ import (
 
 type SettingHandler struct {
 	DB                     *sql.DB
-	SettingUserService     setting.SettingUserService
-	SettingCustomerService setting.SettingCustomerService
-	SettingRoleService     setting.SettingRoleService
+	SettingUserService     *setting.SettingUserService
+	SettingCustomerService *setting.SettingCustomerService
+	SettingRoleService     *setting.SettingRoleService
 }
 
 func (handler *SettingHandler) Users(c *gin.Context) {

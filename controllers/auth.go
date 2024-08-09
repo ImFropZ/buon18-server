@@ -10,7 +10,7 @@ import (
 
 type AuthHandler struct {
 	DB          *sql.DB
-	AuthService services.AuthService
+	AuthService *services.AuthService
 }
 
 func (handler *AuthHandler) Me(c *gin.Context) {
