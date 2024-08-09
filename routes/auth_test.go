@@ -171,7 +171,9 @@ func TestAuthRoutes(t *testing.T) {
 		req.Header.Add("Authorization", "Bearer "+token)
 		router.ServeHTTP(w, req)
 
-		assert.Equal(t, `{"code":200,"message":"","data":{"user":{"id":2,"name":"Admin","email":"admin@buon18.com","type":"user","role":{"id":1,"name":"bot","description":"BOT","Permissions":[{"id":1,"name":"FULL_ACCESS"}]}}}}`, w.Body.String())
+		expectedBodyJSON := `{"code":200,"message":"","data":{"user":{"id":2,"name":"Admin","email":"admin@buon18.com","type":"user","role":{"id":1,"name":"bot","description":"BOT","Permissions":[{"id":1,"name":"FULL_ACCESS"}]}}}}`
+
+		assert.JSONEq(t, expectedBodyJSON, w.Body.String())
 	})
 
 }

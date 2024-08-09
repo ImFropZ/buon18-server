@@ -58,7 +58,11 @@ func TestSettingRoutes(t *testing.T) {
 		req.Header.Add("Authorization", "Bearer "+token)
 		router.ServeHTTP(w, req)
 
-		assert.Equal(t, `{"code":200,"message":"","data":{"users":[{"id":1,"name":"bot","email":"bot@buon18.com","type":"bot","role":{"id":1,"name":"bot","description":"BOT","Permissions":[{"id":1,"name":"FULL_ACCESS"}]}},{"id":2,"name":"admin","email":"admin@buon18.com","type":"user","role":{"id":1,"name":"bot","description":"BOT","Permissions":[{"id":1,"name":"FULL_ACCESS"}]}}]}}`, w.Body.String())
+		expectedBodyJSON := `{"code":200,"message":"","data":{"users":[{"id":1,"name":"bot","email":"bot@buon18.com","type":"bot","role":{"id":1,"name":"bot","description":"BOT","Permissions":[{"id":1,"name":"FULL_ACCESS"}]}},{"id":2,"name":"admin","email":"admin@buon18.com","type":"user","role":{"id":1,"name":"bot","description":"BOT","Permissions":[{"id":1,"name":"FULL_ACCESS"}]}}]}}`
+		expectedXTotalCountHeader := "2"
+
+		assert.Equal(t, expectedXTotalCountHeader, w.Header().Get("X-Total-Count"))
+		assert.JSONEq(t, expectedBodyJSON, w.Body.String())
 	})
 
 	t.Run("FilterSuccessGetListOfUsers", func(t *testing.T) {
@@ -68,7 +72,11 @@ func TestSettingRoutes(t *testing.T) {
 		req.Header.Add("Authorization", "Bearer "+token)
 		router.ServeHTTP(w, req)
 
-		assert.Equal(t, `{"code":200,"message":"","data":{"users":[{"id":1,"name":"bot","email":"bot@buon18.com","type":"bot","role":{"id":1,"name":"bot","description":"BOT","Permissions":[{"id":1,"name":"FULL_ACCESS"}]}}]}}`, w.Body.String())
+		expectedBodyJSON := `{"code":200,"message":"","data":{"users":[{"id":1,"name":"bot","email":"bot@buon18.com","type":"bot","role":{"id":1,"name":"bot","description":"BOT","Permissions":[{"id":1,"name":"FULL_ACCESS"}]}}]}}`
+		expectedXTotalCountHeader := "1"
+
+		assert.Equal(t, expectedXTotalCountHeader, w.Header().Get("X-Total-Count"))
+		assert.JSONEq(t, expectedBodyJSON, w.Body.String())
 	})
 
 	t.Run("SortSuccessGetListOfUsers", func(t *testing.T) {
@@ -78,7 +86,11 @@ func TestSettingRoutes(t *testing.T) {
 		req.Header.Add("Authorization", "Bearer "+token)
 		router.ServeHTTP(w, req)
 
-		assert.Equal(t, `{"code":200,"message":"","data":{"users":[{"id":2,"name":"admin","email":"admin@buon18.com","type":"user","role":{"id":1,"name":"bot","description":"BOT","Permissions":[{"id":1,"name":"FULL_ACCESS"}]}},{"id":1,"name":"bot","email":"bot@buon18.com","type":"bot","role":{"id":1,"name":"bot","description":"BOT","Permissions":[{"id":1,"name":"FULL_ACCESS"}]}}]}}`, w.Body.String())
+		expectedBodyJSON := `{"code":200,"message":"","data":{"users":[{"id":2,"name":"admin","email":"admin@buon18.com","type":"user","role":{"id":1,"name":"bot","description":"BOT","Permissions":[{"id":1,"name":"FULL_ACCESS"}]}},{"id":1,"name":"bot","email":"bot@buon18.com","type":"bot","role":{"id":1,"name":"bot","description":"BOT","Permissions":[{"id":1,"name":"FULL_ACCESS"}]}}]}}`
+		expectedXTotalCountHeader := "2"
+
+		assert.Equal(t, expectedXTotalCountHeader, w.Header().Get("X-Total-Count"))
+		assert.JSONEq(t, expectedBodyJSON, w.Body.String())
 	})
 
 	t.Run("LimitAndOffsetSuccessGetListOfUsers", func(t *testing.T) {
@@ -88,7 +100,11 @@ func TestSettingRoutes(t *testing.T) {
 		req.Header.Add("Authorization", "Bearer "+token)
 		router.ServeHTTP(w, req)
 
-		assert.Equal(t, `{"code":200,"message":"","data":{"users":[{"id":2,"name":"admin","email":"admin@buon18.com","type":"user","role":{"id":1,"name":"bot","description":"BOT","Permissions":[{"id":1,"name":"FULL_ACCESS"}]}}]}}`, w.Body.String())
+		expectedBodyJSON := `{"code":200,"message":"","data":{"users":[{"id":2,"name":"admin","email":"admin@buon18.com","type":"user","role":{"id":1,"name":"bot","description":"BOT","Permissions":[{"id":1,"name":"FULL_ACCESS"}]}}]}}`
+		expectedXTotalCountHeader := "2"
+
+		assert.Equal(t, expectedXTotalCountHeader, w.Header().Get("X-Total-Count"))
+		assert.JSONEq(t, expectedBodyJSON, w.Body.String())
 	})
 
 	t.Run("SuccessGetUserById", func(t *testing.T) {
@@ -98,7 +114,9 @@ func TestSettingRoutes(t *testing.T) {
 		req.Header.Add("Authorization", "Bearer "+token)
 		router.ServeHTTP(w, req)
 
-		assert.Equal(t, `{"code":200,"message":"","data":{"user":{"id":1,"name":"bot","email":"bot@buon18.com","type":"bot","role":{"id":1,"name":"bot","description":"BOT","Permissions":[{"id":1,"name":"FULL_ACCESS"}]}}}}`, w.Body.String())
+		expectedBodyJSON := `{"code":200,"message":"","data":{"user":{"id":1,"name":"bot","email":"bot@buon18.com","type":"bot","role":{"id":1,"name":"bot","description":"BOT","Permissions":[{"id":1,"name":"FULL_ACCESS"}]}}}}`
+
+		assert.JSONEq(t, expectedBodyJSON, w.Body.String())
 	})
 
 	t.Run("NotFoundGetUserById", func(t *testing.T) {
@@ -108,7 +126,9 @@ func TestSettingRoutes(t *testing.T) {
 		req.Header.Add("Authorization", "Bearer "+token)
 		router.ServeHTTP(w, req)
 
-		assert.Equal(t, `{"code":404,"message":"user not found","data":null}`, w.Body.String())
+		expectedBodyJSON := `{"code":404,"message":"user not found","data":null}`
+
+		assert.JSONEq(t, expectedBodyJSON, w.Body.String())
 	})
 
 	t.Run("SucessGetListOfCustomers", func(t *testing.T) {
@@ -118,7 +138,11 @@ func TestSettingRoutes(t *testing.T) {
 		req.Header.Add("Authorization", "Bearer "+token)
 		router.ServeHTTP(w, req)
 
-		assert.Equal(t, `{"code":200,"message":"","data":{"customers":[{"id":500,"full_name":"John Doe","gender":"m","email":"jd@dummy-data.com","phone":"096123456","additional_information":{"note":"This is a dummy data from john doe"}},{"id":501,"full_name":"Jane Doe","gender":"f","email":"jad@dummy-data.com","phone":"064456789","additional_information":{"note":"This is a dummy data from jane doe"}},{"id":502,"full_name":"John Foo","gender":"u","email":"jf@dummy-data.com","phone":"012789123","additional_information":{"note":"This is a dummy data from john foo"}}]}}`, w.Body.String())
+		expectedBodyJSON := `{"code":200,"message":"","data":{"customers":[{"id":500,"full_name":"John Doe","gender":"m","email":"jd@dummy-data.com","phone":"096123456","additional_information":{"note":"This is a dummy data from john doe"}},{"id":501,"full_name":"Jane Doe","gender":"f","email":"jad@dummy-data.com","phone":"064456789","additional_information":{"note":"This is a dummy data from jane doe"}},{"id":502,"full_name":"John Foo","gender":"u","email":"jf@dummy-data.com","phone":"012789123","additional_information":{"note":"This is a dummy data from john foo"}}]}}`
+		expectedXTotalCountHeader := "3"
+
+		assert.Equal(t, expectedXTotalCountHeader, w.Header().Get("X-Total-Count"))
+		assert.JSONEq(t, expectedBodyJSON, w.Body.String())
 	})
 
 	t.Run("FilterSucessGetListOfCustomers", func(t *testing.T) {
@@ -128,7 +152,11 @@ func TestSettingRoutes(t *testing.T) {
 		req.Header.Add("Authorization", "Bearer "+token)
 		router.ServeHTTP(w, req)
 
-		assert.Equal(t, `{"code":200,"message":"","data":{"customers":[{"id":501,"full_name":"Jane Doe","gender":"f","email":"jad@dummy-data.com","phone":"064456789","additional_information":{"note":"This is a dummy data from jane doe"}}]}}`, w.Body.String())
+		expectedBodyJSON := `{"code":200,"message":"","data":{"customers":[{"id":501,"full_name":"Jane Doe","gender":"f","email":"jad@dummy-data.com","phone":"064456789","additional_information":{"note":"This is a dummy data from jane doe"}}]}}`
+		expectedXTotalCountHeader := "1"
+
+		assert.Equal(t, expectedXTotalCountHeader, w.Header().Get("X-Total-Count"))
+		assert.JSONEq(t, expectedBodyJSON, w.Body.String())
 	})
 
 	t.Run("NotFoundGetCustomerById", func(t *testing.T) {
@@ -138,7 +166,9 @@ func TestSettingRoutes(t *testing.T) {
 		req.Header.Add("Authorization", "Bearer "+token)
 		router.ServeHTTP(w, req)
 
-		assert.Equal(t, `{"code":200,"message":"","data":{"customer":{"id":500,"full_name":"John Doe","gender":"m","email":"jd@dummy-data.com","phone":"096123456","additional_information":{"note":"This is a dummy data from john doe"}}}}`, w.Body.String())
+		expectedBodyJSON := `{"code":200,"message":"","data":{"customer":{"id":500,"full_name":"John Doe","gender":"m","email":"jd@dummy-data.com","phone":"096123456","additional_information":{"note":"This is a dummy data from john doe"}}}}`
+
+		assert.JSONEq(t, expectedBodyJSON, w.Body.String())
 	})
 
 	t.Run("SuccessGetCustomerById", func(t *testing.T) {
@@ -148,7 +178,9 @@ func TestSettingRoutes(t *testing.T) {
 		req.Header.Add("Authorization", "Bearer "+token)
 		router.ServeHTTP(w, req)
 
-		assert.Equal(t, `{"code":404,"message":"customer not found","data":null}`, w.Body.String())
+		expectedBodyJSON := `{"code":404,"message":"customer not found","data":null}`
+
+		assert.JSONEq(t, expectedBodyJSON, w.Body.String())
 	})
 
 	t.Run("SuccessGetListOfRoles", func(t *testing.T) {
@@ -158,7 +190,9 @@ func TestSettingRoutes(t *testing.T) {
 		req.Header.Add("Authorization", "Bearer "+token)
 		router.ServeHTTP(w, req)
 
-		assert.Equal(t, `{"code":200,"message":"","data":{"roles":[{"id":1,"name":"bot","description":"BOT","Permissions":[{"id":1,"name":"FULL_ACCESS"}]},{"id":2,"name":"user","description":"User","Permissions":[{"id":6,"name":"VIEW_PROFILE"},{"id":7,"name":"UPDATE_PROFILE"}]}]}}`, w.Body.String())
+		expectedBodyJSON := `{"code":200,"message":"","data":{"roles":[{"id":1,"name":"bot","description":"BOT","Permissions":[{"id":1,"name":"FULL_ACCESS"}]},{"id":2,"name":"user","description":"User","Permissions":[{"id":6,"name":"VIEW_PROFILE"},{"id":7,"name":"UPDATE_PROFILE"}]}]}}`
+
+		assert.JSONEq(t, expectedBodyJSON, w.Body.String())
 	})
 
 	t.Run("FilterSuccessGetListOfRoles", func(t *testing.T) {
@@ -168,7 +202,11 @@ func TestSettingRoutes(t *testing.T) {
 		req.Header.Add("Authorization", "Bearer "+token)
 		router.ServeHTTP(w, req)
 
-		assert.Equal(t, `{"code":200,"message":"","data":{"roles":[{"id":2,"name":"user","description":"User","Permissions":[{"id":6,"name":"VIEW_PROFILE"},{"id":7,"name":"UPDATE_PROFILE"}]}]}}`, w.Body.String())
+		expectedBodyJSON := `{"code":200,"message":"","data":{"roles":[{"id":2,"name":"user","description":"User","Permissions":[{"id":6,"name":"VIEW_PROFILE"},{"id":7,"name":"UPDATE_PROFILE"}]}]}}`
+		expectedXTotalCountHeader := "1"
+
+		assert.Equal(t, expectedXTotalCountHeader, w.Header().Get("X-Total-Count"))
+		assert.JSONEq(t, expectedBodyJSON, w.Body.String())
 	})
 
 	t.Run("SortSuccessGetListOfRoles", func(t *testing.T) {
@@ -178,7 +216,11 @@ func TestSettingRoutes(t *testing.T) {
 		req.Header.Add("Authorization", "Bearer "+token)
 		router.ServeHTTP(w, req)
 
-		assert.Equal(t, `{"code":200,"message":"","data":{"roles":[{"id":2,"name":"user","description":"User","Permissions":[{"id":6,"name":"VIEW_PROFILE"},{"id":7,"name":"UPDATE_PROFILE"}]},{"id":1,"name":"bot","description":"BOT","Permissions":[{"id":1,"name":"FULL_ACCESS"}]}]}}`, w.Body.String())
+		expectedBodyJSON := `{"code":200,"message":"","data":{"roles":[{"id":2,"name":"user","description":"User","Permissions":[{"id":6,"name":"VIEW_PROFILE"},{"id":7,"name":"UPDATE_PROFILE"}]},{"id":1,"name":"bot","description":"BOT","Permissions":[{"id":1,"name":"FULL_ACCESS"}]}]}}`
+		expectedXTotalCountHeader := "2"
+
+		assert.Equal(t, expectedXTotalCountHeader, w.Header().Get("X-Total-Count"))
+		assert.JSONEq(t, expectedBodyJSON, w.Body.String())
 	})
 
 	t.Run("SuccessGetRoleById", func(t *testing.T) {
@@ -188,7 +230,9 @@ func TestSettingRoutes(t *testing.T) {
 		req.Header.Add("Authorization", "Bearer "+token)
 		router.ServeHTTP(w, req)
 
-		assert.Equal(t, `{"code":200,"message":"","data":{"role":{"id":2,"name":"user","description":"User","Permissions":[{"id":6,"name":"VIEW_PROFILE"},{"id":7,"name":"UPDATE_PROFILE"}]}}}`, w.Body.String())
+		expectedBodyJSON := `{"code":200,"message":"","data":{"role":{"id":2,"name":"user","description":"User","Permissions":[{"id":6,"name":"VIEW_PROFILE"},{"id":7,"name":"UPDATE_PROFILE"}]}}}`
+
+		assert.JSONEq(t, expectedBodyJSON, w.Body.String())
 	})
 
 	t.Run("NotFoundGetRoleById", func(t *testing.T) {
@@ -198,6 +242,8 @@ func TestSettingRoutes(t *testing.T) {
 		req.Header.Add("Authorization", "Bearer "+token)
 		router.ServeHTTP(w, req)
 
-		assert.Equal(t, `{"code":404,"message":"role not found","data":null}`, w.Body.String())
+		expectedBodyJSON := `{"code":404,"message":"role not found","data":null}`
+
+		assert.JSONEq(t, expectedBodyJSON, w.Body.String())
 	})
 }
