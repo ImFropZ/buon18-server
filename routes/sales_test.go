@@ -93,4 +93,27 @@ func TestSalesRoutes(t *testing.T) {
 		assert.Equal(t, expectedXTotalCountHeader, w.Header().Get("X-Total-Count"))
 		assert.JSONEq(t, expectedBodyJSON, w.Body.String())
 	})
+
+	t.Run("SuccessGetQuotationById", func(t *testing.T) {
+		w := httptest.NewRecorder()
+
+		req := httptest.NewRequest("GET", "/api/sales/quotations/1", nil)
+		req.Header.Add("Authorization", "Bearer "+token)
+		router.ServeHTTP(w, req)
+
+		expectedBodyJSON := `{"code":200,"message":"","data":{"quotation":{"id":1,"name":"Quotation 1","creation_date":"2021-01-01T00:00:00Z","validity_date":"2021-01-31T00:00:00Z","discount":50,"amount_delivery":100,"status":"quotation","total_amount":350,"customer":{"id":500,"full_name":"John Doe","gender":"m","email":"jd@dummy-data.com","phone":"096123456","additional_information":{"note":"This is a dummy data from john doe"}},"items":[{"id":1,"name":"Item 1","description":"Item 1 description","price":100,"discount":0,"amount_total":100},{"id":2,"name":"Item 2","description":"Item 2 description","price":200,"discount":0,"amount_total":200}]}}}`
+
+		assert.JSONEq(t, expectedBodyJSON, w.Body.String())
+	})
+
+	t.Run("NotFoundGetQuotationById", func(t *testing.T) {
+		w := httptest.NewRecorder()
+
+		req := httptest.NewRequest("GET", "/api/sales/quotations/999", nil)
+		req.Header.Add("Authorization", "Bearer "+token)
+		router.ServeHTTP(w, req)
+
+		expectedBodyJSON := `{"code":404,"message":"quotation not found","data":null}`
+		assert.JSONEq(t, expectedBodyJSON, w.Body.String())
+	})
 }
