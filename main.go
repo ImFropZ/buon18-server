@@ -40,6 +40,7 @@ func main() {
 	router.Use(middlewares.Authenticate(DB))
 	routes.Setting(router, DB)
 	routes.Sales(router, DB)
+	routes.Accounting(router, DB)
 
 	router.Routes()
 
