@@ -3,7 +3,7 @@ package controllers
 import (
 	"database/sql"
 	"fmt"
-	"server/models"
+	"server/models/accounting"
 	services "server/services/accounting"
 	"server/utils"
 
@@ -17,12 +17,12 @@ type AccountingHandler struct {
 
 func (handler *AccountingHandler) PaymentTerms(c *gin.Context) {
 	qp := utils.NewQueryParams()
-	for _, filter := range models.AccountingPaymentTermAllowFilterFieldsAndOps {
+	for _, filter := range accounting.AccountingPaymentTermAllowFilterFieldsAndOps {
 		if validFilter, ok := c.GetQuery(filter); ok {
 			qp.AddFilter(fmt.Sprintf(`"accounting.payment_term".%s=%s`, filter, validFilter))
 		}
 	}
-	for _, sort := range models.AccountingPaymentTermAllowSortFields {
+	for _, sort := range accounting.AccountingPaymentTermAllowSortFields {
 		if validSort, ok := c.GetQuery(fmt.Sprintf("sort-%s", sort)); ok {
 			qp.AddOrderBy(fmt.Sprintf(`LOWER("limited_payment_terms".%s) %s`, sort, validSort))
 		}

@@ -3,7 +3,7 @@ package utils
 import (
 	"errors"
 	"log"
-	"server/models"
+	"server/models/setting"
 
 	"github.com/gin-gonic/gin"
 )
@@ -15,37 +15,37 @@ var (
 )
 
 type CtxW struct {
-	User        models.SettingUser
-	Role        models.SettingRole
-	Permissions []models.SettingPermission
+	User        setting.SettingUser
+	Role        setting.SettingRole
+	Permissions []setting.SettingPermission
 }
 
 func Ctx(c *gin.Context) (CtxW, error) {
 	// -- Get user
-	var ctxUser models.SettingUser
+	var ctxUser setting.SettingUser
 	if cUser, err := c.Get("user"); !err {
 		log.Printf("Error getting user id: %v\n", err)
 		return CtxW{}, ErrNoUserCtx
 	} else {
-		ctxUser = cUser.(models.SettingUser)
+		ctxUser = cUser.(setting.SettingUser)
 	}
 
 	// -- Get role
-	var ctxRole models.SettingRole
+	var ctxRole setting.SettingRole
 	if cRole, err := c.Get("role"); !err {
 		log.Printf("Error getting user id: %v\n", err)
 		return CtxW{}, ErrNoRoleCtx
 	} else {
-		ctxRole = cRole.(models.SettingRole)
+		ctxRole = cRole.(setting.SettingRole)
 	}
 
 	// -- Get permissions
-	var ctxPermissions []models.SettingPermission
+	var ctxPermissions []setting.SettingPermission
 	if cPermissions, err := c.Get("permissions"); !err {
 		log.Printf("Error getting user id: %v\n", err)
 		return CtxW{}, ErrNoPermissionsCtx
 	} else {
-		ctxPermissions = cPermissions.([]models.SettingPermission)
+		ctxPermissions = cPermissions.([]setting.SettingPermission)
 	}
 
 	return CtxW{

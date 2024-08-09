@@ -2,7 +2,7 @@ package middlewares
 
 import (
 	"log"
-	"server/models"
+	"server/models/setting"
 	"server/utils"
 	"strings"
 
@@ -12,9 +12,9 @@ import (
 func Authorize(allowPermissions []string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		// -- Get role
-		var ctxPermissions []models.SettingPermission
+		var ctxPermissions []setting.SettingPermission
 		if cPermissions, ok := c.Get("permissions"); ok {
-			ctxPermissions = cPermissions.([]models.SettingPermission)
+			ctxPermissions = cPermissions.([]setting.SettingPermission)
 		} else {
 			log.Printf("permission not found in context\n")
 			c.JSON(500, utils.NewErrorResponse(500, "internal server error"))

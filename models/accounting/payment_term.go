@@ -1,10 +1,14 @@
-package models
+package accounting
+
+import (
+	"server/models"
+)
 
 var AccountingPaymentTermAllowFilterFieldsAndOps = []string{"name-like", "description-like"}
 var AccountingPaymentTermAllowSortFields = []string{"name"}
 
 type AccountingPaymentTerm struct {
-	*CommonModel
+	*models.CommonModel
 	Id          int
 	Name        string
 	Description string

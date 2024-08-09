@@ -4,7 +4,8 @@ import (
 	"database/sql"
 	"errors"
 	"log"
-	"server/models"
+	"server/models/sales"
+	"server/models/setting"
 	"server/utils"
 
 	"github.com/nullism/bqb"
@@ -18,7 +19,7 @@ type SalesQuotationService struct {
 	DB *sql.DB
 }
 
-func (service *SalesQuotationService) Quotations(qp *utils.QueryParams) ([]models.SalesQuotationResponse, int, int, error) {
+func (service *SalesQuotationService) Quotations(qp *utils.QueryParams) ([]sales.SalesQuotationResponse, int, int, error) {
 	bqbQuery := bqb.New(`
 	WITH "limited_quotations" AS (
 		SELECT
@@ -66,35 +67,35 @@ func (service *SalesQuotationService) Quotations(qp *utils.QueryParams) ([]model
 	query, params, err := bqbQuery.ToPgsql()
 	if err != nil {
 		log.Printf("%v", err)
-		return []models.SalesQuotationResponse{}, 0, 500, utils.ErrInternalServer
+		return []sales.SalesQuotationResponse{}, 0, 500, utils.ErrInternalServer
 	}
 
 	rows, err := service.DB.Query(query, params...)
 	if err != nil {
 		log.Printf("%v", err)
-		return []models.SalesQuotationResponse{}, 0, 500, utils.ErrInternalServer
+		return []sales.SalesQuotationResponse{}, 0, 500, utils.ErrInternalServer
 	}
 
-	quotationsResponse := make([]models.SalesQuotationResponse, 0)
-	lastQuotation := models.SalesQuotation{}
-	lastCustomer := models.SettingCustomer{}
-	orderItems := make([]models.SalesOrderItem, 0)
+	quotationsResponse := make([]sales.SalesQuotationResponse, 0)
+	lastQuotation := sales.SalesQuotation{}
+	lastCustomer := setting.SettingCustomer{}
+	orderItems := make([]sales.SalesOrderItem, 0)
 	for rows.Next() {
-		var tmpQuotation models.SalesQuotation
-		var tmpCustomer models.SettingCustomer
-		var tmpOrderItem models.SalesOrderItem
+		var tmpQuotation sales.SalesQuotation
+		var tmpCustomer setting.SettingCustomer
+		var tmpOrderItem sales.SalesOrderItem
 
 		err = rows.Scan(&tmpQuotation.Id, &tmpQuotation.Name, &tmpQuotation.CreationDate, &tmpQuotation.ValidityDate, &tmpQuotation.Discount, &tmpQuotation.AmountDelivery, &tmpQuotation.Status, &tmpCustomer.Id, &tmpCustomer.FullName, &tmpCustomer.Gender, &tmpCustomer.Email, &tmpCustomer.Phone, &tmpCustomer.AdditionalInformation, &tmpOrderItem.Id, &tmpOrderItem.Name, &tmpOrderItem.Description, &tmpOrderItem.Price, &tmpOrderItem.Discount)
 		if err != nil {
 			log.Printf("%v", err)
-			return []models.SalesQuotationResponse{}, 0, 500, utils.ErrInternalServer
+			return []sales.SalesQuotationResponse{}, 0, 500, utils.ErrInternalServer
 		}
 
 		if lastQuotation.Id != tmpQuotation.Id && lastQuotation.Id != 0 {
-			quotationsResponse = append(quotationsResponse, models.SalesQuotationToResponse(lastQuotation, lastCustomer, orderItems))
+			quotationsResponse = append(quotationsResponse, sales.SalesQuotationToResponse(lastQuotation, lastCustomer, orderItems))
 			lastQuotation = tmpQuotation
 			lastCustomer = tmpCustomer
-			orderItems = make([]models.SalesOrderItem, 0)
+			orderItems = make([]sales.SalesOrderItem, 0)
 			orderItems = append(orderItems, tmpOrderItem)
 			continue
 		}
@@ -109,7 +110,7 @@ func (service *SalesQuotationService) Quotations(qp *utils.QueryParams) ([]model
 		}
 	}
 	if lastQuotation.Id != 0 {
-		quotationsResponse = append(quotationsResponse, models.SalesQuotationToResponse(lastQuotation, lastCustomer, orderItems))
+		quotationsResponse = append(quotationsResponse, sales.SalesQuotationToResponse(lastQuotation, lastCustomer, orderItems))
 	}
 
 	bqbQuery = bqb.New(`SELECT COUNT(*) FROM "sales.quotation"`)
@@ -118,20 +119,20 @@ func (service *SalesQuotationService) Quotations(qp *utils.QueryParams) ([]model
 	query, params, err = bqbQuery.ToPgsql()
 	if err != nil {
 		log.Printf("%v", err)
-		return []models.SalesQuotationResponse{}, 0, 500, utils.ErrInternalServer
+		return []sales.SalesQuotationResponse{}, 0, 500, utils.ErrInternalServer
 	}
 
 	var total int
 	err = service.DB.QueryRow(query, params...).Scan(&total)
 	if err != nil {
 		log.Printf("%v", err)
-		return []models.SalesQuotationResponse{}, 0, 500, utils.ErrInternalServer
+		return []sales.SalesQuotationResponse{}, 0, 500, utils.ErrInternalServer
 	}
 
 	return quotationsResponse, total, 200, nil
 }
 
-func (service *SalesQuotationService) Quotation(id string) (models.SalesQuotationResponse, int, error) {
+func (service *SalesQuotationService) Quotation(id string) (sales.SalesQuotationResponse, int, error) {
 	bqbQuery := bqb.New(`
 	WITH "limited_quotations" AS (
 		SELECT
@@ -174,32 +175,32 @@ func (service *SalesQuotationService) Quotation(id string) (models.SalesQuotatio
 	query, params, err := bqbQuery.ToPgsql()
 	if err != nil {
 		log.Printf("%v", err)
-		return models.SalesQuotationResponse{}, 500, utils.ErrInternalServer
+		return sales.SalesQuotationResponse{}, 500, utils.ErrInternalServer
 	}
 
 	rows, err := service.DB.Query(query, params...)
 	if err != nil {
 		log.Printf("%v", err)
-		return models.SalesQuotationResponse{}, 500, utils.ErrInternalServer
+		return sales.SalesQuotationResponse{}, 500, utils.ErrInternalServer
 	}
 
-	quotation := models.SalesQuotation{}
-	customer := models.SettingCustomer{}
-	orderItems := make([]models.SalesOrderItem, 0)
+	quotation := sales.SalesQuotation{}
+	customer := setting.SettingCustomer{}
+	orderItems := make([]sales.SalesOrderItem, 0)
 	for rows.Next() {
-		var tmpOrderItem models.SalesOrderItem
+		var tmpOrderItem sales.SalesOrderItem
 		err = rows.Scan(&quotation.Id, &quotation.Name, &quotation.CreationDate, &quotation.ValidityDate, &quotation.Discount, &quotation.AmountDelivery, &quotation.Status, &customer.Id, &customer.FullName, &customer.Gender, &customer.Email, &customer.Phone, &customer.AdditionalInformation, &tmpOrderItem.Id, &tmpOrderItem.Name, &tmpOrderItem.Description, &tmpOrderItem.Price, &tmpOrderItem.Discount)
 		if err != nil {
 			log.Printf("%v", err)
-			return models.SalesQuotationResponse{}, 500, utils.ErrInternalServer
+			return sales.SalesQuotationResponse{}, 500, utils.ErrInternalServer
 		}
 
 		orderItems = append(orderItems, tmpOrderItem)
 	}
 
 	if quotation.Id == 0 {
-		return models.SalesQuotationResponse{}, 404, ErrQuotationNotFound
+		return sales.SalesQuotationResponse{}, 404, ErrQuotationNotFound
 	}
 
-	return models.SalesQuotationToResponse(quotation, customer, orderItems), 200, nil
+	return sales.SalesQuotationToResponse(quotation, customer, orderItems), 200, nil
 }

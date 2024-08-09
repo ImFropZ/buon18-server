@@ -3,8 +3,8 @@ package controllers
 import (
 	"database/sql"
 	"fmt"
-	"server/models"
-	"server/services/setting"
+	"server/models/setting"
+	services "server/services/setting"
 	"server/utils"
 
 	"github.com/gin-gonic/gin"
@@ -12,19 +12,19 @@ import (
 
 type SettingHandler struct {
 	DB                     *sql.DB
-	SettingUserService     *setting.SettingUserService
-	SettingCustomerService *setting.SettingCustomerService
-	SettingRoleService     *setting.SettingRoleService
+	SettingUserService     *services.SettingUserService
+	SettingCustomerService *services.SettingCustomerService
+	SettingRoleService     *services.SettingRoleService
 }
 
 func (handler *SettingHandler) Users(c *gin.Context) {
 	qp := utils.NewQueryParams()
-	for _, filter := range models.SettingUserAllowFilterFieldsAndOps {
+	for _, filter := range setting.SettingUserAllowFilterFieldsAndOps {
 		if validFilter, ok := c.GetQuery(filter); ok {
 			qp.AddFilter(fmt.Sprintf(`"setting.user".%s=%s`, filter, validFilter))
 		}
 	}
-	for _, sort := range models.SettingUserAllowSortFields {
+	for _, sort := range setting.SettingUserAllowSortFields {
 		if validSort, ok := c.GetQuery(fmt.Sprintf("sort-%s", sort)); ok {
 			qp.AddOrderBy(fmt.Sprintf(`LOWER("limited_users".%s) %s`, sort, validSort))
 		}
@@ -67,12 +67,12 @@ func (handler *SettingHandler) User(c *gin.Context) {
 
 func (handler *SettingHandler) Customers(c *gin.Context) {
 	qp := utils.NewQueryParams()
-	for _, filter := range models.SettingCustomerAllowFilterFieldsAndOps {
+	for _, filter := range setting.SettingCustomerAllowFilterFieldsAndOps {
 		if validFilter, ok := c.GetQuery(filter); ok {
 			qp.AddFilter(fmt.Sprintf(`"setting.customer".%s=%s`, filter, validFilter))
 		}
 	}
-	for _, sort := range models.SettingCustomerAllowSortFields {
+	for _, sort := range setting.SettingCustomerAllowSortFields {
 		if validSort, ok := c.GetQuery(fmt.Sprintf("sort-%s", sort)); ok {
 			qp.AddOrderBy(fmt.Sprintf(`LOWER("setting.customer".%s) %s`, sort, validSort))
 		}
@@ -115,12 +115,12 @@ func (handler *SettingHandler) Customer(c *gin.Context) {
 
 func (handler *SettingHandler) Roles(c *gin.Context) {
 	qp := utils.NewQueryParams()
-	for _, filter := range models.SettingRoleAllowFilterFieldsAndOps {
+	for _, filter := range setting.SettingRoleAllowFilterFieldsAndOps {
 		if validFilter, ok := c.GetQuery(filter); ok {
 			qp.AddFilter(fmt.Sprintf(`"setting.role".%s=%s`, filter, validFilter))
 		}
 	}
-	for _, sort := range models.SettingRoleAllowSortFields {
+	for _, sort := range setting.SettingRoleAllowSortFields {
 		if validSort, ok := c.GetQuery(fmt.Sprintf("sort-%s", sort)); ok {
 			qp.AddOrderBy(fmt.Sprintf(`LOWER("limited_roles".%s) %s`, sort, validSort))
 		}

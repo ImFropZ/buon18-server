@@ -1,7 +1,9 @@
-package models
+package setting
+
+import "server/models"
 
 type SettingPermission struct {
-	*CommonModel
+	*models.CommonModel
 	Id   uint
 	Name string
 }

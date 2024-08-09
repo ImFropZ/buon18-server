@@ -1,7 +1,11 @@
-package models
+package sales
+
+import (
+	"server/models"
+)
 
 type SalesOrderItem struct {
-	*CommonModel
+	*models.CommonModel
 	Id          int
 	Name        string
 	Description string

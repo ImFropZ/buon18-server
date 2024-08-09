@@ -1,14 +1,15 @@
-package models
+package setting
 
 import (
 	"encoding/json"
+	"server/models"
 )
 
 var SettingCustomerAllowFilterFieldsAndOps = []string{"fullname-like", "gender-in", "email-like", "phone-like"}
 var SettingCustomerAllowSortFields = []string{"fullname", "gender", "email", "phone"}
 
 type SettingCustomer struct {
-	*CommonModel
+	*models.CommonModel
 	Id                    int
 	FullName              string
 	Gender                string

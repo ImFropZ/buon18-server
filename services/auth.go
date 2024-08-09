@@ -7,6 +7,7 @@ import (
 	"log"
 	"reflect"
 	"server/models"
+	"server/models/setting"
 	"server/utils"
 
 	"github.com/nullism/bqb"
@@ -44,8 +45,8 @@ type AuthService struct {
 	DB *sql.DB
 }
 
-func (service *AuthService) Me(ctx *utils.CtxW) (models.SettingUserResponse, int, error) {
-	return models.SettingUserToResponse(ctx.User, ctx.Role, ctx.Permissions), 200, nil
+func (service *AuthService) Me(ctx *utils.CtxW) (setting.SettingUserResponse, int, error) {
+	return setting.SettingUserToResponse(ctx.User, ctx.Role, ctx.Permissions), 200, nil
 }
 
 func (service *AuthService) Login(loginRequest *LoginRequest) (models.TokenAndRefreshToken, int, error) {
@@ -77,14 +78,14 @@ func (service *AuthService) Login(loginRequest *LoginRequest) (models.TokenAndRe
 	}
 
 	// -- Validate user
-	var user models.SettingUser
-	var role models.SettingRole
-	permissions := make([]models.SettingPermission, 0)
+	var user setting.SettingUser
+	var role setting.SettingRole
+	permissions := make([]setting.SettingPermission, 0)
 	if row := service.DB.QueryRow(query, params...); row.Err() != nil {
 		log.Printf("Error querying user: %v\n", row.Err())
 		return models.TokenAndRefreshToken{}, 500, utils.ErrInternalServer
 	} else {
-		var tmpPermission models.SettingPermission
+		var tmpPermission setting.SettingPermission
 		if err := row.Scan(&user.Email, &user.Pwd, &user.Typ, &role.Id, &role.Name, &role.Description, &tmpPermission.Id, &tmpPermission.Name); err != nil {
 			if err == sql.ErrNoRows {
 				return models.TokenAndRefreshToken{}, 401, ErrAccountNotFound
@@ -166,14 +167,14 @@ func (service *AuthService) RefreshToken(refreshTokenRequest *RefreshTokenReques
 	}
 
 	// -- Validate user
-	var user models.SettingUser
-	var role models.SettingRole
-	permissions := make([]models.SettingPermission, 0)
+	var user setting.SettingUser
+	var role setting.SettingRole
+	permissions := make([]setting.SettingPermission, 0)
 	if row := service.DB.QueryRow(query, params...); row.Err() != nil {
 		log.Printf("Error querying user: %v\n", row.Err())
 		return models.TokenAndRefreshToken{}, 500, utils.ErrInternalServer
 	} else {
-		var tmpPermission models.SettingPermission
+		var tmpPermission setting.SettingPermission
 		if err := row.Scan(&user.Email, &user.Pwd, &user.Typ, &role.Id, &role.Name, &role.Description, &tmpPermission.Id, &tmpPermission.Name); err != nil {
 			if err == sql.ErrNoRows {
 				return models.TokenAndRefreshToken{}, 401, ErrAccountNotFound
@@ -226,7 +227,7 @@ func (service *AuthService) UpdatePassword(ctx *utils.CtxW, updatePasswordReques
 	}
 
 	// -- Get user from db
-	var user models.SettingUser
+	var user setting.SettingUser
 	if row := service.DB.QueryRow(query, params...); row.Err() != nil {
 		log.Printf("Error querying user: %v\n", row.Err())
 		return "", 500, utils.ErrInternalServer

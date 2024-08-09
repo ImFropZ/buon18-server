@@ -4,7 +4,7 @@ import (
 	"database/sql"
 	"errors"
 	"log"
-	"server/models"
+	"server/models/setting"
 	"server/utils"
 
 	"github.com/gin-gonic/gin"
@@ -66,15 +66,15 @@ func Authenticate(DB *sql.DB) gin.HandlerFunc {
 		}
 
 		// -- Validate user
-		var user models.SettingUser
-		var role models.SettingRole
-		permissions := make([]models.SettingPermission, 0)
+		var user setting.SettingUser
+		var role setting.SettingRole
+		permissions := make([]setting.SettingPermission, 0)
 		if row := DB.QueryRow(query, params...); row.Err() != nil {
 			log.Printf("Error querying user: %v\n", row.Err())
 			c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
 			return
 		} else {
-			var tmpPermission models.SettingPermission
+			var tmpPermission setting.SettingPermission
 			if err := row.Scan(&user.Id, &user.Name, &user.Email, &user.Typ, &role.Id, &role.Name, &role.Description, &tmpPermission.Id, &tmpPermission.Name); err != nil {
 				if err == sql.ErrNoRows {
 					c.JSON(401, utils.NewErrorResponse(401, "contact your administrator to create an account"))

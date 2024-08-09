@@ -1,10 +1,14 @@
-package models
+package setting
+
+import (
+	"server/models"
+)
 
 var SettingUserAllowFilterFieldsAndOps = []string{"name-like", "email-like", "typ-in", "role_id-eq"}
 var SettingUserAllowSortFields = []string{"name", "email", "type"}
 
 type SettingUser struct {
-	*CommonModel
+	*models.CommonModel
 	Id    uint
 	Name  string
 	Email string

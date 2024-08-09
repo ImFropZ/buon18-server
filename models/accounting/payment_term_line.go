@@ -1,7 +1,11 @@
-package models
+package accounting
+
+import (
+	"server/models"
+)
 
 type AccountingPaymentTermLine struct {
-	*CommonModel
+	*models.CommonModel
 	Id                 int
 	Sequence           int
 	ValueAmountPercent float64

@@ -4,7 +4,7 @@ import (
 	"database/sql"
 	"errors"
 	"log"
-	"server/models"
+	"server/models/setting"
 	"server/utils"
 
 	"github.com/nullism/bqb"
@@ -18,7 +18,7 @@ type SettingCustomerService struct {
 	DB *sql.DB
 }
 
-func (service *SettingCustomerService) Customers(qp *utils.QueryParams) ([]models.SettingCustomerResponse, int, int, error) {
+func (service *SettingCustomerService) Customers(qp *utils.QueryParams) ([]setting.SettingCustomerResponse, int, int, error) {
 	bqbQuery := bqb.New(`
 	SELECT
 		"setting.customer".id,
@@ -45,16 +45,16 @@ func (service *SettingCustomerService) Customers(qp *utils.QueryParams) ([]model
 		return nil, 0, 500, utils.ErrInternalServer
 	}
 
-	customersResponse := make([]models.SettingCustomerResponse, 0)
+	customersResponse := make([]setting.SettingCustomerResponse, 0)
 	for rows.Next() {
-		tmpCustomer := models.SettingCustomer{}
+		tmpCustomer := setting.SettingCustomer{}
 		err := rows.Scan(&tmpCustomer.Id, &tmpCustomer.FullName, &tmpCustomer.Gender, &tmpCustomer.Email, &tmpCustomer.Phone, &tmpCustomer.AdditionalInformation)
 		if err != nil {
 			log.Printf("%s", err)
 			return nil, 0, 500, utils.ErrInternalServer
 		}
 
-		customersResponse = append(customersResponse, models.SettingCustomerToResponse(tmpCustomer))
+		customersResponse = append(customersResponse, setting.SettingCustomerToResponse(tmpCustomer))
 	}
 
 	bqbQuery = bqb.New(`SELECT COUNT(*) FROM "setting.customer"`)
@@ -76,7 +76,7 @@ func (service *SettingCustomerService) Customers(qp *utils.QueryParams) ([]model
 	return customersResponse, total, 0, nil
 }
 
-func (service *SettingCustomerService) Customer(id string) (models.SettingCustomerResponse, int, error) {
+func (service *SettingCustomerService) Customer(id string) (setting.SettingCustomerResponse, int, error) {
 	bqbQuery := bqb.New(`
 	SELECT
 		"setting.customer".id,
@@ -90,27 +90,27 @@ func (service *SettingCustomerService) Customer(id string) (models.SettingCustom
 	query, params, err := bqbQuery.ToPgsql()
 	if err != nil {
 		log.Printf("%s", err)
-		return models.SettingCustomerResponse{}, 500, utils.ErrInternalServer
+		return setting.SettingCustomerResponse{}, 500, utils.ErrInternalServer
 	}
 
 	rows, err := service.DB.Query(query, params...)
 	if err != nil {
 		log.Printf("%s", err)
-		return models.SettingCustomerResponse{}, 500, utils.ErrInternalServer
+		return setting.SettingCustomerResponse{}, 500, utils.ErrInternalServer
 	}
 
-	var customer models.SettingCustomer
+	var customer setting.SettingCustomer
 	for rows.Next() {
 		err := rows.Scan(&customer.Id, &customer.FullName, &customer.Gender, &customer.Email, &customer.Phone, &customer.AdditionalInformation)
 		if err != nil {
 			log.Printf("%s", err)
-			return models.SettingCustomerResponse{}, 500, utils.ErrInternalServer
+			return setting.SettingCustomerResponse{}, 500, utils.ErrInternalServer
 		}
 	}
 
 	if customer.Id == 0 {
-		return models.SettingCustomerResponse{}, 404, ErrCustomerNotFound
+		return setting.SettingCustomerResponse{}, 404, ErrCustomerNotFound
 	}
 
-	return models.SettingCustomerToResponse(customer), 0, nil
+	return setting.SettingCustomerToResponse(customer), 0, nil
 }

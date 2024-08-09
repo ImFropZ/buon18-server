@@ -3,8 +3,8 @@ package controllers
 import (
 	"database/sql"
 	"fmt"
-	"server/models"
-	"server/services/sales"
+	"server/models/sales"
+	services "server/services/sales"
 	"server/utils"
 
 	"github.com/gin-gonic/gin"
@@ -12,17 +12,17 @@ import (
 
 type SalesHandler struct {
 	DB                    *sql.DB
-	SalesQuotationService *sales.SalesQuotationService
+	SalesQuotationService *services.SalesQuotationService
 }
 
 func (handler *SalesHandler) Quotations(c *gin.Context) {
 	qp := utils.NewQueryParams()
-	for _, filter := range models.SalesQuotationAllowFilterFieldsAndOps {
+	for _, filter := range sales.SalesQuotationAllowFilterFieldsAndOps {
 		if validFilter, ok := c.GetQuery(filter); ok {
 			qp.AddFilter(fmt.Sprintf(`"sales.quotation".%s=%s`, filter, validFilter))
 		}
 	}
-	for _, sort := range models.SalesQuotationAllowSortFields {
+	for _, sort := range sales.SalesQuotationAllowSortFields {
 		if validSort, ok := c.GetQuery(fmt.Sprintf("sort-%s", sort)); ok {
 			qp.AddOrderBy(fmt.Sprintf(`LOWER("limited_quotations".%s) %s`, sort, validSort))
 		}

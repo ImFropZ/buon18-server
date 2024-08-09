@@ -4,7 +4,7 @@ import (
 	"database/sql"
 	"errors"
 	"log"
-	"server/models"
+	"server/models/setting"
 	"server/utils"
 
 	"github.com/nullism/bqb"
@@ -18,7 +18,7 @@ type SettingUserService struct {
 	DB *sql.DB
 }
 
-func (service *SettingUserService) Users(qp *utils.QueryParams) ([]models.SettingUserResponse, int, int, error) {
+func (service *SettingUserService) Users(qp *utils.QueryParams) ([]setting.SettingUserResponse, int, int, error) {
 	bqbQuery := bqb.New(`
 	WITH "limited_users" AS (
 		SELECT 
@@ -58,14 +58,14 @@ func (service *SettingUserService) Users(qp *utils.QueryParams) ([]models.Settin
 		return nil, 0, 500, utils.ErrInternalServer
 	}
 
-	usersResponse := make([]models.SettingUserResponse, 0)
-	permission := make([]models.SettingPermission, 0)
-	var lastUser models.SettingUser
-	var lastRole models.SettingRole
+	usersResponse := make([]setting.SettingUserResponse, 0)
+	permission := make([]setting.SettingPermission, 0)
+	var lastUser setting.SettingUser
+	var lastRole setting.SettingRole
 	for rows.Next() {
-		var tmpUser models.SettingUser
-		var tmpRole models.SettingRole
-		var tmpPermission models.SettingPermission
+		var tmpUser setting.SettingUser
+		var tmpRole setting.SettingRole
+		var tmpPermission setting.SettingPermission
 		err := rows.Scan(&tmpUser.Id, &tmpUser.Name, &tmpUser.Email, &tmpUser.Typ, &tmpRole.Id, &tmpRole.Name, &tmpRole.Description, &tmpPermission.Id, &tmpPermission.Name)
 		if err != nil {
 			log.Printf("%s", err)
@@ -73,10 +73,10 @@ func (service *SettingUserService) Users(qp *utils.QueryParams) ([]models.Settin
 		}
 
 		if lastUser.Id != tmpUser.Id && lastUser.Id != 0 {
-			usersResponse = append(usersResponse, models.SettingUserToResponse(lastUser, lastRole, permission))
+			usersResponse = append(usersResponse, setting.SettingUserToResponse(lastUser, lastRole, permission))
 			lastUser = tmpUser
 			lastRole = tmpRole
-			permission = make([]models.SettingPermission, 0)
+			permission = make([]setting.SettingPermission, 0)
 			permission = append(permission, tmpPermission)
 			continue
 		}
@@ -91,7 +91,7 @@ func (service *SettingUserService) Users(qp *utils.QueryParams) ([]models.Settin
 		}
 	}
 	if lastUser.Id != 0 {
-		usersResponse = append(usersResponse, models.SettingUserToResponse(lastUser, lastRole, permission))
+		usersResponse = append(usersResponse, setting.SettingUserToResponse(lastUser, lastRole, permission))
 	}
 
 	bqbQuery = bqb.New(`SELECT COUNT(*) FROM "setting.user"`)
@@ -113,7 +113,7 @@ func (service *SettingUserService) Users(qp *utils.QueryParams) ([]models.Settin
 	return usersResponse, total, 200, nil
 }
 
-func (service *SettingUserService) User(id string) (models.SettingUserResponse, int, error) {
+func (service *SettingUserService) User(id string) (setting.SettingUserResponse, int, error) {
 	query := `
 	WITH "limited_users" AS (
 		SELECT 
@@ -139,32 +139,32 @@ func (service *SettingUserService) User(id string) (models.SettingUserResponse, 
 	query, params, err := bqb.New(query, id).ToPgsql()
 	if err != nil {
 		log.Printf("%s", err)
-		return models.SettingUserResponse{}, 500, utils.ErrInternalServer
+		return setting.SettingUserResponse{}, 500, utils.ErrInternalServer
 	}
 
 	rows, err := service.DB.Query(query, params...)
 	if err != nil {
 		log.Printf("%s", err)
-		return models.SettingUserResponse{}, 500, utils.ErrInternalServer
+		return setting.SettingUserResponse{}, 500, utils.ErrInternalServer
 	}
 
-	var user models.SettingUser
-	var role models.SettingRole
-	permission := make([]models.SettingPermission, 0)
+	var user setting.SettingUser
+	var role setting.SettingRole
+	permission := make([]setting.SettingPermission, 0)
 	for rows.Next() {
-		var tmpPermission models.SettingPermission
+		var tmpPermission setting.SettingPermission
 		err := rows.Scan(&user.Id, &user.Name, &user.Email, &user.Typ, &role.Id, &role.Name, &role.Description, &tmpPermission.Id, &tmpPermission.Name)
 		if err != nil {
 			log.Printf("%s", err)
-			return models.SettingUserResponse{}, 500, utils.ErrInternalServer
+			return setting.SettingUserResponse{}, 500, utils.ErrInternalServer
 		}
 
 		permission = append(permission, tmpPermission)
 	}
 
 	if user.Id == 0 {
-		return models.SettingUserResponse{}, 404, ErrUserNotFound
+		return setting.SettingUserResponse{}, 404, ErrUserNotFound
 	}
 
-	return models.SettingUserToResponse(user, role, permission), 200, nil
+	return setting.SettingUserToResponse(user, role, permission), 200, nil
 }

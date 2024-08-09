@@ -4,7 +4,7 @@ import (
 	"database/sql"
 	"errors"
 	"log"
-	"server/models"
+	"server/models/setting"
 	"server/utils"
 
 	"github.com/nullism/bqb"
@@ -18,7 +18,7 @@ type SettingRoleService struct {
 	DB *sql.DB
 }
 
-func (service *SettingRoleService) Roles(qp *utils.QueryParams) ([]models.SettingRoleResponse, int, int, error) {
+func (service *SettingRoleService) Roles(qp *utils.QueryParams) ([]setting.SettingRoleResponse, int, int, error) {
 	bqbQuery := bqb.New(`
 	WITH "limited_roles" AS (
 		SELECT
@@ -53,12 +53,12 @@ func (service *SettingRoleService) Roles(qp *utils.QueryParams) ([]models.Settin
 		return nil, 0, 500, utils.ErrInternalServer
 	}
 
-	roles := make([]models.SettingRoleResponse, 0)
-	lastRole := models.SettingRole{}
-	permissions := make([]models.SettingPermission, 0)
+	roles := make([]setting.SettingRoleResponse, 0)
+	lastRole := setting.SettingRole{}
+	permissions := make([]setting.SettingPermission, 0)
 	for rows.Next() {
-		tmpRole := models.SettingRole{}
-		tmpPermission := models.SettingPermission{}
+		tmpRole := setting.SettingRole{}
+		tmpPermission := setting.SettingPermission{}
 		err := rows.Scan(&tmpRole.Id, &tmpRole.Name, &tmpRole.Description, &tmpPermission.Id, &tmpPermission.Name)
 		if err != nil {
 			log.Printf("%s\n", err)
@@ -67,15 +67,15 @@ func (service *SettingRoleService) Roles(qp *utils.QueryParams) ([]models.Settin
 
 		if lastRole.Id != tmpRole.Id {
 			if lastRole.Id != 0 {
-				roles = append(roles, models.SettingRoleToResponse(lastRole, permissions))
+				roles = append(roles, setting.SettingRoleToResponse(lastRole, permissions))
 			}
 			lastRole = tmpRole
-			permissions = make([]models.SettingPermission, 0)
+			permissions = make([]setting.SettingPermission, 0)
 		}
 		permissions = append(permissions, tmpPermission)
 	}
 	if lastRole.Id != 0 {
-		roles = append(roles, models.SettingRoleToResponse(lastRole, permissions))
+		roles = append(roles, setting.SettingRoleToResponse(lastRole, permissions))
 	}
 
 	bqbQuery = bqb.New(`SELECT COUNT(*) FROM "setting.role"`)
@@ -97,7 +97,7 @@ func (service *SettingRoleService) Roles(qp *utils.QueryParams) ([]models.Settin
 	return roles, total, 0, nil
 }
 
-func (service *SettingRoleService) Role(id string) (models.SettingRoleResponse, int, error) {
+func (service *SettingRoleService) Role(id string) (setting.SettingRoleResponse, int, error) {
 	bqbQuery := bqb.New(`
 	WITH "limited_roles" AS (
 		SELECT
@@ -119,31 +119,31 @@ func (service *SettingRoleService) Role(id string) (models.SettingRoleResponse, 
 	query, params, err := bqbQuery.ToPgsql()
 	if err != nil {
 		log.Printf("%s", err)
-		return models.SettingRoleResponse{}, 500, utils.ErrInternalServer
+		return setting.SettingRoleResponse{}, 500, utils.ErrInternalServer
 	}
 
 	rows, err := service.DB.Query(query, params...)
 	if err != nil {
 		log.Printf("%s\n", err)
-		return models.SettingRoleResponse{}, 500, utils.ErrInternalServer
+		return setting.SettingRoleResponse{}, 500, utils.ErrInternalServer
 	}
 
-	var role models.SettingRole
-	permissions := make([]models.SettingPermission, 0)
+	var role setting.SettingRole
+	permissions := make([]setting.SettingPermission, 0)
 	for rows.Next() {
-		tmpPermission := models.SettingPermission{}
+		tmpPermission := setting.SettingPermission{}
 		err := rows.Scan(&role.Id, &role.Name, &role.Description, &tmpPermission.Id, &tmpPermission.Name)
 		if err != nil {
 			log.Printf("%s\n", err)
-			return models.SettingRoleResponse{}, 500, utils.ErrInternalServer
+			return setting.SettingRoleResponse{}, 500, utils.ErrInternalServer
 		}
 
 		permissions = append(permissions, tmpPermission)
 	}
 
 	if role.Id == 0 {
-		return models.SettingRoleResponse{}, 404, ErrRoleNotFound
+		return setting.SettingRoleResponse{}, 404, ErrRoleNotFound
 	}
 
-	return models.SettingRoleToResponse(role, permissions), 0, nil
+	return setting.SettingRoleToResponse(role, permissions), 0, nil
 }

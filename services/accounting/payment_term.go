@@ -3,7 +3,7 @@ package accounting
 import (
 	"database/sql"
 	"log"
-	"server/models"
+	"server/models/accounting"
 	"server/utils"
 
 	"github.com/nullism/bqb"
@@ -13,7 +13,7 @@ type AccountingPaymentTermService struct {
 	DB *sql.DB
 }
 
-func (service *AccountingPaymentTermService) PaymentTerms(qp *utils.QueryParams) ([]models.AccountingPaymentTermResponse, int, int, error) {
+func (service *AccountingPaymentTermService) PaymentTerms(qp *utils.QueryParams) ([]accounting.AccountingPaymentTermResponse, int, int, error) {
 	bqbQuery := bqb.New(`
 	WITH "limited_payment_terms" AS (
 		SELECT
@@ -52,12 +52,12 @@ func (service *AccountingPaymentTermService) PaymentTerms(qp *utils.QueryParams)
 		return nil, 0, 500, utils.ErrInternalServer
 	}
 
-	paymentTermsResponse := make([]models.AccountingPaymentTermResponse, 0)
-	lastPaymentTerm := models.AccountingPaymentTerm{}
-	paymentTermLines := make([]models.AccountingPaymentTermLine, 0)
+	paymentTermsResponse := make([]accounting.AccountingPaymentTermResponse, 0)
+	lastPaymentTerm := accounting.AccountingPaymentTerm{}
+	paymentTermLines := make([]accounting.AccountingPaymentTermLine, 0)
 	for rows.Next() {
-		var tmpPaymentTerm models.AccountingPaymentTerm
-		var tmpPaymentTermLine models.AccountingPaymentTermLine
+		var tmpPaymentTerm accounting.AccountingPaymentTerm
+		var tmpPaymentTermLine accounting.AccountingPaymentTermLine
 		err = rows.Scan(
 			&tmpPaymentTerm.Id,
 			&tmpPaymentTerm.Name,
@@ -73,9 +73,9 @@ func (service *AccountingPaymentTermService) PaymentTerms(qp *utils.QueryParams)
 		}
 
 		if lastPaymentTerm.Id != tmpPaymentTerm.Id && lastPaymentTerm.Id != 0 {
-			paymentTermsResponse = append(paymentTermsResponse, models.AccountingPaymentTermToResponse(lastPaymentTerm, paymentTermLines))
+			paymentTermsResponse = append(paymentTermsResponse, accounting.AccountingPaymentTermToResponse(lastPaymentTerm, paymentTermLines))
 			lastPaymentTerm = tmpPaymentTerm
-			paymentTermLines = make([]models.AccountingPaymentTermLine, 0)
+			paymentTermLines = make([]accounting.AccountingPaymentTermLine, 0)
 			paymentTermLines = append(paymentTermLines, tmpPaymentTermLine)
 			continue
 		}
@@ -88,7 +88,7 @@ func (service *AccountingPaymentTermService) PaymentTerms(qp *utils.QueryParams)
 	}
 
 	if lastPaymentTerm.Id != 0 {
-		paymentTermsResponse = append(paymentTermsResponse, models.AccountingPaymentTermToResponse(lastPaymentTerm, paymentTermLines))
+		paymentTermsResponse = append(paymentTermsResponse, accounting.AccountingPaymentTermToResponse(lastPaymentTerm, paymentTermLines))
 	}
 
 	bqbQuery = bqb.New(`SELECT COUNT(*) FROM "accounting.payment_term"`)

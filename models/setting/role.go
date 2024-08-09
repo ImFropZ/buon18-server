@@ -1,10 +1,12 @@
-package models
+package setting
+
+import "server/models"
 
 var SettingRoleAllowFilterFieldsAndOps = []string{"name-like", "description-like"}
 var SettingRoleAllowSortFields = []string{"name"}
 
 type SettingRole struct {
-	*CommonModel
+	*models.CommonModel
 	Id          uint
 	Name        string
 	Description string

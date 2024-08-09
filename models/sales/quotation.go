@@ -1,12 +1,16 @@
-package models
+package sales
 
-import "time"
+import (
+	"server/models"
+	"server/models/setting"
+	"time"
+)
 
 var SalesQuotationAllowFilterFieldsAndOps = []string{"name-ilike", "status-eq", "creation_date-gte", "creation_date-lte", "validity_date-gte", "validity_date-lte"}
 var SalesQuotationAllowSortFields = []string{"name", "status"}
 
 type SalesQuotation struct {
-	*CommonModel
+	*models.CommonModel
 	Id             int
 	Name           string
 	CreationDate   time.Time
@@ -19,19 +23,19 @@ type SalesQuotation struct {
 }
 
 type SalesQuotationResponse struct {
-	Id              int                      `json:"id"`
-	Name            string                   `json:"name"`
-	CreationDate    time.Time                `json:"creation_date"`
-	ValidityDate    time.Time                `json:"validity_date"`
-	Discount        float64                  `json:"discount"`
-	AmountDelivery  float64                  `json:"amount_delivery"`
-	Status          string                   `json:"status"`
-	TotalAmount     float64                  `json:"total_amount"`
-	Customer        SettingCustomerResponse  `json:"customer"`
-	SalesOrderItems []SalesOrderItemResponse `json:"items"`
+	Id              int                             `json:"id"`
+	Name            string                          `json:"name"`
+	CreationDate    time.Time                       `json:"creation_date"`
+	ValidityDate    time.Time                       `json:"validity_date"`
+	Discount        float64                         `json:"discount"`
+	AmountDelivery  float64                         `json:"amount_delivery"`
+	Status          string                          `json:"status"`
+	TotalAmount     float64                         `json:"total_amount"`
+	Customer        setting.SettingCustomerResponse `json:"customer"`
+	SalesOrderItems []SalesOrderItemResponse        `json:"items"`
 }
 
-func SalesQuotationToResponse(quotation SalesQuotation, customer SettingCustomer, orderItems []SalesOrderItem) SalesQuotationResponse {
+func SalesQuotationToResponse(quotation SalesQuotation, customer setting.SettingCustomer, orderItems []SalesOrderItem) SalesQuotationResponse {
 	subAmountTotal := 0.0
 	items := make([]SalesOrderItemResponse, 0)
 	for _, item := range orderItems {
@@ -47,7 +51,7 @@ func SalesQuotationToResponse(quotation SalesQuotation, customer SettingCustomer
 		Discount:        quotation.Discount,
 		AmountDelivery:  quotation.AmountDelivery,
 		Status:          quotation.Status,
-		Customer:        SettingCustomerToResponse(customer),
+		Customer:        setting.SettingCustomerToResponse(customer),
 		TotalAmount:     subAmountTotal + quotation.AmountDelivery - quotation.Discount,
 		SalesOrderItems: items,
 	}
