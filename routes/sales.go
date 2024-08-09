@@ -17,4 +17,5 @@ func Sales(e *gin.Engine, db *sql.DB) {
 	}
 
 	e.GET("/api/sales/quotations", middlewares.Authorize([]string{utils.PREDEFINED_PERMISSIONS.FULL_SALES, utils.PREDEFINED_PERMISSIONS.SALES_QUOTATIONS.VIEW}), handler.Quotations)
+	e.GET("/api/sales/quotations/:id", middlewares.Authorize([]string{utils.PREDEFINED_PERMISSIONS.FULL_SALES, utils.PREDEFINED_PERMISSIONS.SALES_QUOTATIONS.VIEW}), handler.Quotation)
 }

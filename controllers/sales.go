@@ -44,7 +44,21 @@ func (handler *SalesHandler) Quotations(c *gin.Context) {
 	}
 
 	c.Header("X-Total-Count", fmt.Sprintf("%d", total))
-	c.JSON(200, utils.NewResponse(200, "", gin.H{
+	c.JSON(statusCode, utils.NewResponse(statusCode, "", gin.H{
 		"quotations": quotations,
+	}))
+}
+
+func (handler *SalesHandler) Quotation(c *gin.Context) {
+	id := c.Param("id")
+
+	quotation, statusCode, err := handler.SalesQuotationService.Quotation(id)
+	if err != nil {
+		c.JSON(statusCode, utils.NewErrorResponse(statusCode, err.Error()))
+		return
+	}
+
+	c.JSON(statusCode, utils.NewResponse(statusCode, "", gin.H{
+		"quotation": quotation,
 	}))
 }
