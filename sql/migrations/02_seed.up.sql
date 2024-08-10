@@ -150,6 +150,38 @@ VALUES
         NOW(),
         1,
         NOW()
+    ),
+    (
+        40,
+        'VIEW_ACCOUNTING_JOURNALS',
+        1,
+        NOW(),
+        1,
+        NOW()
+    ),
+    (
+        41,
+        'CREATE_ACCOUNTING_JOURNALS',
+        1,
+        NOW(),
+        1,
+        NOW()
+    ),
+    (
+        42,
+        'UPDATE_ACCOUNTING_JOURNALS',
+        1,
+        NOW(),
+        1,
+        NOW()
+    ),
+    (
+        43,
+        'DELETE_ACCOUNTING_JOURNALS',
+        1,
+        NOW(),
+        1,
+        NOW()
     );
 
 INSERT INTO

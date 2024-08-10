@@ -14,6 +14,7 @@ type AccountingHandler struct {
 	DB                           *sql.DB
 	AccountingAccountService     *services.AccountingAccountService
 	AccountingPaymentTermService *services.AccountingPaymentTermService
+	AccountingJournalService     *services.AccountingJournalService
 }
 
 func (handler *AccountingHandler) Accounts(c *gin.Context) {
@@ -77,5 +78,23 @@ func (handler *AccountingHandler) PaymentTerm(c *gin.Context) {
 
 	c.JSON(statusCode, utils.NewResponse(statusCode, "", gin.H{
 		"payment_term": paymentTerm,
+	}))
+}
+
+func (handler *AccountingHandler) Journals(c *gin.Context) {
+	qp := utils.NewQueryParams().
+		PrepareFilters(c, accounting.AccountingJournalAllowFilterFieldsAndOps, `"accounting.journal"`).
+		PrepareSorts(c, accounting.AccountingJournalAllowSortFields, `"accounting.journal"`).
+		PreparePagination(c)
+
+	journals, total, statusCode, err := handler.AccountingJournalService.Journals(qp)
+	if err != nil {
+		c.JSON(statusCode, utils.NewErrorResponse(statusCode, err.Error()))
+		return
+	}
+
+	c.Header("X-Total-Count", fmt.Sprintf("%d", total))
+	c.JSON(statusCode, utils.NewResponse(statusCode, "", gin.H{
+		"journals": journals,
 	}))
 }
