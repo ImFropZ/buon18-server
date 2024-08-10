@@ -26,11 +26,12 @@ func TestSalesRoutes(t *testing.T) {
 		postgres.WithUsername("postgres"),
 		postgres.WithPassword("postgres"),
 		postgres.WithInitScripts(
-			filepath.Join("..", "database", "dev_scripts", "create-schema.sh"),
-			filepath.Join("..", "database", "dev_scripts", "seed.sh"),
-			filepath.Join("..", "database", "dev_scripts", "seed-customer.sh"),
-			filepath.Join("..", "database", "dev_scripts", "seed-quotation.sh"),
-			filepath.Join("..", "database", "dev_scripts", "seed-order.sh"),
+			filepath.Join("..", "database", "dev_scripts", "01_create-schema.sh"),
+			filepath.Join("..", "database", "dev_scripts", "02_seed.sh"),
+			filepath.Join("..", "database", "dev_scripts", "03_seed-customer.sh"),
+			filepath.Join("..", "database", "dev_scripts", "04_seed-quotation.sh"),
+			filepath.Join("..", "database", "dev_scripts", "05_seed-payment-term.sh"),
+			filepath.Join("..", "database", "dev_scripts", "06_seed-order.sh"),
 		),
 		postgres.BasicWaitStrategies(),
 	)
