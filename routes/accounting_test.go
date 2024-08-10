@@ -32,6 +32,7 @@ func TestAccountingRoutes(t *testing.T) {
 			filepath.Join("..", "database", "dev_scripts", "05_seed-payment-term.sh"),
 			filepath.Join("..", "database", "dev_scripts", "07_seed-accounting-account.sh"),
 			filepath.Join("..", "database", "dev_scripts", "08_seed-journal.sh"),
+			filepath.Join("..", "database", "dev_scripts", "09_seed-journal-entry.sh"),
 		),
 		postgres.BasicWaitStrategies(),
 	)
@@ -200,6 +201,30 @@ func TestAccountingRoutes(t *testing.T) {
 		router.ServeHTTP(w, req)
 
 		expectedBodyJSON := `{"code":404,"message":"journal not found","data":null}`
+
+		assert.JSONEq(t, expectedBodyJSON, w.Body.String())
+	})
+
+	t.Run("SuccessGetListOfJournalEntries", func(t *testing.T) {
+		w := httptest.NewRecorder()
+
+		req := httptest.NewRequest("GET", "/api/accounting/journal-entries", nil)
+		req.Header.Add("Authorization", "Bearer "+token)
+		router.ServeHTTP(w, req)
+
+		expectedBodyJSON := `{"code":200,"message":"","data":{"journal_entries":[{"id":1,"name":"JE1001","date":"2024-08-09T00:00:00Z","note":"Entry for Sales Journal","status":"posted","amount_total_debit":100,"amount_total_credit":100,"lines":[{"id":1,"sequence":1,"name":"Line 1 for JE1001","amount_debit":100,"amount_credit":0,"account":{"id":1,"name":"Cash","code":"AC1001","type":"asset_current"}},{"id":2,"sequence":2,"name":"Line 2 for JE1001","amount_debit":0,"amount_credit":100,"account":{"id":2,"name":"Accounts Receivable","code":"AC1002","type":"asset_non_current"}}],"journal":{"id":1,"code":"JNL1001","name":"Sales Journal","type":"sales"}},{"id":2,"name":"JE1002","date":"2024-08-10T00:00:00Z","note":"Entry for Purchase Journal","status":"draft","amount_total_debit":50,"amount_total_credit":50,"lines":[{"id":3,"sequence":1,"name":"Line 1 for JE1002","amount_debit":50,"amount_credit":0,"account":{"id":3,"name":"Accounts Payable","code":"LC1003","type":"liability_current"}},{"id":4,"sequence":2,"name":"Line 2 for JE1002","amount_debit":0,"amount_credit":50,"account":{"id":4,"name":"Long-term Debt","code":"LC1004","type":"liability_non_current"}}],"journal":{"id":2,"code":"JNL1002","name":"Purchase Journal","type":"purchase"}},{"id":3,"name":"JE1003","date":"2024-08-11T00:00:00Z","note":"Entry for Cash Journal","status":"posted","amount_total_debit":200,"amount_total_credit":200,"lines":[{"id":5,"sequence":1,"name":"Line 1 for JE1003","amount_debit":200,"amount_credit":0,"account":{"id":1,"name":"Cash","code":"AC1001","type":"asset_current"}},{"id":6,"sequence":1,"name":"Line 2 for JE1003","amount_debit":0,"amount_credit":200,"account":{"id":2,"name":"Accounts Receivable","code":"AC1002","type":"asset_non_current"}}],"journal":{"id":3,"code":"JNL1003","name":"Cash Journal","type":"cash"}},{"id":4,"name":"JE1004","date":"2024-08-12T00:00:00Z","note":"Entry for Bank Journal","status":"cancelled","amount_total_debit":0,"amount_total_credit":150,"lines":[{"id":7,"sequence":1,"name":"Line 1 for JE1004","amount_debit":0,"amount_credit":150,"account":{"id":3,"name":"Accounts Payable","code":"LC1003","type":"liability_current"}}],"journal":{"id":4,"code":"JNL1004","name":"Bank Journal","type":"bank"}}]}}`
+
+		assert.JSONEq(t, expectedBodyJSON, w.Body.String())
+	})
+
+	t.Run("FilterSuccessGetListOfJournalEntries", func(t *testing.T) {
+		w := httptest.NewRecorder()
+
+		req := httptest.NewRequest("GET", "/api/accounting/journal-entries?name:like=1001", nil)
+		req.Header.Add("Authorization", "Bearer "+token)
+		router.ServeHTTP(w, req)
+
+		expectedBodyJSON := `{"code":200,"message":"","data":{"journal_entries":[{"id":1,"name":"JE1001","date":"2024-08-09T00:00:00Z","note":"Entry for Sales Journal","status":"posted","amount_total_debit":100,"amount_total_credit":100,"lines":[{"id":1,"sequence":1,"name":"Line 1 for JE1001","amount_debit":100,"amount_credit":0,"account":{"id":1,"name":"Cash","code":"AC1001","type":"asset_current"}},{"id":2,"sequence":2,"name":"Line 2 for JE1001","amount_debit":0,"amount_credit":100,"account":{"id":2,"name":"Accounts Receivable","code":"AC1002","type":"asset_non_current"}}],"journal":{"id":1,"code":"JNL1001","name":"Sales Journal","type":"sales"}}]}}`
 
 		assert.JSONEq(t, expectedBodyJSON, w.Body.String())
 	})
