@@ -30,7 +30,7 @@ WHEN duplicate_object THEN null;
 END $$;
 
 DO $$ BEGIN
-CREATE TYPE accounting_account_typ AS ENUM('asset_receivable', 'asset_cash', 'asset_current', 'asset_non_current', 'asset_fixed' , 'liability_payable', 'liability_credit_card', 'liability_current', 'liability_non_current', 'equity', 'equity_unaffected', 'income', 'income_other', 'expense', 'expense_depreciation', 'expense_direct_cost', 'off_balance');
+CREATE TYPE accounting_account_typ AS ENUM('asset_current', 'asset_non_current', 'liability_current', 'liability_non_current', 'equity', 'income', 'expense', 'gain', 'loss');
 EXCEPTION
 WHEN duplicate_object THEN null;
 END $$;
