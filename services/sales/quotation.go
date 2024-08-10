@@ -92,7 +92,14 @@ func (service *SalesQuotationService) Quotations(qp *utils.QueryParams) ([]sales
 		}
 
 		if lastQuotation.Id != tmpQuotation.Id && lastQuotation.Id != 0 {
-			quotationsResponse = append(quotationsResponse, sales.SalesQuotationToResponse(lastQuotation, lastCustomer, orderItems))
+			customerResponse := setting.SettingCustomerToResponse(lastCustomer)
+			orderItemsResponse := make([]sales.SalesOrderItemResponse, 0)
+			for _, item := range orderItems {
+				orderItemsResponse = append(orderItemsResponse, sales.SalesOrderItemToResponse(item))
+			}
+			quotationsResponse = append(quotationsResponse, sales.SalesQuotationToResponse(lastQuotation, customerResponse, orderItemsResponse))
+
+			// Reset and append new data
 			lastQuotation = tmpQuotation
 			lastCustomer = tmpCustomer
 			orderItems = make([]sales.SalesOrderItem, 0)
@@ -110,7 +117,12 @@ func (service *SalesQuotationService) Quotations(qp *utils.QueryParams) ([]sales
 		}
 	}
 	if lastQuotation.Id != 0 {
-		quotationsResponse = append(quotationsResponse, sales.SalesQuotationToResponse(lastQuotation, lastCustomer, orderItems))
+		customerResponse := setting.SettingCustomerToResponse(lastCustomer)
+		orderItemsResponse := make([]sales.SalesOrderItemResponse, 0)
+		for _, item := range orderItems {
+			orderItemsResponse = append(orderItemsResponse, sales.SalesOrderItemToResponse(item))
+		}
+		quotationsResponse = append(quotationsResponse, sales.SalesQuotationToResponse(lastQuotation, customerResponse, orderItemsResponse))
 	}
 
 	bqbQuery = bqb.New(`SELECT COUNT(*) FROM "sales.quotation"`)
@@ -202,5 +214,11 @@ func (service *SalesQuotationService) Quotation(id string) (sales.SalesQuotation
 		return sales.SalesQuotationResponse{}, 404, ErrQuotationNotFound
 	}
 
-	return sales.SalesQuotationToResponse(quotation, customer, orderItems), 200, nil
+	customerResponse := setting.SettingCustomerToResponse(customer)
+	orderItemsResponse := make([]sales.SalesOrderItemResponse, 0)
+	for _, item := range orderItems {
+		orderItemsResponse = append(orderItemsResponse, sales.SalesOrderItemToResponse(item))
+	}
+
+	return sales.SalesQuotationToResponse(quotation, customerResponse, orderItemsResponse), 200, nil
 }

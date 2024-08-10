@@ -78,7 +78,11 @@ func (service *AccountingPaymentTermService) PaymentTerms(qp *utils.QueryParams)
 		}
 
 		if lastPaymentTerm.Id != tmpPaymentTerm.Id && lastPaymentTerm.Id != 0 {
-			paymentTermsResponse = append(paymentTermsResponse, accounting.AccountingPaymentTermToResponse(lastPaymentTerm, paymentTermLines))
+			paymentTermLinesResponse := make([]accounting.AccountingPaymentTermLineResponse, 0)
+			for _, paymentTermLine := range paymentTermLines {
+				paymentTermLinesResponse = append(paymentTermLinesResponse, accounting.AccountingPaymentTermLineToResponse(paymentTermLine))
+			}
+			paymentTermsResponse = append(paymentTermsResponse, accounting.AccountingPaymentTermToResponse(lastPaymentTerm, paymentTermLinesResponse))
 			lastPaymentTerm = tmpPaymentTerm
 			paymentTermLines = make([]accounting.AccountingPaymentTermLine, 0)
 			paymentTermLines = append(paymentTermLines, tmpPaymentTermLine)
@@ -93,7 +97,11 @@ func (service *AccountingPaymentTermService) PaymentTerms(qp *utils.QueryParams)
 	}
 
 	if lastPaymentTerm.Id != 0 {
-		paymentTermsResponse = append(paymentTermsResponse, accounting.AccountingPaymentTermToResponse(lastPaymentTerm, paymentTermLines))
+		paymentTermLinesResponse := make([]accounting.AccountingPaymentTermLineResponse, 0)
+		for _, paymentTermLine := range paymentTermLines {
+			paymentTermLinesResponse = append(paymentTermLinesResponse, accounting.AccountingPaymentTermLineToResponse(paymentTermLine))
+		}
+		paymentTermsResponse = append(paymentTermsResponse, accounting.AccountingPaymentTermToResponse(lastPaymentTerm, paymentTermLinesResponse))
 	}
 
 	bqbQuery = bqb.New(`SELECT COUNT(*) FROM "accounting.payment_term"`)
@@ -175,5 +183,10 @@ func (service *AccountingPaymentTermService) PaymentTerm(id string) (accounting.
 		return accounting.AccountingPaymentTermResponse{}, 404, ErrPaymentTermNotFound
 	}
 
-	return accounting.AccountingPaymentTermToResponse(paymentTerm, paymentTermLines), 200, nil
+	paymentTermLinesResponse := make([]accounting.AccountingPaymentTermLineResponse, 0)
+	for _, paymentTermLine := range paymentTermLines {
+		paymentTermLinesResponse = append(paymentTermLinesResponse, accounting.AccountingPaymentTermLineToResponse(paymentTermLine))
+	}
+
+	return accounting.AccountingPaymentTermToResponse(paymentTerm, paymentTermLinesResponse), 200, nil
 }

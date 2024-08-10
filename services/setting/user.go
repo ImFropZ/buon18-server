@@ -59,7 +59,7 @@ func (service *SettingUserService) Users(qp *utils.QueryParams) ([]setting.Setti
 	}
 
 	usersResponse := make([]setting.SettingUserResponse, 0)
-	permission := make([]setting.SettingPermission, 0)
+	permissions := make([]setting.SettingPermission, 0)
 	var lastUser setting.SettingUser
 	var lastRole setting.SettingRole
 	for rows.Next() {
@@ -73,11 +73,16 @@ func (service *SettingUserService) Users(qp *utils.QueryParams) ([]setting.Setti
 		}
 
 		if lastUser.Id != tmpUser.Id && lastUser.Id != 0 {
-			usersResponse = append(usersResponse, setting.SettingUserToResponse(lastUser, lastRole, permission))
+			permissionsResponse := make([]setting.SettingPermissionResponse, 0)
+			for _, permission := range permissions {
+				permissionsResponse = append(permissionsResponse, setting.SettingPermissionToResponse(permission))
+			}
+			roleResponse := setting.SettingRoleToResponse(lastRole, permissionsResponse)
+			usersResponse = append(usersResponse, setting.SettingUserToResponse(lastUser, roleResponse))
 			lastUser = tmpUser
 			lastRole = tmpRole
-			permission = make([]setting.SettingPermission, 0)
-			permission = append(permission, tmpPermission)
+			permissions = make([]setting.SettingPermission, 0)
+			permissions = append(permissions, tmpPermission)
 			continue
 		}
 
@@ -87,11 +92,16 @@ func (service *SettingUserService) Users(qp *utils.QueryParams) ([]setting.Setti
 		}
 
 		if tmpPermission.Id != 0 {
-			permission = append(permission, tmpPermission)
+			permissions = append(permissions, tmpPermission)
 		}
 	}
 	if lastUser.Id != 0 {
-		usersResponse = append(usersResponse, setting.SettingUserToResponse(lastUser, lastRole, permission))
+		permissionsResponse := make([]setting.SettingPermissionResponse, 0)
+		for _, permission := range permissions {
+			permissionsResponse = append(permissionsResponse, setting.SettingPermissionToResponse(permission))
+		}
+		roleResponse := setting.SettingRoleToResponse(lastRole, permissionsResponse)
+		usersResponse = append(usersResponse, setting.SettingUserToResponse(lastUser, roleResponse))
 	}
 
 	bqbQuery = bqb.New(`SELECT COUNT(*) FROM "setting.user"`)
@@ -150,7 +160,7 @@ func (service *SettingUserService) User(id string) (setting.SettingUserResponse,
 
 	var user setting.SettingUser
 	var role setting.SettingRole
-	permission := make([]setting.SettingPermission, 0)
+	permissions := make([]setting.SettingPermission, 0)
 	for rows.Next() {
 		var tmpPermission setting.SettingPermission
 		err := rows.Scan(&user.Id, &user.Name, &user.Email, &user.Typ, &role.Id, &role.Name, &role.Description, &tmpPermission.Id, &tmpPermission.Name)
@@ -159,12 +169,18 @@ func (service *SettingUserService) User(id string) (setting.SettingUserResponse,
 			return setting.SettingUserResponse{}, 500, utils.ErrInternalServer
 		}
 
-		permission = append(permission, tmpPermission)
+		permissions = append(permissions, tmpPermission)
 	}
 
 	if user.Id == 0 {
 		return setting.SettingUserResponse{}, 404, ErrUserNotFound
 	}
 
-	return setting.SettingUserToResponse(user, role, permission), 200, nil
+	permissionsResponse := make([]setting.SettingPermissionResponse, 0)
+	for _, permission := range permissions {
+		permissionsResponse = append(permissionsResponse, setting.SettingPermissionToResponse(permission))
+	}
+	roleResponse := setting.SettingRoleToResponse(role, permissionsResponse)
+
+	return setting.SettingUserToResponse(user, roleResponse), 200, nil
 }

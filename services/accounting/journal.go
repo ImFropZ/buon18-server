@@ -70,7 +70,8 @@ func (service *AccountingJournalService) Journals(qp *utils.QueryParams) ([]acco
 			return nil, 0, 500, utils.ErrInternalServer
 		}
 
-		journals = append(journals, accounting.AccountingJournalToResponse(journal, account))
+		accountResponse := accounting.AccountingAccountToResponse(account)
+		journals = append(journals, accounting.AccountingJournalToResponse(journal, accountResponse))
 	}
 
 	bqbQuery = bqb.New(`SELECT COUNT(*) FROM "accounting.journal"`)
@@ -140,5 +141,7 @@ func (service *AccountingJournalService) Journal(id string) (accounting.Accounti
 		return accounting.AccountingJournalResponse{}, 404, ErrJournalNotFound
 	}
 
-	return accounting.AccountingJournalToResponse(journal, account), 200, nil
+	accountResponse := accounting.AccountingAccountToResponse(account)
+
+	return accounting.AccountingJournalToResponse(journal, accountResponse), 200, nil
 }

@@ -26,17 +26,12 @@ type SettingUserResponse struct {
 	Role  SettingRoleResponse `json:"role"`
 }
 
-func SettingUserToResponse(user SettingUser, role SettingRole, permissions []SettingPermission) SettingUserResponse {
+func SettingUserToResponse(user SettingUser, role SettingRoleResponse) SettingUserResponse {
 	return SettingUserResponse{
 		Id:    user.Id,
 		Name:  user.Name,
 		Email: user.Email,
 		Type:  user.Typ,
-		Role: SettingRoleResponse{
-			Id:          role.Id,
-			Name:        role.Name,
-			Description: role.Description,
-			Permissions: SettingPermissionsToResponse(permissions),
-		},
+		Role:  role,
 	}
 }

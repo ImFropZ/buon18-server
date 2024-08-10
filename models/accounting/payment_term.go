@@ -21,11 +21,10 @@ type AccountingPaymentTermResponse struct {
 	Lines       []AccountingPaymentTermLineResponse `json:"lines"`
 }
 
-func AccountingPaymentTermToResponse(term AccountingPaymentTerm, paymentTermLines []AccountingPaymentTermLine) AccountingPaymentTermResponse {
-	lines := make([]AccountingPaymentTermLineResponse, 0)
-	for _, line := range paymentTermLines {
-		lines = append(lines, AccountingPaymentTermLineToResponse(line))
-	}
+func AccountingPaymentTermToResponse(
+	term AccountingPaymentTerm,
+	lines []AccountingPaymentTermLineResponse,
+) AccountingPaymentTermResponse {
 	return AccountingPaymentTermResponse{
 		Id:          term.Id,
 		Name:        term.Name,

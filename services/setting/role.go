@@ -67,7 +67,11 @@ func (service *SettingRoleService) Roles(qp *utils.QueryParams) ([]setting.Setti
 
 		if lastRole.Id != tmpRole.Id {
 			if lastRole.Id != 0 {
-				roles = append(roles, setting.SettingRoleToResponse(lastRole, permissions))
+				permissionsResponse := make([]setting.SettingPermissionResponse, 0)
+				for _, permission := range permissions {
+					permissionsResponse = append(permissionsResponse, setting.SettingPermissionToResponse(permission))
+				}
+				roles = append(roles, setting.SettingRoleToResponse(lastRole, permissionsResponse))
 			}
 			lastRole = tmpRole
 			permissions = make([]setting.SettingPermission, 0)
@@ -75,7 +79,11 @@ func (service *SettingRoleService) Roles(qp *utils.QueryParams) ([]setting.Setti
 		permissions = append(permissions, tmpPermission)
 	}
 	if lastRole.Id != 0 {
-		roles = append(roles, setting.SettingRoleToResponse(lastRole, permissions))
+		permissionsResponse := make([]setting.SettingPermissionResponse, 0)
+		for _, permission := range permissions {
+			permissionsResponse = append(permissionsResponse, setting.SettingPermissionToResponse(permission))
+		}
+		roles = append(roles, setting.SettingRoleToResponse(lastRole, permissionsResponse))
 	}
 
 	bqbQuery = bqb.New(`SELECT COUNT(*) FROM "setting.role"`)
@@ -145,5 +153,10 @@ func (service *SettingRoleService) Role(id string) (setting.SettingRoleResponse,
 		return setting.SettingRoleResponse{}, 404, ErrRoleNotFound
 	}
 
-	return setting.SettingRoleToResponse(role, permissions), 200, nil
+	permissionsResponse := make([]setting.SettingPermissionResponse, 0)
+	for _, permission := range permissions {
+		permissionsResponse = append(permissionsResponse, setting.SettingPermissionToResponse(permission))
+	}
+
+	return setting.SettingRoleToResponse(role, permissionsResponse), 200, nil
 }

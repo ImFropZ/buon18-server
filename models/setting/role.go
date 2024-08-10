@@ -19,11 +19,11 @@ type SettingRoleResponse struct {
 	Permissions []SettingPermissionResponse
 }
 
-func SettingRoleToResponse(role SettingRole, permissions []SettingPermission) SettingRoleResponse {
+func SettingRoleToResponse(role SettingRole, permissions []SettingPermissionResponse) SettingRoleResponse {
 	return SettingRoleResponse{
 		Id:          role.Id,
 		Name:        role.Name,
 		Description: role.Description,
-		Permissions: SettingPermissionsToResponse(permissions),
+		Permissions: permissions,
 	}
 }

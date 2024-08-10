@@ -46,7 +46,12 @@ type AuthService struct {
 }
 
 func (service *AuthService) Me(ctx *utils.CtxW) (setting.SettingUserResponse, int, error) {
-	return setting.SettingUserToResponse(ctx.User, ctx.Role, ctx.Permissions), 200, nil
+	perrmissionsResponse := make([]setting.SettingPermissionResponse, 0)
+	for _, permission := range ctx.Permissions {
+		perrmissionsResponse = append(perrmissionsResponse, setting.SettingPermissionToResponse(permission))
+	}
+	roleResponse := setting.SettingRoleToResponse(ctx.Role, perrmissionsResponse)
+	return setting.SettingUserToResponse(ctx.User, roleResponse), 200, nil
 }
 
 func (service *AuthService) Login(loginRequest *LoginRequest) (models.TokenAndRefreshToken, int, error) {

@@ -3,7 +3,6 @@ package sales
 import (
 	"server/models"
 	"server/models/accounting"
-	"server/models/setting"
 	"time"
 )
 
@@ -32,18 +31,15 @@ type SalesOrderResponse struct {
 
 func SalesOrderToResponse(
 	salesOrder SalesOrder,
-	quotation SalesQuotation,
-	customer setting.SettingCustomer,
-	orderItems []SalesOrderItem,
-	paymentTerm accounting.AccountingPaymentTerm,
-	paymentTermLines []accounting.AccountingPaymentTermLine,
+	quotation SalesQuotationResponse,
+	paymentTerm accounting.AccountingPaymentTermResponse,
 ) SalesOrderResponse {
 	return SalesOrderResponse{
 		Id:             salesOrder.Id,
 		Name:           salesOrder.Name,
 		CommitmentDate: salesOrder.CommitmentDate,
 		Note:           salesOrder.Note,
-		Quotation:      SalesQuotationToResponse(quotation, customer, orderItems),
-		PaymentTerm:    accounting.AccountingPaymentTermToResponse(paymentTerm, paymentTermLines),
+		Quotation:      quotation,
+		PaymentTerm:    paymentTerm,
 	}
 }

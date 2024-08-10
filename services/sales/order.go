@@ -139,7 +139,20 @@ func (service *SalesOrderService) Orders(qp *utils.QueryParams) ([]sales.SalesOr
 		}
 
 		if (lastQuotation.Id != tmpQuotation.Id && lastQuotation.Id != 0) && (lastPaymentTerm.Id != tmpPaymentTerm.Id && lastPaymentTerm.Id != 0) {
-			ordersResponse = append(ordersResponse, sales.SalesOrderToResponse(lastOrder, lastQuotation, lastCustomer, orderItems, lastPaymentTerm, paymentTermLines))
+			orderItemsResponse := make([]sales.SalesOrderItemResponse, 0)
+			for _, item := range orderItems {
+				orderItemsResponse = append(orderItemsResponse, sales.SalesOrderItemToResponse(item))
+			}
+			customerResponse := setting.SettingCustomerToResponse(lastCustomer)
+			quotationResponse := sales.SalesQuotationToResponse(lastQuotation, customerResponse, orderItemsResponse)
+			paymentTermLinesResponse := make([]accounting.AccountingPaymentTermLineResponse, 0)
+			for _, line := range paymentTermLines {
+				paymentTermLinesResponse = append(paymentTermLinesResponse, accounting.AccountingPaymentTermLineToResponse(line))
+			}
+			paymentTermResponse := accounting.AccountingPaymentTermToResponse(lastPaymentTerm, paymentTermLinesResponse)
+			ordersResponse = append(ordersResponse, sales.SalesOrderToResponse(lastOrder, quotationResponse, paymentTermResponse))
+
+			// Reset and append new data
 			lastOrder = tmpOrder
 			lastQuotation = tmpQuotation
 			lastCustomer = tmpCustomer
@@ -179,7 +192,18 @@ func (service *SalesOrderService) Orders(qp *utils.QueryParams) ([]sales.SalesOr
 		}
 	}
 	if lastOrder.Id != 0 {
-		ordersResponse = append(ordersResponse, sales.SalesOrderToResponse(lastOrder, lastQuotation, lastCustomer, orderItems, lastPaymentTerm, paymentTermLines))
+		orderItemsResponse := make([]sales.SalesOrderItemResponse, 0)
+		for _, item := range orderItems {
+			orderItemsResponse = append(orderItemsResponse, sales.SalesOrderItemToResponse(item))
+		}
+		customerResponse := setting.SettingCustomerToResponse(lastCustomer)
+		quotationResponse := sales.SalesQuotationToResponse(lastQuotation, customerResponse, orderItemsResponse)
+		paymentTermLinesResponse := make([]accounting.AccountingPaymentTermLineResponse, 0)
+		for _, line := range paymentTermLines {
+			paymentTermLinesResponse = append(paymentTermLinesResponse, accounting.AccountingPaymentTermLineToResponse(line))
+		}
+		paymentTermResponse := accounting.AccountingPaymentTermToResponse(lastPaymentTerm, paymentTermLinesResponse)
+		ordersResponse = append(ordersResponse, sales.SalesOrderToResponse(lastOrder, quotationResponse, paymentTermResponse))
 	}
 
 	bqbQuery = bqb.New(`SELECT COUNT(*) FROM "sales.order"`)
@@ -335,5 +359,17 @@ func (service *SalesOrderService) Order(id string) (sales.SalesOrderResponse, in
 		return sales.SalesOrderResponse{}, 404, ErrOrderNotFound
 	}
 
-	return sales.SalesOrderToResponse(order, quotation, customer, orderItems, paymentTerm, paymentTermLines), 200, nil
+	orderItemsResponse := make([]sales.SalesOrderItemResponse, 0)
+	for _, item := range orderItems {
+		orderItemsResponse = append(orderItemsResponse, sales.SalesOrderItemToResponse(item))
+	}
+	customerResponse := setting.SettingCustomerToResponse(customer)
+	quotationResponse := sales.SalesQuotationToResponse(quotation, customerResponse, orderItemsResponse)
+	paymentTermLinesResponse := make([]accounting.AccountingPaymentTermLineResponse, 0)
+	for _, line := range paymentTermLines {
+		paymentTermLinesResponse = append(paymentTermLinesResponse, accounting.AccountingPaymentTermLineToResponse(line))
+	}
+	paymentTermResponse := accounting.AccountingPaymentTermToResponse(paymentTerm, paymentTermLinesResponse)
+
+	return sales.SalesOrderToResponse(order, quotationResponse, paymentTermResponse), 200, nil
 }

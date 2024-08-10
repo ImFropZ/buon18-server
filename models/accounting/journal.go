@@ -23,12 +23,15 @@ type AccountingJournalResponse struct {
 	Account AccountingAccountResponse `json:"account"`
 }
 
-func AccountingJournalToResponse(journal AccountingJournal, account AccountingAccount) AccountingJournalResponse {
+func AccountingJournalToResponse(
+	journal AccountingJournal,
+	account AccountingAccountResponse,
+) AccountingJournalResponse {
 	return AccountingJournalResponse{
 		Id:      journal.Id,
 		Code:    journal.Code,
 		Name:    journal.Name,
 		Typ:     journal.Typ,
-		Account: AccountingAccountToResponse(account),
+		Account: account,
 	}
 }

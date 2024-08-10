@@ -35,12 +35,14 @@ type SalesQuotationResponse struct {
 	SalesOrderItems []SalesOrderItemResponse        `json:"items"`
 }
 
-func SalesQuotationToResponse(quotation SalesQuotation, customer setting.SettingCustomer, orderItems []SalesOrderItem) SalesQuotationResponse {
+func SalesQuotationToResponse(
+	quotation SalesQuotation,
+	customer setting.SettingCustomerResponse,
+	orderItems []SalesOrderItemResponse,
+) SalesQuotationResponse {
 	subAmountTotal := 0.0
-	items := make([]SalesOrderItemResponse, 0)
 	for _, item := range orderItems {
-		subAmountTotal += item.Price - item.Discount
-		items = append(items, SalesOrderItemToResponse(item))
+		subAmountTotal += item.AmountTotal
 	}
 
 	return SalesQuotationResponse{
@@ -51,8 +53,8 @@ func SalesQuotationToResponse(quotation SalesQuotation, customer setting.Setting
 		Discount:        quotation.Discount,
 		AmountDelivery:  quotation.AmountDelivery,
 		Status:          quotation.Status,
-		Customer:        setting.SettingCustomerToResponse(customer),
+		Customer:        customer,
 		TotalAmount:     subAmountTotal + quotation.AmountDelivery - quotation.Discount,
-		SalesOrderItems: items,
+		SalesOrderItems: orderItems,
 	}
 }
