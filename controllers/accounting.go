@@ -34,6 +34,20 @@ func (handler *AccountingHandler) Accounts(c *gin.Context) {
 	}))
 }
 
+func (handler *AccountingHandler) Account(c *gin.Context) {
+	id := c.Param("id")
+
+	account, statusCode, err := handler.AccountingAccountService.Account(id)
+	if err != nil {
+		c.JSON(statusCode, utils.NewErrorResponse(statusCode, err.Error()))
+		return
+	}
+
+	c.JSON(statusCode, utils.NewResponse(statusCode, "", gin.H{
+		"account": account,
+	}))
+}
+
 func (handler *AccountingHandler) PaymentTerms(c *gin.Context) {
 	qp := utils.NewQueryParams().
 		PrepareFilters(c, accounting.AccountingPaymentTermAllowFilterFieldsAndOps, `"accounting.payment_term"`).
