@@ -179,4 +179,28 @@ func TestAccountingRoutes(t *testing.T) {
 
 		assert.JSONEq(t, expectedBodyJSON, w.Body.String())
 	})
+
+	t.Run("SuccessGetJournalById", func(t *testing.T) {
+		w := httptest.NewRecorder()
+
+		req := httptest.NewRequest("GET", "/api/accounting/journals/1", nil)
+		req.Header.Add("Authorization", "Bearer "+token)
+		router.ServeHTTP(w, req)
+
+		expectedBodyJSON := `{"code":200,"message":"","data":{"journal":{"id":1,"code":"JNL1001","name":"Sales Journal","type":"sales","account":{"id":2,"name":"Accounts Receivable","code":"AC1002","type":"asset_non_current"}}}}`
+
+		assert.JSONEq(t, expectedBodyJSON, w.Body.String())
+	})
+
+	t.Run("NotFoundGetJournalById", func(t *testing.T) {
+		w := httptest.NewRecorder()
+
+		req := httptest.NewRequest("GET", "/api/accounting/journals/0", nil)
+		req.Header.Add("Authorization", "Bearer "+token)
+		router.ServeHTTP(w, req)
+
+		expectedBodyJSON := `{"code":404,"message":"journal not found","data":null}`
+
+		assert.JSONEq(t, expectedBodyJSON, w.Body.String())
+	})
 }
