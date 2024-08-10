@@ -59,6 +59,48 @@ VALUES
         NOW(),
         1,
         NOW()
+    ),
+    (
+        4,
+        'Quotation 4',
+        '2021-04-01',
+        '2021-04-30',
+        200,
+        400,
+        'sales_order',
+        501,
+        1,
+        NOW(),
+        1,
+        NOW()
+    ),
+    (
+        5,
+        'Quotation 5',
+        '2021-05-01',
+        '2021-05-31',
+        250,
+        500,
+        'sales_order',
+        501,
+        1,
+        NOW(),
+        1,
+        NOW()
+    ),
+    (
+        6,
+        'Quotation 6',
+        '2021-06-01',
+        '2021-06-30',
+        300,
+        600,
+        'cancelled',
+        501,
+        1,
+        NOW(),
+        1,
+        NOW()
     );
 
 INSERT INTO
@@ -118,6 +160,42 @@ VALUES
         1000,
         100,
         3,
+        1,
+        NOW(),
+        1,
+        NOW()
+    ),
+    (
+        5,
+        'Item 5',
+        'Item 5 description',
+        2000,
+        150,
+        4,
+        1,
+        NOW(),
+        1,
+        NOW()
+    ),
+    (
+        6,
+        'Item 6',
+        'Item 6 description',
+        3000,
+        200,
+        5,
+        1,
+        NOW(),
+        1,
+        NOW()
+    ),
+    (
+        7,
+        'Item 7',
+        'Item 7 description',
+        4000,
+        250,
+        6,
         1,
         NOW(),
         1,

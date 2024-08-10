@@ -46,7 +46,7 @@ func (handler *SettingHandler) Users(c *gin.Context) {
 	}
 
 	c.Header("X-Total-Count", fmt.Sprintf("%d", total))
-	c.JSON(200, utils.NewResponse(200, "", gin.H{
+	c.JSON(statusCode, utils.NewResponse(statusCode, "", gin.H{
 		"users": users,
 	}))
 }
@@ -60,7 +60,7 @@ func (handler *SettingHandler) User(c *gin.Context) {
 		return
 	}
 
-	c.JSON(200, utils.NewResponse(200, "", gin.H{
+	c.JSON(statusCode, utils.NewResponse(statusCode, "", gin.H{
 		"user": user,
 	}))
 }
@@ -94,7 +94,7 @@ func (handler *SettingHandler) Customers(c *gin.Context) {
 	}
 
 	c.Header("X-Total-Count", fmt.Sprintf("%d", total))
-	c.JSON(200, utils.NewResponse(200, "", gin.H{
+	c.JSON(statusCode, utils.NewResponse(statusCode, "", gin.H{
 		"customers": customers,
 	}))
 }
@@ -108,7 +108,7 @@ func (handler *SettingHandler) Customer(c *gin.Context) {
 		return
 	}
 
-	c.JSON(200, utils.NewResponse(200, "", gin.H{
+	c.JSON(statusCode, utils.NewResponse(statusCode, "", gin.H{
 		"customer": customer,
 	}))
 }
@@ -142,7 +142,7 @@ func (handler *SettingHandler) Roles(c *gin.Context) {
 	}
 
 	c.Header("X-Total-Count", fmt.Sprintf("%d", total))
-	c.JSON(200, utils.NewResponse(200, "", gin.H{
+	c.JSON(statusCode, utils.NewResponse(statusCode, "", gin.H{
 		"roles": roles,
 	}))
 }
@@ -156,7 +156,7 @@ func (handler *SettingHandler) Role(c *gin.Context) {
 		return
 	}
 
-	c.JSON(200, utils.NewResponse(200, "", gin.H{
+	c.JSON(statusCode, utils.NewResponse(statusCode, "", gin.H{
 		"role": role,
 	}))
 }

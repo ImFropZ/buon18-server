@@ -13,6 +13,7 @@ import (
 type SalesHandler struct {
 	DB                    *sql.DB
 	SalesQuotationService *services.SalesQuotationService
+	SalesOrderService     *services.SalesOrderService
 }
 
 func (handler *SalesHandler) Quotations(c *gin.Context) {
@@ -60,5 +61,39 @@ func (handler *SalesHandler) Quotation(c *gin.Context) {
 
 	c.JSON(statusCode, utils.NewResponse(statusCode, "", gin.H{
 		"quotation": quotation,
+	}))
+}
+
+func (handler *SalesHandler) Orders(c *gin.Context) {
+	qp := utils.NewQueryParams()
+	for _, filter := range sales.SalesOrderAllowFilterFieldsAndOps {
+		if validFilter, ok := c.GetQuery(filter); ok {
+			qp.AddFilter(fmt.Sprintf(`"sales.order".%s=%s`, filter, validFilter))
+		}
+	}
+	for _, sort := range sales.SalesOrderAllowSortFields {
+		if validSort, ok := c.GetQuery(fmt.Sprintf("sort-%s", sort)); ok {
+			qp.AddOrderBy(fmt.Sprintf(`LOWER("limited_orders".%s) %s`, sort, validSort))
+		}
+	}
+	for _, pagination := range []string{"offset", "limit"} {
+		if validPagination, ok := c.GetQuery(pagination); ok {
+			if pagination == "offset" {
+				qp.AddOffset(utils.StrToInt(validPagination, 0))
+			} else {
+				qp.AddLimit(utils.StrToInt(validPagination, 10))
+			}
+		}
+	}
+
+	orders, total, statusCode, err := handler.SalesOrderService.Orders(qp)
+	if err != nil {
+		c.JSON(statusCode, utils.NewErrorResponse(statusCode, err.Error()))
+		return
+	}
+
+	c.Header("X-Total-Count", fmt.Sprintf("%d", total))
+	c.JSON(statusCode, utils.NewResponse(statusCode, "", gin.H{
+		"orders": orders,
 	}))
 }

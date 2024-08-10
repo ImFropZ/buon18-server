@@ -94,7 +94,7 @@ func (service *SettingRoleService) Roles(qp *utils.QueryParams) ([]setting.Setti
 		return nil, 0, 500, utils.ErrInternalServer
 	}
 
-	return roles, total, 0, nil
+	return roles, total, 200, nil
 }
 
 func (service *SettingRoleService) Role(id string) (setting.SettingRoleResponse, int, error) {
@@ -145,5 +145,5 @@ func (service *SettingRoleService) Role(id string) (setting.SettingRoleResponse,
 		return setting.SettingRoleResponse{}, 404, ErrRoleNotFound
 	}
 
-	return setting.SettingRoleToResponse(role, permissions), 0, nil
+	return setting.SettingRoleToResponse(role, permissions), 200, nil
 }

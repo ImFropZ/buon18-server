@@ -73,7 +73,7 @@ func (service *SettingCustomerService) Customers(qp *utils.QueryParams) ([]setti
 		return nil, 0, 500, utils.ErrInternalServer
 	}
 
-	return customersResponse, total, 0, nil
+	return customersResponse, total, 200, nil
 }
 
 func (service *SettingCustomerService) Customer(id string) (setting.SettingCustomerResponse, int, error) {
@@ -112,5 +112,5 @@ func (service *SettingCustomerService) Customer(id string) (setting.SettingCusto
 		return setting.SettingCustomerResponse{}, 404, ErrCustomerNotFound
 	}
 
-	return setting.SettingCustomerToResponse(customer), 0, nil
+	return setting.SettingCustomerToResponse(customer), 200, nil
 }
