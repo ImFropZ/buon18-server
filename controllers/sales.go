@@ -17,26 +17,10 @@ type SalesHandler struct {
 }
 
 func (handler *SalesHandler) Quotations(c *gin.Context) {
-	qp := utils.NewQueryParams()
-	for _, filter := range sales.SalesQuotationAllowFilterFieldsAndOps {
-		if validFilter, ok := c.GetQuery(filter); ok {
-			qp.AddFilter(fmt.Sprintf(`"sales.quotation".%s=%s`, filter, validFilter))
-		}
-	}
-	for _, sort := range sales.SalesQuotationAllowSortFields {
-		if validSort, ok := c.GetQuery(fmt.Sprintf("sort-%s", sort)); ok {
-			qp.AddOrderBy(fmt.Sprintf(`LOWER("limited_quotations".%s) %s`, sort, validSort))
-		}
-	}
-	for _, pagination := range []string{"offset", "limit"} {
-		if validPagination, ok := c.GetQuery(pagination); ok {
-			if pagination == "offset" {
-				qp.AddOffset(utils.StrToInt(validPagination, 0))
-			} else {
-				qp.AddLimit(utils.StrToInt(validPagination, 10))
-			}
-		}
-	}
+	qp := utils.NewQueryParams().
+		PrepareFilters(c, sales.SalesQuotationAllowFilterFieldsAndOps, `"sales.quotation"`).
+		PrepareSorts(c, sales.SalesQuotationAllowSortFields, `"limited_quotations"`).
+		PreparePagination(c)
 
 	quotations, total, statusCode, err := handler.SalesQuotationService.Quotations(qp)
 	if err != nil {
@@ -65,26 +49,10 @@ func (handler *SalesHandler) Quotation(c *gin.Context) {
 }
 
 func (handler *SalesHandler) Orders(c *gin.Context) {
-	qp := utils.NewQueryParams()
-	for _, filter := range sales.SalesOrderAllowFilterFieldsAndOps {
-		if validFilter, ok := c.GetQuery(filter); ok {
-			qp.AddFilter(fmt.Sprintf(`"sales.order".%s=%s`, filter, validFilter))
-		}
-	}
-	for _, sort := range sales.SalesOrderAllowSortFields {
-		if validSort, ok := c.GetQuery(fmt.Sprintf("sort-%s", sort)); ok {
-			qp.AddOrderBy(fmt.Sprintf(`LOWER("limited_orders".%s) %s`, sort, validSort))
-		}
-	}
-	for _, pagination := range []string{"offset", "limit"} {
-		if validPagination, ok := c.GetQuery(pagination); ok {
-			if pagination == "offset" {
-				qp.AddOffset(utils.StrToInt(validPagination, 0))
-			} else {
-				qp.AddLimit(utils.StrToInt(validPagination, 10))
-			}
-		}
-	}
+	qp := utils.NewQueryParams().
+		PrepareFilters(c, sales.SalesOrderAllowFilterFieldsAndOps, `"sales.order"`).
+		PrepareSorts(c, sales.SalesOrderAllowSortFields, `"limited_orders"`).
+		PreparePagination(c)
 
 	orders, total, statusCode, err := handler.SalesOrderService.Orders(qp)
 	if err != nil {

@@ -6,7 +6,7 @@ import (
 	"time"
 )
 
-var SalesQuotationAllowFilterFieldsAndOps = []string{"name-ilike", "status-eq", "creation_date-gte", "creation_date-lte", "validity_date-gte", "validity_date-lte"}
+var SalesQuotationAllowFilterFieldsAndOps = []string{"name:like", "status:eq", "creation_date:gte", "creation_date:lte", "validity_date:gte", "validity_date:lte"}
 var SalesQuotationAllowSortFields = []string{"name", "status"}
 
 type SalesQuotation struct {

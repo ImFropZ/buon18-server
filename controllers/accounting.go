@@ -16,26 +16,10 @@ type AccountingHandler struct {
 }
 
 func (handler *AccountingHandler) PaymentTerms(c *gin.Context) {
-	qp := utils.NewQueryParams()
-	for _, filter := range accounting.AccountingPaymentTermAllowFilterFieldsAndOps {
-		if validFilter, ok := c.GetQuery(filter); ok {
-			qp.AddFilter(fmt.Sprintf(`"accounting.payment_term".%s=%s`, filter, validFilter))
-		}
-	}
-	for _, sort := range accounting.AccountingPaymentTermAllowSortFields {
-		if validSort, ok := c.GetQuery(fmt.Sprintf("sort-%s", sort)); ok {
-			qp.AddOrderBy(fmt.Sprintf(`LOWER("limited_payment_terms".%s) %s`, sort, validSort))
-		}
-	}
-	for _, pagination := range []string{"offset", "limit"} {
-		if validPagination, ok := c.GetQuery(pagination); ok {
-			if pagination == "offset" {
-				qp.AddOffset(utils.StrToInt(validPagination, 0))
-			} else {
-				qp.AddLimit(utils.StrToInt(validPagination, 10))
-			}
-		}
-	}
+	qp := utils.NewQueryParams().
+		PrepareFilters(c, accounting.AccountingPaymentTermAllowFilterFieldsAndOps, `"accounting.payment_term"`).
+		PrepareSorts(c, accounting.AccountingPaymentTermAllowSortFields, `"limited_payment_terms"`).
+		PreparePagination(c)
 
 	paymentTerms, total, statusCode, err := handler.AccountingPaymentTermService.PaymentTerms(qp)
 	if err != nil {

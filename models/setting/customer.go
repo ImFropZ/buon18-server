@@ -5,7 +5,7 @@ import (
 	"server/models"
 )
 
-var SettingCustomerAllowFilterFieldsAndOps = []string{"fullname-like", "gender-in", "email-like", "phone-like"}
+var SettingCustomerAllowFilterFieldsAndOps = []string{"fullname:like", "gender:in", "email:like", "phone:like"}
 var SettingCustomerAllowSortFields = []string{"fullname", "gender", "email", "phone"}
 
 type SettingCustomer struct {

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/gin-gonic/gin"
 	"github.com/nullism/bqb"
 )
 
@@ -47,8 +48,8 @@ func NewQueryParams() *QueryParams {
 }
 
 func (qp *QueryParams) AddFilter(filter string) *QueryParams {
-	// filter = "field-operator=value"
-	filterArr := strings.Split(filter, "-")
+	// filter = "field:operator=value"
+	filterArr := strings.Split(filter, ":")
 	field := filterArr[0]
 	if len(filterArr) != 2 {
 		return qp
@@ -151,4 +152,35 @@ func (qp *QueryParams) OrderByIntoBqb(bqbQuery *bqb.Query, defaultOrderBy string
 
 func (qp *QueryParams) PaginationIntoBqb(bqbQuery *bqb.Query) {
 	bqbQuery.Space(`OFFSET ? LIMIT ?`, qp.Pagination.Offset, qp.Pagination.Limit)
+}
+
+func (qp *QueryParams) PrepareFilters(c *gin.Context, allowFilterFieldsAndOps []string, prefix string) *QueryParams {
+	for _, filter := range allowFilterFieldsAndOps {
+		if validFilter, ok := c.GetQuery(filter); ok {
+			qp.AddFilter(fmt.Sprintf(`%s.%s=%s`, prefix, filter, validFilter))
+		}
+	}
+	return qp
+}
+
+func (qp *QueryParams) PrepareSorts(c *gin.Context, allowSortFields []string, prefix string) *QueryParams {
+	for _, sort := range allowSortFields {
+		if validSort, ok := c.GetQuery(fmt.Sprintf("sort:%s", sort)); ok {
+			qp.AddOrderBy(fmt.Sprintf(`LOWER(%s.%s) %s`, prefix, sort, validSort))
+		}
+	}
+	return qp
+}
+
+func (qp *QueryParams) PreparePagination(c *gin.Context) *QueryParams {
+	for _, pagination := range []string{"offset", "limit"} {
+		if validPagination, ok := c.GetQuery(pagination); ok {
+			if pagination == "offset" {
+				qp.AddOffset(StrToInt(validPagination, 0))
+			} else {
+				qp.AddLimit(StrToInt(validPagination, 10))
+			}
+		}
+	}
+	return qp
 }

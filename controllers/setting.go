@@ -18,26 +18,10 @@ type SettingHandler struct {
 }
 
 func (handler *SettingHandler) Users(c *gin.Context) {
-	qp := utils.NewQueryParams()
-	for _, filter := range setting.SettingUserAllowFilterFieldsAndOps {
-		if validFilter, ok := c.GetQuery(filter); ok {
-			qp.AddFilter(fmt.Sprintf(`"setting.user".%s=%s`, filter, validFilter))
-		}
-	}
-	for _, sort := range setting.SettingUserAllowSortFields {
-		if validSort, ok := c.GetQuery(fmt.Sprintf("sort-%s", sort)); ok {
-			qp.AddOrderBy(fmt.Sprintf(`LOWER("limited_users".%s) %s`, sort, validSort))
-		}
-	}
-	for _, pagination := range []string{"offset", "limit"} {
-		if validPagination, ok := c.GetQuery(pagination); ok {
-			if pagination == "offset" {
-				qp.AddOffset(utils.StrToInt(validPagination, 0))
-			} else {
-				qp.AddLimit(utils.StrToInt(validPagination, 10))
-			}
-		}
-	}
+	qp := utils.NewQueryParams().
+		PrepareFilters(c, setting.SettingUserAllowFilterFieldsAndOps, `"setting.user"`).
+		PrepareSorts(c, setting.SettingUserAllowSortFields, `"limited_users"`).
+		PreparePagination(c)
 
 	users, total, statusCode, err := handler.SettingUserService.Users(qp)
 	if err != nil {
@@ -66,26 +50,10 @@ func (handler *SettingHandler) User(c *gin.Context) {
 }
 
 func (handler *SettingHandler) Customers(c *gin.Context) {
-	qp := utils.NewQueryParams()
-	for _, filter := range setting.SettingCustomerAllowFilterFieldsAndOps {
-		if validFilter, ok := c.GetQuery(filter); ok {
-			qp.AddFilter(fmt.Sprintf(`"setting.customer".%s=%s`, filter, validFilter))
-		}
-	}
-	for _, sort := range setting.SettingCustomerAllowSortFields {
-		if validSort, ok := c.GetQuery(fmt.Sprintf("sort-%s", sort)); ok {
-			qp.AddOrderBy(fmt.Sprintf(`LOWER("setting.customer".%s) %s`, sort, validSort))
-		}
-	}
-	for _, pagination := range []string{"offset", "limit"} {
-		if validPagination, ok := c.GetQuery(pagination); ok {
-			if pagination == "offset" {
-				qp.AddOffset(utils.StrToInt(validPagination, 0))
-			} else {
-				qp.AddLimit(utils.StrToInt(validPagination, 10))
-			}
-		}
-	}
+	qp := utils.NewQueryParams().
+		PrepareFilters(c, setting.SettingCustomerAllowFilterFieldsAndOps, `"setting.customer"`).
+		PrepareSorts(c, setting.SettingCustomerAllowSortFields, `"limited_customers"`).
+		PreparePagination(c)
 
 	customers, total, statusCode, err := handler.SettingCustomerService.Customers(qp)
 	if err != nil {
@@ -114,26 +82,10 @@ func (handler *SettingHandler) Customer(c *gin.Context) {
 }
 
 func (handler *SettingHandler) Roles(c *gin.Context) {
-	qp := utils.NewQueryParams()
-	for _, filter := range setting.SettingRoleAllowFilterFieldsAndOps {
-		if validFilter, ok := c.GetQuery(filter); ok {
-			qp.AddFilter(fmt.Sprintf(`"setting.role".%s=%s`, filter, validFilter))
-		}
-	}
-	for _, sort := range setting.SettingRoleAllowSortFields {
-		if validSort, ok := c.GetQuery(fmt.Sprintf("sort-%s", sort)); ok {
-			qp.AddOrderBy(fmt.Sprintf(`LOWER("limited_roles".%s) %s`, sort, validSort))
-		}
-	}
-	for _, pagination := range []string{"offset", "limit"} {
-		if validPagination, ok := c.GetQuery(pagination); ok {
-			if pagination == "offset" {
-				qp.AddOffset(utils.StrToInt(validPagination, 0))
-			} else {
-				qp.AddLimit(utils.StrToInt(validPagination, 10))
-			}
-		}
-	}
+	qp := utils.NewQueryParams().
+		PrepareFilters(c, setting.SettingRoleAllowFilterFieldsAndOps, `"setting.role"`).
+		PrepareSorts(c, setting.SettingRoleAllowSortFields, `"limited_roles"`).
+		PreparePagination(c)
 
 	roles, total, statusCode, err := handler.SettingRoleService.Roles(qp)
 	if err != nil {

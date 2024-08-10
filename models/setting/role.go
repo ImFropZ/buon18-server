@@ -2,7 +2,7 @@ package setting
 
 import "server/models"
 
-var SettingRoleAllowFilterFieldsAndOps = []string{"name-like", "description-like"}
+var SettingRoleAllowFilterFieldsAndOps = []string{"name:like", "description:like"}
 var SettingRoleAllowSortFields = []string{"name"}
 
 type SettingRole struct {

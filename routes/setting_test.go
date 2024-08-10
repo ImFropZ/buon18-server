@@ -68,7 +68,7 @@ func TestSettingRoutes(t *testing.T) {
 	t.Run("FilterSuccessGetListOfUsers", func(t *testing.T) {
 		w := httptest.NewRecorder()
 
-		req := httptest.NewRequest("GET", "/api/setting/users?name-like=bot", nil)
+		req := httptest.NewRequest("GET", "/api/setting/users?name:like=bot", nil)
 		req.Header.Add("Authorization", "Bearer "+token)
 		router.ServeHTTP(w, req)
 
@@ -82,7 +82,7 @@ func TestSettingRoutes(t *testing.T) {
 	t.Run("SortSuccessGetListOfUsers", func(t *testing.T) {
 		w := httptest.NewRecorder()
 
-		req := httptest.NewRequest("GET", "/api/setting/users?sort-email=asc", nil)
+		req := httptest.NewRequest("GET", "/api/setting/users?sort:email=asc", nil)
 		req.Header.Add("Authorization", "Bearer "+token)
 		router.ServeHTTP(w, req)
 
@@ -122,7 +122,7 @@ func TestSettingRoutes(t *testing.T) {
 	t.Run("NotFoundGetUserById", func(t *testing.T) {
 		w := httptest.NewRecorder()
 
-		req := httptest.NewRequest("GET", "/api/setting/users/999", nil)
+		req := httptest.NewRequest("GET", "/api/setting/users/0", nil)
 		req.Header.Add("Authorization", "Bearer "+token)
 		router.ServeHTTP(w, req)
 
@@ -148,7 +148,7 @@ func TestSettingRoutes(t *testing.T) {
 	t.Run("FilterSucessGetListOfCustomers", func(t *testing.T) {
 		w := httptest.NewRecorder()
 
-		req := httptest.NewRequest("GET", "/api/setting/customers?fullname-like=Jane", nil)
+		req := httptest.NewRequest("GET", "/api/setting/customers?fullname:like=Jane", nil)
 		req.Header.Add("Authorization", "Bearer "+token)
 		router.ServeHTTP(w, req)
 
@@ -159,7 +159,7 @@ func TestSettingRoutes(t *testing.T) {
 		assert.JSONEq(t, expectedBodyJSON, w.Body.String())
 	})
 
-	t.Run("NotFoundGetCustomerById", func(t *testing.T) {
+	t.Run("SuccessGetCustomerById", func(t *testing.T) {
 		w := httptest.NewRecorder()
 
 		req := httptest.NewRequest("GET", "/api/setting/customers/500", nil)
@@ -171,10 +171,10 @@ func TestSettingRoutes(t *testing.T) {
 		assert.JSONEq(t, expectedBodyJSON, w.Body.String())
 	})
 
-	t.Run("SuccessGetCustomerById", func(t *testing.T) {
+	t.Run("NotFoundGetCustomerById", func(t *testing.T) {
 		w := httptest.NewRecorder()
 
-		req := httptest.NewRequest("GET", "/api/setting/customers/999", nil)
+		req := httptest.NewRequest("GET", "/api/setting/customers/0", nil)
 		req.Header.Add("Authorization", "Bearer "+token)
 		router.ServeHTTP(w, req)
 
@@ -198,7 +198,7 @@ func TestSettingRoutes(t *testing.T) {
 	t.Run("FilterSuccessGetListOfRoles", func(t *testing.T) {
 		w := httptest.NewRecorder()
 
-		req := httptest.NewRequest("GET", "/api/setting/roles?name-like=user", nil)
+		req := httptest.NewRequest("GET", "/api/setting/roles?name:like=user", nil)
 		req.Header.Add("Authorization", "Bearer "+token)
 		router.ServeHTTP(w, req)
 
@@ -212,7 +212,7 @@ func TestSettingRoutes(t *testing.T) {
 	t.Run("SortSuccessGetListOfRoles", func(t *testing.T) {
 		w := httptest.NewRecorder()
 
-		req := httptest.NewRequest("GET", "/api/setting/roles?sort-name=desc", nil)
+		req := httptest.NewRequest("GET", "/api/setting/roles?sort:name=desc", nil)
 		req.Header.Add("Authorization", "Bearer "+token)
 		router.ServeHTTP(w, req)
 

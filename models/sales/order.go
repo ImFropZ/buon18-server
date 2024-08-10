@@ -7,8 +7,8 @@ import (
 	"time"
 )
 
-var SalesOrderAllowFilterFieldsAndOps = []string{}
-var SalesOrderAllowSortFields = []string{}
+var SalesOrderAllowFilterFieldsAndOps = []string{"name:like", "commitment_date:eq", "commitment_date:gt", "commitment_date:gte", "commitment_date:lt", "commitment_date:lte", "sales_quotation_id:eq", "accounting_payment_term_id:eq"}
+var SalesOrderAllowSortFields = []string{"name", "commitment_date"}
 
 type SalesOrder struct {
 	*models.CommonModel

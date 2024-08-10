@@ -69,7 +69,7 @@ func TestAccountingRoutes(t *testing.T) {
 	t.Run("FilterSuccessGetListOfQuotations", func(t *testing.T) {
 		w := httptest.NewRecorder()
 
-		req := httptest.NewRequest("GET", "/api/accounting/payment-terms?name-like=30", nil)
+		req := httptest.NewRequest("GET", "/api/accounting/payment-terms?name:like=30", nil)
 		req.Header.Add("Authorization", "Bearer "+token)
 		router.ServeHTTP(w, req)
 

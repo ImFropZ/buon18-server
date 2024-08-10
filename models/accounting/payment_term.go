@@ -4,7 +4,7 @@ import (
 	"server/models"
 )
 
-var AccountingPaymentTermAllowFilterFieldsAndOps = []string{"name-like", "description-like"}
+var AccountingPaymentTermAllowFilterFieldsAndOps = []string{"name:like", "description:like"}
 var AccountingPaymentTermAllowSortFields = []string{"name"}
 
 type AccountingPaymentTerm struct {
