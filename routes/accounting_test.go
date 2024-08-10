@@ -30,6 +30,7 @@ func TestAccountingRoutes(t *testing.T) {
 			filepath.Join("..", "database", "dev_scripts", "02_seed.sh"),
 			filepath.Join("..", "database", "dev_scripts", "03_seed-customer.sh"),
 			filepath.Join("..", "database", "dev_scripts", "05_seed-payment-term.sh"),
+			filepath.Join("..", "database", "dev_scripts", "07_seed-accounting-account.sh"),
 		),
 		postgres.BasicWaitStrategies(),
 	)
@@ -100,6 +101,32 @@ func TestAccountingRoutes(t *testing.T) {
 		router.ServeHTTP(w, req)
 
 		expectedBodyJSON := `{"code":404,"message":"payment term not found","data":null}`
+
+		assert.JSONEq(t, expectedBodyJSON, w.Body.String())
+	})
+
+	t.Run("SuccessGetListOfAccounts", func(t *testing.T) {
+		w := httptest.NewRecorder()
+
+		req := httptest.NewRequest("GET", "/api/accounting/accounts", nil)
+		req.Header.Add("Authorization", "Bearer "+token)
+		router.ServeHTTP(w, req)
+
+		expectedBodyJSON := `{"code":200,"message":"","data":{"accounts":[{"id":1,"name":"Cash","code":"AC1001","type":"asset_current"},{"id":2,"name":"Accounts Receivable","code":"AC1002","type":"asset_non_current"},{"id":3,"name":"Accounts Payable","code":"LC1003","type":"liability_current"},{"id":4,"name":"Long-term Debt","code":"LC1004","type":"liability_non_current"},{"id":5,"name":"Common Stock","code":"EQ1005","type":"equity"},{"id":6,"name":"Sales Revenue","code":"IN1006","type":"income"},{"id":7,"name":"Rent Expense","code":"EX1007","type":"expense"},{"id":8,"name":"Gain on Sale","code":"GN1008","type":"gain"},{"id":9,"name":"Loss on Sale","code":"LS1009","type":"loss"}]}}`
+		expectedXTotalCountHeader := "9"
+
+		assert.Equal(t, expectedXTotalCountHeader, w.Header().Get("X-Total-Count"))
+		assert.JSONEq(t, expectedBodyJSON, w.Body.String())
+	})
+
+	t.Run("FilterSuccessGetListOfAccounts", func(t *testing.T) {
+		w := httptest.NewRecorder()
+
+		req := httptest.NewRequest("GET", "/api/accounting/accounts?typ:eq=asset_current", nil)
+		req.Header.Add("Authorization", "Bearer "+token)
+		router.ServeHTTP(w, req)
+
+		expectedBodyJSON := `{"code":200,"message":"","data":{"accounts":[{"id":1,"name":"Cash","code":"AC1001","type":"asset_current"}]}}`
 
 		assert.JSONEq(t, expectedBodyJSON, w.Body.String())
 	})
