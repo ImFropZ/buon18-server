@@ -31,6 +31,7 @@ func TestAccountingRoutes(t *testing.T) {
 			filepath.Join("..", "database", "dev_scripts", "03_seed-customer.sh"),
 			filepath.Join("..", "database", "dev_scripts", "05_seed-payment-term.sh"),
 			filepath.Join("..", "database", "dev_scripts", "07_seed-accounting-account.sh"),
+			filepath.Join("..", "database", "dev_scripts", "08_seed-journal.sh"),
 		),
 		postgres.BasicWaitStrategies(),
 	)
@@ -150,6 +151,32 @@ func TestAccountingRoutes(t *testing.T) {
 		router.ServeHTTP(w, req)
 
 		expectedBodyJSON := `{"code":404,"message":"account not found","data":null}`
+		assert.JSONEq(t, expectedBodyJSON, w.Body.String())
+	})
+
+	t.Run("SuccessGetListOfJournals", func(t *testing.T) {
+		w := httptest.NewRecorder()
+
+		req := httptest.NewRequest("GET", "/api/accounting/journals", nil)
+		req.Header.Add("Authorization", "Bearer "+token)
+		router.ServeHTTP(w, req)
+
+		expectedBodyJSON := `{"code":200,"message":"","data":{"journals":[{"id":1,"code":"JNL1001","name":"Sales Journal","type":"sales","account":{"id":2,"name":"Accounts Receivable","code":"AC1002","type":"asset_non_current"}},{"id":2,"code":"JNL1002","name":"Purchase Journal","type":"purchase","account":{"id":4,"name":"Long-term Debt","code":"LC1004","type":"liability_non_current"}},{"id":3,"code":"JNL1003","name":"Cash Journal","type":"cash","account":{"id":1,"name":"Cash","code":"AC1001","type":"asset_current"}},{"id":4,"code":"JNL1004","name":"Bank Journal","type":"bank","account":{"id":3,"name":"Accounts Payable","code":"LC1003","type":"liability_current"}}]}}`
+		expectedXTotalCountHeader := "4"
+
+		assert.Equal(t, expectedXTotalCountHeader, w.Header().Get("X-Total-Count"))
+		assert.JSONEq(t, expectedBodyJSON, w.Body.String())
+	})
+
+	t.Run("FilterSuccessGetListOfJournals", func(t *testing.T) {
+		w := httptest.NewRecorder()
+
+		req := httptest.NewRequest("GET", "/api/accounting/journals?typ:eq=sales", nil)
+		req.Header.Add("Authorization", "Bearer "+token)
+		router.ServeHTTP(w, req)
+
+		expectedBodyJSON := `{"code":200,"message":"","data":{"journals":[{"id":1,"code":"JNL1001","name":"Sales Journal","type":"sales","account":{"id":2,"name":"Accounts Receivable","code":"AC1002","type":"asset_non_current"}}]}}`
+
 		assert.JSONEq(t, expectedBodyJSON, w.Body.String())
 	})
 }
