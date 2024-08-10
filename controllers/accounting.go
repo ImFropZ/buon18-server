@@ -84,7 +84,7 @@ func (handler *AccountingHandler) PaymentTerm(c *gin.Context) {
 func (handler *AccountingHandler) Journals(c *gin.Context) {
 	qp := utils.NewQueryParams().
 		PrepareFilters(c, accounting.AccountingJournalAllowFilterFieldsAndOps, `"accounting.journal"`).
-		PrepareSorts(c, accounting.AccountingJournalAllowSortFields, `"accounting.journal"`).
+		PrepareSorts(c, accounting.AccountingJournalAllowSortFields, `"limited_journals"`).
 		PreparePagination(c)
 
 	journals, total, statusCode, err := handler.AccountingJournalService.Journals(qp)
@@ -96,5 +96,19 @@ func (handler *AccountingHandler) Journals(c *gin.Context) {
 	c.Header("X-Total-Count", fmt.Sprintf("%d", total))
 	c.JSON(statusCode, utils.NewResponse(statusCode, "", gin.H{
 		"journals": journals,
+	}))
+}
+
+func (handler *AccountingHandler) Journal(c *gin.Context) {
+	id := c.Param("id")
+
+	journal, statusCode, err := handler.AccountingJournalService.Journal(id)
+	if err != nil {
+		c.JSON(statusCode, utils.NewErrorResponse(statusCode, err.Error()))
+		return
+	}
+
+	c.JSON(statusCode, utils.NewResponse(statusCode, "", gin.H{
+		"journal": journal,
 	}))
 }

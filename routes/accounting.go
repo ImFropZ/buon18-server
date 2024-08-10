@@ -23,4 +23,5 @@ func Accounting(e *gin.Engine, db *sql.DB) {
 	e.GET("/api/accounting/payment-terms", middlewares.Authorize([]string{utils.PREDEFINED_PERMISSIONS.FULL_ACCOUNTING, utils.PREDEFINED_PERMISSIONS.ACCOUNTING_PAYMENT_TERMS.VIEW}), handler.PaymentTerms)
 	e.GET("/api/accounting/payment-terms/:id", middlewares.Authorize([]string{utils.PREDEFINED_PERMISSIONS.FULL_ACCOUNTING, utils.PREDEFINED_PERMISSIONS.ACCOUNTING_PAYMENT_TERMS.VIEW}), handler.PaymentTerm)
 	e.GET("/api/accounting/journals", middlewares.Authorize([]string{utils.PREDEFINED_PERMISSIONS.FULL_ACCOUNTING, utils.PREDEFINED_PERMISSIONS.ACCOUNTING_JOURNALS.VIEW}), handler.Journals)
+	e.GET("/api/accounting/journals/:id", middlewares.Authorize([]string{utils.PREDEFINED_PERMISSIONS.FULL_ACCOUNTING, utils.PREDEFINED_PERMISSIONS.ACCOUNTING_JOURNALS.VIEW}), handler.Journal)
 }
