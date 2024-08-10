@@ -11,10 +11,11 @@ import (
 )
 
 type AccountingHandler struct {
-	DB                           *sql.DB
-	AccountingAccountService     *services.AccountingAccountService
-	AccountingPaymentTermService *services.AccountingPaymentTermService
-	AccountingJournalService     *services.AccountingJournalService
+	DB                            *sql.DB
+	AccountingAccountService      *services.AccountingAccountService
+	AccountingPaymentTermService  *services.AccountingPaymentTermService
+	AccountingJournalService      *services.AccountingJournalService
+	AccountingJournalEntryService *services.AccountingJournalEntryService
 }
 
 func (handler *AccountingHandler) Accounts(c *gin.Context) {
@@ -110,5 +111,23 @@ func (handler *AccountingHandler) Journal(c *gin.Context) {
 
 	c.JSON(statusCode, utils.NewResponse(statusCode, "", gin.H{
 		"journal": journal,
+	}))
+}
+
+func (handler *AccountingHandler) JournalEntries(c *gin.Context) {
+	qp := utils.NewQueryParams().
+		PrepareFilters(c, accounting.AccountingJournalEntryAllowFilterFieldsAndOps, `"accounting.journal_entry"`).
+		PrepareSorts(c, accounting.AccountingJournalEntryAllowSortFields, `"limited_journal_entries"`).
+		PreparePagination(c)
+
+	journalEntries, total, statusCode, err := handler.AccountingJournalEntryService.JournalEntries(qp)
+	if err != nil {
+		c.JSON(statusCode, utils.NewErrorResponse(statusCode, err.Error()))
+		return
+	}
+
+	c.Header("X-Total-Count", fmt.Sprintf("%d", total))
+	c.JSON(statusCode, utils.NewResponse(statusCode, "", gin.H{
+		"journal_entries": journalEntries,
 	}))
 }

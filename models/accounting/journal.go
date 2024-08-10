@@ -16,16 +16,16 @@ type AccountingJournal struct {
 }
 
 type AccountingJournalResponse struct {
-	Id      int                       `json:"id"`
-	Code    string                    `json:"code"`
-	Name    string                    `json:"name"`
-	Typ     string                    `json:"type"`
-	Account AccountingAccountResponse `json:"account"`
+	Id      int                        `json:"id"`
+	Code    string                     `json:"code"`
+	Name    string                     `json:"name"`
+	Typ     string                     `json:"type"`
+	Account *AccountingAccountResponse `json:"account,omitempty"`
 }
 
 func AccountingJournalToResponse(
 	journal AccountingJournal,
-	account AccountingAccountResponse,
+	account *AccountingAccountResponse,
 ) AccountingJournalResponse {
 	return AccountingJournalResponse{
 		Id:      journal.Id,

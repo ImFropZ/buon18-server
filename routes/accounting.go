@@ -12,10 +12,11 @@ import (
 
 func Accounting(e *gin.Engine, db *sql.DB) {
 	handler := controllers.AccountingHandler{
-		DB:                           db,
-		AccountingPaymentTermService: &services.AccountingPaymentTermService{DB: db},
-		AccountingAccountService:     &services.AccountingAccountService{DB: db},
-		AccountingJournalService:     &services.AccountingJournalService{DB: db},
+		DB:                            db,
+		AccountingPaymentTermService:  &services.AccountingPaymentTermService{DB: db},
+		AccountingAccountService:      &services.AccountingAccountService{DB: db},
+		AccountingJournalService:      &services.AccountingJournalService{DB: db},
+		AccountingJournalEntryService: &services.AccountingJournalEntryService{DB: db},
 	}
 
 	e.GET("/api/accounting/accounts", middlewares.Authorize([]string{utils.PREDEFINED_PERMISSIONS.FULL_ACCOUNTING, utils.PREDEFINED_PERMISSIONS.ACCOUNTING_ACCOUNTS.VIEW}), handler.Accounts)
@@ -24,4 +25,5 @@ func Accounting(e *gin.Engine, db *sql.DB) {
 	e.GET("/api/accounting/payment-terms/:id", middlewares.Authorize([]string{utils.PREDEFINED_PERMISSIONS.FULL_ACCOUNTING, utils.PREDEFINED_PERMISSIONS.ACCOUNTING_PAYMENT_TERMS.VIEW}), handler.PaymentTerm)
 	e.GET("/api/accounting/journals", middlewares.Authorize([]string{utils.PREDEFINED_PERMISSIONS.FULL_ACCOUNTING, utils.PREDEFINED_PERMISSIONS.ACCOUNTING_JOURNALS.VIEW}), handler.Journals)
 	e.GET("/api/accounting/journals/:id", middlewares.Authorize([]string{utils.PREDEFINED_PERMISSIONS.FULL_ACCOUNTING, utils.PREDEFINED_PERMISSIONS.ACCOUNTING_JOURNALS.VIEW}), handler.Journal)
+	e.GET("/api/accounting/journal-entries", middlewares.Authorize([]string{utils.PREDEFINED_PERMISSIONS.FULL_ACCOUNTING, utils.PREDEFINED_PERMISSIONS.ACCOUNTING_JOURNAL_ENTRIES.VIEW}), handler.JournalEntries)
 }
