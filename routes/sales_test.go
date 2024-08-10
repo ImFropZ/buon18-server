@@ -130,4 +130,28 @@ func TestSalesRoutes(t *testing.T) {
 
 		assert.JSONEq(t, expectedBodyJSON, w.Body.String())
 	})
+
+	t.Run("SuccessGetOrderById", func(t *testing.T) {
+		w := httptest.NewRecorder()
+
+		req := httptest.NewRequest("GET", "/api/sales/orders/1", nil)
+		req.Header.Add("Authorization", "Bearer "+token)
+		router.ServeHTTP(w, req)
+
+		expectedBodyJSON := `{"code":200,"message":"","data":{"order":{"id":1,"name":"Order 1","commitment_date":"2021-04-05T00:00:00Z","note":"","quotation":{"id":4,"name":"Quotation 4","creation_date":"2021-04-01T00:00:00Z","validity_date":"2021-04-30T00:00:00Z","discount":200,"amount_delivery":400,"status":"sales_order","total_amount":2050,"customer":{"id":501,"full_name":"Jane Doe","gender":"f","email":"jad@dummy-data.com","phone":"064456789","additional_information":{"note":"This is a dummy data from jane doe"}},"items":[{"id":5,"name":"Item 5","description":"Item 5 description","price":2000,"discount":150,"amount_total":1850}]},"payment_term":{"id":4,"name":"30% Now, Balance 60 Days","description":"Pay 30% now, balance due in 60 days","lines":[{"id":4,"sequence":1,"value_amount_percent":30,"number_of_days":0},{"id":5,"sequence":2,"value_amount_percent":70,"number_of_days":60}]}}}}`
+
+		assert.JSONEq(t, expectedBodyJSON, w.Body.String())
+	})
+
+	t.Run("NotFoundGetOrderById", func(t *testing.T) {
+		w := httptest.NewRecorder()
+
+		req := httptest.NewRequest("GET", "/api/sales/orders/0", nil)
+		req.Header.Add("Authorization", "Bearer "+token)
+		router.ServeHTTP(w, req)
+
+		expectedBodyJSON := `{"code":404,"message":"order not found","data":null}`
+
+		assert.JSONEq(t, expectedBodyJSON, w.Body.String())
+	})
 }
