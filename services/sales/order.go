@@ -2,6 +2,7 @@ package sales
 
 import (
 	"database/sql"
+	"errors"
 	"log"
 	"server/models/accounting"
 	"server/models/sales"
@@ -9,6 +10,10 @@ import (
 	"server/utils"
 
 	"github.com/nullism/bqb"
+)
+
+var (
+	ErrOrderNotFound = errors.New("order not found")
 )
 
 type SalesOrderService struct {
@@ -194,4 +199,141 @@ func (service *SalesOrderService) Orders(qp *utils.QueryParams) ([]sales.SalesOr
 	}
 
 	return ordersResponse, total, 200, nil
+}
+
+func (service *SalesOrderService) Order(id string) (sales.SalesOrderResponse, int, error) {
+	bqbQuery := bqb.New(`WITH "limited_orders" AS (
+		SELECT
+			id,
+			name,
+			commitment_date,
+			note,
+			sales_quotation_id,
+			accounting_payment_term_id
+		FROM
+			"sales.order"
+		WHERE
+			id = ?
+	)
+	SELECT
+		"limited_orders".id,
+		"limited_orders".name,
+		"limited_orders".commitment_date,
+		"limited_orders".note,
+		"sales.quotation".id,
+		"sales.quotation".name,
+		"sales.quotation".creation_date,
+		"sales.quotation".validity_date,
+		"sales.quotation".discount,
+		"sales.quotation".amount_delivery,
+		"sales.quotation".status,
+		"setting.customer".id,
+		"setting.customer".fullname,
+		"setting.customer".gender,
+		"setting.customer".email,
+		"setting.customer".phone,
+		"setting.customer".additional_information,
+		"sales.order_item".id,
+		"sales.order_item".name,
+		"sales.order_item".description,
+		"sales.order_item".price,
+		"sales.order_item".discount,
+		"accounting.payment_term".id,
+		"accounting.payment_term".name,
+		"accounting.payment_term".description,
+		"accounting.payment_term_line".id,
+		"accounting.payment_term_line".sequence,
+		"accounting.payment_term_line".value_amount_percent,
+		"accounting.payment_term_line".number_of_days
+	FROM 
+		"limited_orders"
+	INNER JOIN "sales.quotation" ON "sales.quotation".id = "limited_orders".sales_quotation_id
+	INNER JOIN "setting.customer" ON "setting.customer".id = "sales.quotation".setting_customer_id
+	INNER JOIN "sales.order_item" ON "sales.order_item".sales_quotation_id = "sales.quotation".id
+	INNER JOIN "accounting.payment_term" ON "accounting.payment_term".id = "limited_orders".accounting_payment_term_id
+	INNER JOIN "accounting.payment_term_line" ON "accounting.payment_term_line".accounting_payment_term_id = "accounting.payment_term".id
+	ORDER BY "limited_orders".id ASC, "sales.quotation".id ASC, "sales.order_item".id ASC, "accounting.payment_term_line".sequence ASC`, id)
+
+	query, params, err := bqbQuery.ToPgsql()
+	if err != nil {
+		log.Printf("%v", err)
+		return sales.SalesOrderResponse{}, 500, utils.ErrInternalServer
+	}
+
+	rows, err := service.DB.Query(query, params...)
+	if err != nil {
+		log.Printf("%v", err)
+		return sales.SalesOrderResponse{}, 500, utils.ErrInternalServer
+	}
+
+	order := sales.SalesOrder{}
+	customer := setting.SettingCustomer{}
+	quotation := sales.SalesQuotation{}
+	orderItems := make([]sales.SalesOrderItem, 0)
+	paymentTerm := accounting.AccountingPaymentTerm{}
+	paymentTermLines := make([]accounting.AccountingPaymentTermLine, 0)
+	for rows.Next() {
+		tmpOrderItem := sales.SalesOrderItem{}
+		tmpPaymentTermLine := accounting.AccountingPaymentTermLine{}
+		err := rows.Scan(
+			&order.Id,
+			&order.Name,
+			&order.CommitmentDate,
+			&order.Note,
+			&quotation.Id,
+			&quotation.Name,
+			&quotation.CreationDate,
+			&quotation.ValidityDate,
+			&quotation.Discount,
+			&quotation.AmountDelivery,
+			&quotation.Status,
+			&customer.Id,
+			&customer.FullName,
+			&customer.Gender,
+			&customer.Email,
+			&customer.Phone,
+			&customer.AdditionalInformation,
+			&tmpOrderItem.Id,
+			&tmpOrderItem.Name,
+			&tmpOrderItem.Description,
+			&tmpOrderItem.Price,
+			&tmpOrderItem.Discount,
+			&paymentTerm.Id,
+			&paymentTerm.Name,
+			&paymentTerm.Description,
+			&tmpPaymentTermLine.Id,
+			&tmpPaymentTermLine.Sequence,
+			&tmpPaymentTermLine.ValueAmountPercent,
+			&tmpPaymentTermLine.NumberOfDays,
+		)
+		if err != nil {
+			log.Printf("%v", err)
+			return sales.SalesOrderResponse{}, 500, utils.ErrInternalServer
+		}
+
+		if tmpOrderItem.Id != 0 {
+			if len(orderItems) != 0 {
+				if orderItems[len(orderItems)-1].Id != tmpOrderItem.Id {
+					orderItems = append(orderItems, tmpOrderItem)
+				}
+			} else {
+				orderItems = append(orderItems, tmpOrderItem)
+			}
+		}
+
+		if tmpPaymentTermLine.Id != 0 {
+			if len(paymentTermLines) != 0 {
+				if paymentTermLines[len(paymentTermLines)-1].Id != tmpPaymentTermLine.Id {
+					paymentTermLines = append(paymentTermLines, tmpPaymentTermLine)
+				}
+			} else {
+				paymentTermLines = append(paymentTermLines, tmpPaymentTermLine)
+			}
+		}
+	}
+	if order.Id == 0 {
+		return sales.SalesOrderResponse{}, 404, ErrOrderNotFound
+	}
+
+	return sales.SalesOrderToResponse(order, quotation, customer, orderItems, paymentTerm, paymentTermLines), 200, nil
 }

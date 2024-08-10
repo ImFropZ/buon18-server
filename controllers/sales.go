@@ -65,3 +65,17 @@ func (handler *SalesHandler) Orders(c *gin.Context) {
 		"orders": orders,
 	}))
 }
+
+func (handler *SalesHandler) Order(c *gin.Context) {
+	id := c.Param("id")
+
+	order, statusCode, err := handler.SalesOrderService.Order(id)
+	if err != nil {
+		c.JSON(statusCode, utils.NewErrorResponse(statusCode, err.Error()))
+		return
+	}
+
+	c.JSON(statusCode, utils.NewResponse(statusCode, "", gin.H{
+		"order": order,
+	}))
+}
