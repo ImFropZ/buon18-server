@@ -12,7 +12,26 @@ import (
 
 type AccountingHandler struct {
 	DB                           *sql.DB
+	AccountingAccountService     *services.AccountingAccountService
 	AccountingPaymentTermService *services.AccountingPaymentTermService
+}
+
+func (handler *AccountingHandler) Accounts(c *gin.Context) {
+	qp := utils.NewQueryParams().
+		PrepareFilters(c, accounting.AccountingAccountAllowFilterFieldsAndOps, `"accounting.account"`).
+		PrepareSorts(c, accounting.AccountingAccountAllowSortFields, `"accounting.account"`).
+		PreparePagination(c)
+
+	accounts, total, statusCode, err := handler.AccountingAccountService.Accounts(qp)
+	if err != nil {
+		c.JSON(statusCode, utils.NewErrorResponse(statusCode, err.Error()))
+		return
+	}
+
+	c.Header("X-Total-Count", fmt.Sprintf("%d", total))
+	c.JSON(statusCode, utils.NewResponse(statusCode, "", gin.H{
+		"accounts": accounts,
+	}))
 }
 
 func (handler *AccountingHandler) PaymentTerms(c *gin.Context) {
