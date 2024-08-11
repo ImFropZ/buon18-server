@@ -13,10 +13,10 @@ type SettingRole struct {
 }
 
 type SettingRoleResponse struct {
-	Id          uint   `json:"id"`
-	Name        string `json:"name"`
-	Description string `json:"description"`
-	Permissions []SettingPermissionResponse
+	Id          uint                        `json:"id"`
+	Name        string                      `json:"name"`
+	Description string                      `json:"description"`
+	Permissions []SettingPermissionResponse `json:"permissions"`
 }
 
 func SettingRoleToResponse(role SettingRole, permissions []SettingPermissionResponse) SettingRoleResponse {
