@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"server/models/accounting"
 	services "server/services/accounting"
@@ -34,6 +35,11 @@ func (handler *AccountingHandler) Accounts(c *gin.Context) {
 	c.JSON(statusCode, utils.NewResponse(statusCode, "", gin.H{
 		"accounts": accounts,
 	}))
+
+	c.Set("total", total)
+	if accountsByte, err := json.Marshal(accounts); err == nil {
+		c.Set("response", accountsByte)
+	}
 }
 
 func (handler *AccountingHandler) Account(c *gin.Context) {
@@ -66,6 +72,11 @@ func (handler *AccountingHandler) PaymentTerms(c *gin.Context) {
 	c.JSON(statusCode, utils.NewResponse(statusCode, "", gin.H{
 		"payment_terms": paymentTerms,
 	}))
+
+	c.Set("total", total)
+	if paymentTermsByte, err := json.Marshal(paymentTerms); err == nil {
+		c.Set("response", paymentTermsByte)
+	}
 }
 
 func (handler *AccountingHandler) PaymentTerm(c *gin.Context) {
@@ -98,6 +109,11 @@ func (handler *AccountingHandler) Journals(c *gin.Context) {
 	c.JSON(statusCode, utils.NewResponse(statusCode, "", gin.H{
 		"journals": journals,
 	}))
+
+	c.Set("total", total)
+	if journalsByte, err := json.Marshal(journals); err == nil {
+		c.Set("response", journalsByte)
+	}
 }
 
 func (handler *AccountingHandler) Journal(c *gin.Context) {
@@ -130,4 +146,9 @@ func (handler *AccountingHandler) JournalEntries(c *gin.Context) {
 	c.JSON(statusCode, utils.NewResponse(statusCode, "", gin.H{
 		"journal_entries": journalEntries,
 	}))
+
+	c.Set("total", total)
+	if journalEntriesByte, err := json.Marshal(journalEntries); err == nil {
+		c.Set("response", journalEntriesByte)
+	}
 }

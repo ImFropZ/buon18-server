@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"server/models/sales"
 	services "server/services/sales"
@@ -32,6 +33,11 @@ func (handler *SalesHandler) Quotations(c *gin.Context) {
 	c.JSON(statusCode, utils.NewResponse(statusCode, "", gin.H{
 		"quotations": quotations,
 	}))
+
+	c.Set("total", total)
+	if quotationsByte, err := json.Marshal(quotations); err == nil {
+		c.Set("response", quotationsByte)
+	}
 }
 
 func (handler *SalesHandler) Quotation(c *gin.Context) {
@@ -64,6 +70,11 @@ func (handler *SalesHandler) Orders(c *gin.Context) {
 	c.JSON(statusCode, utils.NewResponse(statusCode, "", gin.H{
 		"orders": orders,
 	}))
+
+	c.Set("total", total)
+	if ordersByte, err := json.Marshal(orders); err == nil {
+		c.Set("response", ordersByte)
+	}
 }
 
 func (handler *SalesHandler) Order(c *gin.Context) {

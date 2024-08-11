@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"server/models/setting"
 	services "server/services/setting"
@@ -33,6 +34,11 @@ func (handler *SettingHandler) Users(c *gin.Context) {
 	c.JSON(statusCode, utils.NewResponse(statusCode, "", gin.H{
 		"users": users,
 	}))
+
+	c.Set("total", total)
+	if usersByte, err := json.Marshal(users); err == nil {
+		c.Set("response", usersByte)
+	}
 }
 
 func (handler *SettingHandler) User(c *gin.Context) {
@@ -65,6 +71,11 @@ func (handler *SettingHandler) Customers(c *gin.Context) {
 	c.JSON(statusCode, utils.NewResponse(statusCode, "", gin.H{
 		"customers": customers,
 	}))
+
+	c.Set("total", total)
+	if customersByte, err := json.Marshal(customers); err == nil {
+		c.Set("response", customersByte)
+	}
 }
 
 func (handler *SettingHandler) Customer(c *gin.Context) {
@@ -97,6 +108,11 @@ func (handler *SettingHandler) Roles(c *gin.Context) {
 	c.JSON(statusCode, utils.NewResponse(statusCode, "", gin.H{
 		"roles": roles,
 	}))
+
+	c.Set("total", total)
+	if rolesByte, err := json.Marshal(roles); err == nil {
+		c.Set("response", rolesByte)
+	}
 }
 
 func (handler *SettingHandler) Role(c *gin.Context) {

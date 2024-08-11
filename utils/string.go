@@ -31,3 +31,7 @@ func StrToInt(s string, defaultValue int) int {
 	}
 	return result
 }
+
+func IntToStr(i int) string {
+	return strconv.Itoa(i)
+}

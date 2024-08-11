@@ -5,7 +5,13 @@ import (
 	"log"
 
 	_ "github.com/lib/pq"
+	"github.com/valkey-io/valkey-go"
 )
+
+type Connection struct {
+	DB     *sql.DB
+	Valkey *valkey.Client
+}
 
 func InitSQL(connectionString string) *sql.DB {
 	db, err := sql.Open("postgres", connectionString)
@@ -20,4 +26,16 @@ func InitSQL(connectionString string) *sql.DB {
 	}
 
 	return db
+}
+
+func InitValkey(addresses []string, password string) *valkey.Client {
+	client, err := valkey.NewClient(valkey.ClientOption{
+		InitAddress: addresses,
+		Password:    password,
+	})
+	if err != nil {
+		log.Fatalf("Error connecting to valkey: %v\n", err)
+	}
+
+	return &client
 }

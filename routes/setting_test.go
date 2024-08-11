@@ -42,7 +42,10 @@ func TestSettingRoutes(t *testing.T) {
 
 	router := gin.Default()
 	router.Use(middlewares.Authenticate(DB))
-	routes.Setting(router, DB)
+	routes.Setting(router, &database.Connection{
+		DB:     DB,
+		Valkey: nil,
+	})
 
 	token, err := utils.GenerateWebToken(utils.WebTokenClaims{
 		Email:       "admin@buon18.com",
@@ -58,8 +61,10 @@ func TestSettingRoutes(t *testing.T) {
 		req.Header.Add("Authorization", "Bearer "+token)
 		router.ServeHTTP(w, req)
 
-		expectedBodyJSON := `{"code":200,"message":"","data":{"users":[{"id":1,"name":"bot","email":"bot@buon18.com","type":"bot","role":{"id":1,"name":"bot","description":"BOT","Permissions":[{"id":1,"name":"FULL_ACCESS"}]}},{"id":2,"name":"admin","email":"admin@buon18.com","type":"user","role":{"id":1,"name":"bot","description":"BOT","Permissions":[{"id":1,"name":"FULL_ACCESS"}]}}]}}`
+		expectedBodyJSON := `{"code":200,"message":"","data":{"users":[{"id":1,"name":"bot","email":"bot@buon18.com","type":"bot","role":{"id":1,"name":"bot","description":"BOT","permissions":[{"id":1,"name":"FULL_ACCESS"}]}},{"id":2,"name":"admin","email":"admin@buon18.com","type":"user","role":{"id":1,"name":"bot","description":"BOT","permissions":[{"id":1,"name":"FULL_ACCESS"}]}}]}}`
 		expectedXTotalCountHeader := "2"
+
+		t.Logf("Response: %s", w.Body.String())
 
 		assert.Equal(t, expectedXTotalCountHeader, w.Header().Get("X-Total-Count"))
 		assert.JSONEq(t, expectedBodyJSON, w.Body.String())
@@ -72,7 +77,7 @@ func TestSettingRoutes(t *testing.T) {
 		req.Header.Add("Authorization", "Bearer "+token)
 		router.ServeHTTP(w, req)
 
-		expectedBodyJSON := `{"code":200,"message":"","data":{"users":[{"id":1,"name":"bot","email":"bot@buon18.com","type":"bot","role":{"id":1,"name":"bot","description":"BOT","Permissions":[{"id":1,"name":"FULL_ACCESS"}]}}]}}`
+		expectedBodyJSON := `{"code":200,"message":"","data":{"users":[{"id":1,"name":"bot","email":"bot@buon18.com","type":"bot","role":{"id":1,"name":"bot","description":"BOT","permissions":[{"id":1,"name":"FULL_ACCESS"}]}}]}}`
 		expectedXTotalCountHeader := "1"
 
 		assert.Equal(t, expectedXTotalCountHeader, w.Header().Get("X-Total-Count"))
@@ -86,7 +91,7 @@ func TestSettingRoutes(t *testing.T) {
 		req.Header.Add("Authorization", "Bearer "+token)
 		router.ServeHTTP(w, req)
 
-		expectedBodyJSON := `{"code":200,"message":"","data":{"users":[{"id":2,"name":"admin","email":"admin@buon18.com","type":"user","role":{"id":1,"name":"bot","description":"BOT","Permissions":[{"id":1,"name":"FULL_ACCESS"}]}},{"id":1,"name":"bot","email":"bot@buon18.com","type":"bot","role":{"id":1,"name":"bot","description":"BOT","Permissions":[{"id":1,"name":"FULL_ACCESS"}]}}]}}`
+		expectedBodyJSON := `{"code":200,"message":"","data":{"users":[{"id":2,"name":"admin","email":"admin@buon18.com","type":"user","role":{"id":1,"name":"bot","description":"BOT","permissions":[{"id":1,"name":"FULL_ACCESS"}]}},{"id":1,"name":"bot","email":"bot@buon18.com","type":"bot","role":{"id":1,"name":"bot","description":"BOT","permissions":[{"id":1,"name":"FULL_ACCESS"}]}}]}}`
 		expectedXTotalCountHeader := "2"
 
 		assert.Equal(t, expectedXTotalCountHeader, w.Header().Get("X-Total-Count"))
@@ -100,7 +105,7 @@ func TestSettingRoutes(t *testing.T) {
 		req.Header.Add("Authorization", "Bearer "+token)
 		router.ServeHTTP(w, req)
 
-		expectedBodyJSON := `{"code":200,"message":"","data":{"users":[{"id":2,"name":"admin","email":"admin@buon18.com","type":"user","role":{"id":1,"name":"bot","description":"BOT","Permissions":[{"id":1,"name":"FULL_ACCESS"}]}}]}}`
+		expectedBodyJSON := `{"code":200,"message":"","data":{"users":[{"id":2,"name":"admin","email":"admin@buon18.com","type":"user","role":{"id":1,"name":"bot","description":"BOT","permissions":[{"id":1,"name":"FULL_ACCESS"}]}}]}}`
 		expectedXTotalCountHeader := "2"
 
 		assert.Equal(t, expectedXTotalCountHeader, w.Header().Get("X-Total-Count"))
@@ -114,7 +119,7 @@ func TestSettingRoutes(t *testing.T) {
 		req.Header.Add("Authorization", "Bearer "+token)
 		router.ServeHTTP(w, req)
 
-		expectedBodyJSON := `{"code":200,"message":"","data":{"user":{"id":1,"name":"bot","email":"bot@buon18.com","type":"bot","role":{"id":1,"name":"bot","description":"BOT","Permissions":[{"id":1,"name":"FULL_ACCESS"}]}}}}`
+		expectedBodyJSON := `{"code":200,"message":"","data":{"user":{"id":1,"name":"bot","email":"bot@buon18.com","type":"bot","role":{"id":1,"name":"bot","description":"BOT","permissions":[{"id":1,"name":"FULL_ACCESS"}]}}}}`
 
 		assert.JSONEq(t, expectedBodyJSON, w.Body.String())
 	})
@@ -190,7 +195,7 @@ func TestSettingRoutes(t *testing.T) {
 		req.Header.Add("Authorization", "Bearer "+token)
 		router.ServeHTTP(w, req)
 
-		expectedBodyJSON := `{"code":200,"message":"","data":{"roles":[{"id":1,"name":"bot","description":"BOT","Permissions":[{"id":1,"name":"FULL_ACCESS"}]},{"id":2,"name":"user","description":"User","Permissions":[{"id":6,"name":"VIEW_PROFILE"},{"id":7,"name":"UPDATE_PROFILE"}]}]}}`
+		expectedBodyJSON := `{"code":200,"message":"","data":{"roles":[{"id":1,"name":"bot","description":"BOT","permissions":[{"id":1,"name":"FULL_ACCESS"}]},{"id":2,"name":"user","description":"User","permissions":[{"id":6,"name":"VIEW_PROFILE"},{"id":7,"name":"UPDATE_PROFILE"}]}]}}`
 
 		assert.JSONEq(t, expectedBodyJSON, w.Body.String())
 	})
@@ -202,7 +207,7 @@ func TestSettingRoutes(t *testing.T) {
 		req.Header.Add("Authorization", "Bearer "+token)
 		router.ServeHTTP(w, req)
 
-		expectedBodyJSON := `{"code":200,"message":"","data":{"roles":[{"id":2,"name":"user","description":"User","Permissions":[{"id":6,"name":"VIEW_PROFILE"},{"id":7,"name":"UPDATE_PROFILE"}]}]}}`
+		expectedBodyJSON := `{"code":200,"message":"","data":{"roles":[{"id":2,"name":"user","description":"User","permissions":[{"id":6,"name":"VIEW_PROFILE"},{"id":7,"name":"UPDATE_PROFILE"}]}]}}`
 		expectedXTotalCountHeader := "1"
 
 		assert.Equal(t, expectedXTotalCountHeader, w.Header().Get("X-Total-Count"))
@@ -216,7 +221,7 @@ func TestSettingRoutes(t *testing.T) {
 		req.Header.Add("Authorization", "Bearer "+token)
 		router.ServeHTTP(w, req)
 
-		expectedBodyJSON := `{"code":200,"message":"","data":{"roles":[{"id":2,"name":"user","description":"User","Permissions":[{"id":6,"name":"VIEW_PROFILE"},{"id":7,"name":"UPDATE_PROFILE"}]},{"id":1,"name":"bot","description":"BOT","Permissions":[{"id":1,"name":"FULL_ACCESS"}]}]}}`
+		expectedBodyJSON := `{"code":200,"message":"","data":{"roles":[{"id":2,"name":"user","description":"User","permissions":[{"id":6,"name":"VIEW_PROFILE"},{"id":7,"name":"UPDATE_PROFILE"}]},{"id":1,"name":"bot","description":"BOT","permissions":[{"id":1,"name":"FULL_ACCESS"}]}]}}`
 		expectedXTotalCountHeader := "2"
 
 		assert.Equal(t, expectedXTotalCountHeader, w.Header().Get("X-Total-Count"))
@@ -230,7 +235,7 @@ func TestSettingRoutes(t *testing.T) {
 		req.Header.Add("Authorization", "Bearer "+token)
 		router.ServeHTTP(w, req)
 
-		expectedBodyJSON := `{"code":200,"message":"","data":{"role":{"id":2,"name":"user","description":"User","Permissions":[{"id":6,"name":"VIEW_PROFILE"},{"id":7,"name":"UPDATE_PROFILE"}]}}}`
+		expectedBodyJSON := `{"code":200,"message":"","data":{"role":{"id":2,"name":"user","description":"User","permissions":[{"id":6,"name":"VIEW_PROFILE"},{"id":7,"name":"UPDATE_PROFILE"}]}}}`
 
 		assert.JSONEq(t, expectedBodyJSON, w.Body.String())
 	})

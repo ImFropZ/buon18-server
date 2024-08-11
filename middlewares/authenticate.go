@@ -72,6 +72,7 @@ func Authenticate(DB *sql.DB) gin.HandlerFunc {
 		if row := DB.QueryRow(query, params...); row.Err() != nil {
 			log.Printf("Error querying user: %v\n", row.Err())
 			c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
+			c.Abort()
 			return
 		} else {
 			var tmpPermission setting.SettingPermission

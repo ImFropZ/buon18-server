@@ -46,7 +46,10 @@ func TestAccountingRoutes(t *testing.T) {
 
 	router := gin.Default()
 	router.Use(middlewares.Authenticate(DB))
-	routes.Accounting(router, DB)
+	routes.Accounting(router, &database.Connection{
+		DB:     DB,
+		Valkey: nil,
+	})
 
 	token, err := utils.GenerateWebToken(utils.WebTokenClaims{
 		Email:       "admin@buon18.com",

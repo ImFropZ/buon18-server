@@ -21,6 +21,15 @@ func main() {
 	DB = database.InitSQL(config.DB_CONNECTION_STRING)
 	defer DB.Close()
 
+	// -- Initialize Valkey
+	valkeyClient := database.InitValkey(config.VALKEY_ADDRESSES, config.VALKEY_PWD)
+	defer (*valkeyClient).Close()
+
+	connection := database.Connection{
+		DB:     DB,
+		Valkey: valkeyClient,
+	}
+
 	router := gin.Default()
 	router.SetTrustedProxies(config.TRUSTED_PROXIES)
 
@@ -38,9 +47,9 @@ func main() {
 
 	// -- Private
 	router.Use(middlewares.Authenticate(DB))
-	routes.Setting(router, DB)
-	routes.Sales(router, DB)
-	routes.Accounting(router, DB)
+	routes.Setting(router, &connection)
+	routes.Sales(router, &connection)
+	routes.Accounting(router, &connection)
 
 	router.Routes()
 
