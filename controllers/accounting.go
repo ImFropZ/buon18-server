@@ -5,18 +5,15 @@ import (
 	"encoding/json"
 	"fmt"
 	"server/models/accounting"
-	services "server/services/accounting"
+	"server/services"
 	"server/utils"
 
 	"github.com/gin-gonic/gin"
 )
 
 type AccountingHandler struct {
-	DB                            *sql.DB
-	AccountingAccountService      *services.AccountingAccountService
-	AccountingPaymentTermService  *services.AccountingPaymentTermService
-	AccountingJournalService      *services.AccountingJournalService
-	AccountingJournalEntryService *services.AccountingJournalEntryService
+	DB            *sql.DB
+	ServiceFacade *services.ServiceFacade
 }
 
 func (handler *AccountingHandler) Accounts(c *gin.Context) {
@@ -25,7 +22,7 @@ func (handler *AccountingHandler) Accounts(c *gin.Context) {
 		PrepareSorts(c, accounting.AccountingAccountAllowSortFields, `"accounting.account"`).
 		PreparePagination(c)
 
-	accounts, total, statusCode, err := handler.AccountingAccountService.Accounts(qp)
+	accounts, total, statusCode, err := handler.ServiceFacade.AccountingAccountService.Accounts(qp)
 	if err != nil {
 		c.JSON(statusCode, utils.NewErrorResponse(statusCode, err.Error()))
 		return
@@ -45,7 +42,7 @@ func (handler *AccountingHandler) Accounts(c *gin.Context) {
 func (handler *AccountingHandler) Account(c *gin.Context) {
 	id := c.Param("id")
 
-	account, statusCode, err := handler.AccountingAccountService.Account(id)
+	account, statusCode, err := handler.ServiceFacade.AccountingAccountService.Account(id)
 	if err != nil {
 		c.JSON(statusCode, utils.NewErrorResponse(statusCode, err.Error()))
 		return
@@ -62,7 +59,7 @@ func (handler *AccountingHandler) PaymentTerms(c *gin.Context) {
 		PrepareSorts(c, accounting.AccountingPaymentTermAllowSortFields, `"limited_payment_terms"`).
 		PreparePagination(c)
 
-	paymentTerms, total, statusCode, err := handler.AccountingPaymentTermService.PaymentTerms(qp)
+	paymentTerms, total, statusCode, err := handler.ServiceFacade.AccountingPaymentTermService.PaymentTerms(qp)
 	if err != nil {
 		c.JSON(statusCode, utils.NewErrorResponse(statusCode, err.Error()))
 		return
@@ -82,7 +79,7 @@ func (handler *AccountingHandler) PaymentTerms(c *gin.Context) {
 func (handler *AccountingHandler) PaymentTerm(c *gin.Context) {
 	id := c.Param("id")
 
-	paymentTerm, statusCode, err := handler.AccountingPaymentTermService.PaymentTerm(id)
+	paymentTerm, statusCode, err := handler.ServiceFacade.AccountingPaymentTermService.PaymentTerm(id)
 	if err != nil {
 		c.JSON(statusCode, utils.NewErrorResponse(statusCode, err.Error()))
 		return
@@ -99,7 +96,7 @@ func (handler *AccountingHandler) Journals(c *gin.Context) {
 		PrepareSorts(c, accounting.AccountingJournalAllowSortFields, `"limited_journals"`).
 		PreparePagination(c)
 
-	journals, total, statusCode, err := handler.AccountingJournalService.Journals(qp)
+	journals, total, statusCode, err := handler.ServiceFacade.AccountingJournalService.Journals(qp)
 	if err != nil {
 		c.JSON(statusCode, utils.NewErrorResponse(statusCode, err.Error()))
 		return
@@ -119,7 +116,7 @@ func (handler *AccountingHandler) Journals(c *gin.Context) {
 func (handler *AccountingHandler) Journal(c *gin.Context) {
 	id := c.Param("id")
 
-	journal, statusCode, err := handler.AccountingJournalService.Journal(id)
+	journal, statusCode, err := handler.ServiceFacade.AccountingJournalService.Journal(id)
 	if err != nil {
 		c.JSON(statusCode, utils.NewErrorResponse(statusCode, err.Error()))
 		return
@@ -136,7 +133,7 @@ func (handler *AccountingHandler) JournalEntries(c *gin.Context) {
 		PrepareSorts(c, accounting.AccountingJournalEntryAllowSortFields, `"limited_journal_entries"`).
 		PreparePagination(c)
 
-	journalEntries, total, statusCode, err := handler.AccountingJournalEntryService.JournalEntries(qp)
+	journalEntries, total, statusCode, err := handler.ServiceFacade.AccountingJournalEntryService.JournalEntries(qp)
 	if err != nil {
 		c.JSON(statusCode, utils.NewErrorResponse(statusCode, err.Error()))
 		return

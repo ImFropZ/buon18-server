@@ -5,16 +5,15 @@ import (
 	"encoding/json"
 	"fmt"
 	"server/models/sales"
-	services "server/services/sales"
+	"server/services"
 	"server/utils"
 
 	"github.com/gin-gonic/gin"
 )
 
 type SalesHandler struct {
-	DB                    *sql.DB
-	SalesQuotationService *services.SalesQuotationService
-	SalesOrderService     *services.SalesOrderService
+	DB            *sql.DB
+	ServiceFacade *services.ServiceFacade
 }
 
 func (handler *SalesHandler) Quotations(c *gin.Context) {
@@ -23,7 +22,7 @@ func (handler *SalesHandler) Quotations(c *gin.Context) {
 		PrepareSorts(c, sales.SalesQuotationAllowSortFields, `"limited_quotations"`).
 		PreparePagination(c)
 
-	quotations, total, statusCode, err := handler.SalesQuotationService.Quotations(qp)
+	quotations, total, statusCode, err := handler.ServiceFacade.SalesQuotationService.Quotations(qp)
 	if err != nil {
 		c.JSON(statusCode, utils.NewErrorResponse(statusCode, err.Error()))
 		return
@@ -43,7 +42,7 @@ func (handler *SalesHandler) Quotations(c *gin.Context) {
 func (handler *SalesHandler) Quotation(c *gin.Context) {
 	id := c.Param("id")
 
-	quotation, statusCode, err := handler.SalesQuotationService.Quotation(id)
+	quotation, statusCode, err := handler.ServiceFacade.SalesQuotationService.Quotation(id)
 	if err != nil {
 		c.JSON(statusCode, utils.NewErrorResponse(statusCode, err.Error()))
 		return
@@ -60,7 +59,7 @@ func (handler *SalesHandler) Orders(c *gin.Context) {
 		PrepareSorts(c, sales.SalesOrderAllowSortFields, `"limited_orders"`).
 		PreparePagination(c)
 
-	orders, total, statusCode, err := handler.SalesOrderService.Orders(qp)
+	orders, total, statusCode, err := handler.ServiceFacade.SalesOrderService.Orders(qp)
 	if err != nil {
 		c.JSON(statusCode, utils.NewErrorResponse(statusCode, err.Error()))
 		return
@@ -80,7 +79,7 @@ func (handler *SalesHandler) Orders(c *gin.Context) {
 func (handler *SalesHandler) Order(c *gin.Context) {
 	id := c.Param("id")
 
-	order, statusCode, err := handler.SalesOrderService.Order(id)
+	order, statusCode, err := handler.ServiceFacade.SalesOrderService.Order(id)
 	if err != nil {
 		c.JSON(statusCode, utils.NewErrorResponse(statusCode, err.Error()))
 		return

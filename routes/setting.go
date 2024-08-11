@@ -5,7 +5,8 @@ import (
 	"server/database"
 	"server/middlewares"
 	"server/models/setting"
-	service "server/services/setting"
+	"server/services"
+	settingServices "server/services/setting"
 	"server/utils"
 
 	"github.com/gin-gonic/gin"
@@ -13,10 +14,12 @@ import (
 
 func Setting(e *gin.Engine, connection *database.Connection) {
 	handler := controllers.SettingHandler{
-		DB:                     connection.DB,
-		SettingUserService:     &service.SettingUserService{DB: connection.DB},
-		SettingCustomerService: &service.SettingCustomerService{DB: connection.DB},
-		SettingRoleService:     &service.SettingRoleService{DB: connection.DB},
+		DB: connection.DB,
+		ServiceFacade: &services.ServiceFacade{
+			SettingCustomerService: &settingServices.SettingCustomerService{DB: connection.DB},
+			SettingRoleService:     &settingServices.SettingRoleService{DB: connection.DB},
+			SettingUserService:     &settingServices.SettingUserService{DB: connection.DB},
+		},
 	}
 
 	e.GET(

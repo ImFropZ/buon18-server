@@ -5,17 +5,15 @@ import (
 	"encoding/json"
 	"fmt"
 	"server/models/setting"
-	services "server/services/setting"
+	"server/services"
 	"server/utils"
 
 	"github.com/gin-gonic/gin"
 )
 
 type SettingHandler struct {
-	DB                     *sql.DB
-	SettingUserService     *services.SettingUserService
-	SettingCustomerService *services.SettingCustomerService
-	SettingRoleService     *services.SettingRoleService
+	DB            *sql.DB
+	ServiceFacade *services.ServiceFacade
 }
 
 func (handler *SettingHandler) Users(c *gin.Context) {
@@ -24,7 +22,7 @@ func (handler *SettingHandler) Users(c *gin.Context) {
 		PrepareSorts(c, setting.SettingUserAllowSortFields, `"limited_users"`).
 		PreparePagination(c)
 
-	users, total, statusCode, err := handler.SettingUserService.Users(qp)
+	users, total, statusCode, err := handler.ServiceFacade.SettingUserService.Users(qp)
 	if err != nil {
 		c.JSON(statusCode, utils.NewErrorResponse(statusCode, err.Error()))
 		return
@@ -44,7 +42,7 @@ func (handler *SettingHandler) Users(c *gin.Context) {
 func (handler *SettingHandler) User(c *gin.Context) {
 	id := c.Param("id")
 
-	user, statusCode, err := handler.SettingUserService.User(id)
+	user, statusCode, err := handler.ServiceFacade.SettingUserService.User(id)
 	if err != nil {
 		c.JSON(statusCode, utils.NewErrorResponse(statusCode, err.Error()))
 		return
@@ -61,7 +59,7 @@ func (handler *SettingHandler) Customers(c *gin.Context) {
 		PrepareSorts(c, setting.SettingCustomerAllowSortFields, `"limited_customers"`).
 		PreparePagination(c)
 
-	customers, total, statusCode, err := handler.SettingCustomerService.Customers(qp)
+	customers, total, statusCode, err := handler.ServiceFacade.SettingCustomerService.Customers(qp)
 	if err != nil {
 		c.JSON(statusCode, utils.NewErrorResponse(statusCode, err.Error()))
 		return
@@ -81,7 +79,7 @@ func (handler *SettingHandler) Customers(c *gin.Context) {
 func (handler *SettingHandler) Customer(c *gin.Context) {
 	id := c.Param("id")
 
-	customer, statusCode, err := handler.SettingCustomerService.Customer(id)
+	customer, statusCode, err := handler.ServiceFacade.SettingCustomerService.Customer(id)
 	if err != nil {
 		c.JSON(statusCode, utils.NewErrorResponse(statusCode, err.Error()))
 		return
@@ -98,7 +96,7 @@ func (handler *SettingHandler) Roles(c *gin.Context) {
 		PrepareSorts(c, setting.SettingRoleAllowSortFields, `"limited_roles"`).
 		PreparePagination(c)
 
-	roles, total, statusCode, err := handler.SettingRoleService.Roles(qp)
+	roles, total, statusCode, err := handler.ServiceFacade.SettingRoleService.Roles(qp)
 	if err != nil {
 		c.JSON(statusCode, utils.NewErrorResponse(statusCode, err.Error()))
 		return
@@ -118,7 +116,7 @@ func (handler *SettingHandler) Roles(c *gin.Context) {
 func (handler *SettingHandler) Role(c *gin.Context) {
 	id := c.Param("id")
 
-	role, statusCode, err := handler.SettingRoleService.Role(id)
+	role, statusCode, err := handler.ServiceFacade.SettingRoleService.Role(id)
 	if err != nil {
 		c.JSON(statusCode, utils.NewErrorResponse(statusCode, err.Error()))
 		return

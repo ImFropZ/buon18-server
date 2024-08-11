@@ -5,7 +5,8 @@ import (
 	"server/database"
 	"server/middlewares"
 	"server/models/sales"
-	service "server/services/sales"
+	"server/services"
+	salesServices "server/services/sales"
 	"server/utils"
 
 	"github.com/gin-gonic/gin"
@@ -13,9 +14,11 @@ import (
 
 func Sales(e *gin.Engine, connection *database.Connection) {
 	handler := controllers.SalesHandler{
-		DB:                    connection.DB,
-		SalesQuotationService: &service.SalesQuotationService{DB: connection.DB},
-		SalesOrderService:     &service.SalesOrderService{DB: connection.DB},
+		DB: connection.DB,
+		ServiceFacade: &services.ServiceFacade{
+			SalesOrderService:     &salesServices.SalesOrderService{DB: connection.DB},
+			SalesQuotationService: &salesServices.SalesQuotationService{DB: connection.DB},
+		},
 	}
 
 	e.GET(

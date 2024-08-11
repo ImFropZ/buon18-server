@@ -9,8 +9,8 @@ import (
 )
 
 type AuthHandler struct {
-	DB          *sql.DB
-	AuthService *services.AuthService
+	DB            *sql.DB
+	ServiceFacade *services.ServiceFacade
 }
 
 func (handler *AuthHandler) Me(c *gin.Context) {
@@ -20,7 +20,7 @@ func (handler *AuthHandler) Me(c *gin.Context) {
 		return
 	}
 
-	user, statusCode, err := handler.AuthService.Me(&ctx)
+	user, statusCode, err := handler.ServiceFacade.AuthService.Me(&ctx)
 	if err != nil {
 		c.JSON(statusCode, utils.NewErrorResponse(statusCode, err.Error()))
 		return
@@ -39,7 +39,7 @@ func (handler *AuthHandler) Login(c *gin.Context) {
 		return
 	}
 
-	tokenAndRefreshToken, statusCode, err := handler.AuthService.Login(&req)
+	tokenAndRefreshToken, statusCode, err := handler.ServiceFacade.AuthService.Login(&req)
 	if err != nil {
 		c.JSON(statusCode, utils.NewErrorResponse(statusCode, err.Error()))
 		return
@@ -56,7 +56,7 @@ func (handler *AuthHandler) RefreshToken(c *gin.Context) {
 		return
 	}
 
-	tokenAndRefreshToken, statusCode, err := handler.AuthService.RefreshToken(&req)
+	tokenAndRefreshToken, statusCode, err := handler.ServiceFacade.AuthService.RefreshToken(&req)
 	if err != nil {
 		c.JSON(statusCode, utils.NewErrorResponse(statusCode, err.Error()))
 		return
@@ -79,7 +79,7 @@ func (handler *AuthHandler) UpdatePassword(c *gin.Context) {
 		return
 	}
 
-	message, statusCode, err := handler.AuthService.UpdatePassword(&ctx, &req)
+	message, statusCode, err := handler.ServiceFacade.AuthService.UpdatePassword(&ctx, &req)
 	if err != nil {
 		c.JSON(statusCode, utils.NewErrorResponse(statusCode, err.Error()))
 		return
@@ -106,7 +106,7 @@ func (handler *AuthHandler) UpdateProfile(c *gin.Context) {
 		return
 	}
 
-	message, statusCode, err := handler.AuthService.UpdateProfile(&ctx, &updateData)
+	message, statusCode, err := handler.ServiceFacade.AuthService.UpdateProfile(&ctx, &updateData)
 	if err != nil {
 		c.JSON(statusCode, utils.NewErrorResponse(statusCode, err.Error()))
 		return

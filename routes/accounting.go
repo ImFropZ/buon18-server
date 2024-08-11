@@ -5,7 +5,8 @@ import (
 	"server/database"
 	"server/middlewares"
 	"server/models/accounting"
-	services "server/services/accounting"
+	"server/services"
+	accountingServices "server/services/accounting"
 	"server/utils"
 
 	"github.com/gin-gonic/gin"
@@ -13,11 +14,13 @@ import (
 
 func Accounting(e *gin.Engine, connection *database.Connection) {
 	handler := controllers.AccountingHandler{
-		DB:                            connection.DB,
-		AccountingPaymentTermService:  &services.AccountingPaymentTermService{DB: connection.DB},
-		AccountingAccountService:      &services.AccountingAccountService{DB: connection.DB},
-		AccountingJournalService:      &services.AccountingJournalService{DB: connection.DB},
-		AccountingJournalEntryService: &services.AccountingJournalEntryService{DB: connection.DB},
+		DB: connection.DB,
+		ServiceFacade: &services.ServiceFacade{
+			AccountingAccountService:      &accountingServices.AccountingAccountService{DB: connection.DB},
+			AccountingPaymentTermService:  &accountingServices.AccountingPaymentTermService{DB: connection.DB},
+			AccountingJournalService:      &accountingServices.AccountingJournalService{DB: connection.DB},
+			AccountingJournalEntryService: &accountingServices.AccountingJournalEntryService{DB: connection.DB},
+		},
 	}
 
 	e.GET(
