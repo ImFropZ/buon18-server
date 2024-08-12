@@ -7,6 +7,7 @@ import (
 	"log"
 	"server/database"
 	"server/utils"
+	"time"
 
 	"github.com/gin-gonic/gin"
 )
@@ -41,14 +42,32 @@ func ValkeyCache[T interface{}](connection *database.Connection, fieldName strin
 				if value, ok := c.Get("response"); ok {
 					result := value.([]byte)
 					resultStr := string(result)
-					err := (*valkeyClient).Do(ctx, (*valkeyClient).B().Set().Key(c.Request.RequestURI).Value(resultStr).Build()).Error()
+					err := (*valkeyClient).Do(
+						ctx,
+						(*valkeyClient).
+							B().
+							Set().
+							Key(c.Request.RequestURI).
+							Value(resultStr).
+							ExatTimestamp(time.Now().AddDate(0, 0, 1).Unix()).
+							Build(),
+					).Error()
 					if err != nil {
 						log.Printf("ValkeyCache: %v\n", err)
 					}
 				}
 				if value, ok := c.Get("total"); ok {
 					result := utils.IntToStr(value.(int))
-					err := (*valkeyClient).Do(ctx, (*valkeyClient).B().Set().Key(fmt.Sprintf("total_%s", c.Request.RequestURI)).Value(result).Build()).Error()
+					err := (*valkeyClient).Do(
+						ctx,
+						(*valkeyClient).
+							B().
+							Set().
+							Key(fmt.Sprintf("total_%s", c.Request.RequestURI)).
+							Value(result).
+							ExatTimestamp(time.Now().AddDate(0, 0, 1).Unix()).
+							Build(),
+					).Error()
 					if err != nil {
 						log.Printf("ValkeyCache: %v\n", err)
 					}
