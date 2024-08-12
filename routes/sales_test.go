@@ -1,15 +1,20 @@
 package routes_test
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"net/http/httptest"
 	"path/filepath"
 	"server/config"
 	"server/database"
 	"server/middlewares"
+	"server/models"
+	"server/models/sales"
 	"server/routes"
 	"server/utils"
 	"testing"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
@@ -154,6 +159,76 @@ func TestSalesRoutes(t *testing.T) {
 		router.ServeHTTP(w, req)
 
 		expectedBodyJSON := `{"code":404,"message":"order not found","data":null}`
+
+		assert.JSONEq(t, expectedBodyJSON, w.Body.String())
+	})
+
+	t.Run("SuccessCreateQuotation", func(t *testing.T) {
+		w := httptest.NewRecorder()
+
+		testTime, err := time.Parse(time.RFC3339, "2021-07-01T00:00:00Z")
+		assert.NoError(t, err)
+
+		request := sales.SalesQuotationCreateRequest{
+			Name:           "Quotation 7",
+			CustomerId:     500,
+			CreationDate:   testTime,
+			ValidityDate:   testTime.AddDate(0, 0, 30),
+			Discount:       0,
+			AmountDelivery: 0,
+			Status:         models.SalesQuotationStatusQuotation,
+			SalesOrderItems: []sales.SalesOrderItemCreateRequest{
+				{
+					Name:        "Item 7",
+					Description: "Item 7 description",
+					Price:       4000,
+					Discount:    0,
+				},
+			},
+		}
+		jsonData, err := json.Marshal(request)
+		assert.NoError(t, err)
+
+		req := httptest.NewRequest("POST", "/api/sales/quotations", bytes.NewReader(jsonData))
+		req.Header.Add("Authorization", "Bearer "+token)
+		router.ServeHTTP(w, req)
+
+		expectedBodyJSON := `{"code":201,"message":"quotation created successfully","data":null}`
+
+		assert.JSONEq(t, expectedBodyJSON, w.Body.String())
+	})
+
+	t.Run("FailedCreateQuotation", func(t *testing.T) {
+		w := httptest.NewRecorder()
+
+		testTime, err := time.Parse(time.RFC3339, "2021-07-01T00:00:00Z")
+		assert.NoError(t, err)
+
+		request := sales.SalesQuotationCreateRequest{
+			Name:           "Quotation 1",
+			CustomerId:     500,
+			CreationDate:   testTime,
+			ValidityDate:   testTime.AddDate(0, 0, 30),
+			Discount:       0,
+			AmountDelivery: 0,
+			Status:         models.SalesQuotationStatusQuotation,
+			SalesOrderItems: []sales.SalesOrderItemCreateRequest{
+				{
+					Name:        "Item 7",
+					Description: "Item 7 description",
+					Price:       4000,
+					Discount:    0,
+				},
+			},
+		}
+		jsonData, err := json.Marshal(request)
+		assert.NoError(t, err)
+
+		req := httptest.NewRequest("POST", "/api/sales/quotations", bytes.NewReader(jsonData))
+		req.Header.Add("Authorization", "Bearer "+token)
+		router.ServeHTTP(w, req)
+
+		expectedBodyJSON := `{"code":409,"message":"quotation name already exists","data":null}`
 
 		assert.JSONEq(t, expectedBodyJSON, w.Body.String())
 	})
