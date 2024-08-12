@@ -260,6 +260,57 @@ func TestSettingRoutes(t *testing.T) {
 		assert.JSONEq(t, expectedBodyJSON, w.Body.String())
 	})
 
+	t.Run("SuccessCreateCustomer", func(t *testing.T) {
+		w := httptest.NewRecorder()
+
+		request := setting.SettingCustomerCreateRequest{
+			FullName:              "success test",
+			Gender:                "m",
+			Email:                 "success-test@buon18.com",
+			Phone:                 "+85512123123",
+			AdditionalInformation: `{"note":"This is a dummy data from test"}`,
+		}
+
+		jsonData, err := json.Marshal(request)
+		assert.NoError(t, err)
+
+		req := httptest.NewRequest("POST", "/api/setting/customers", bytes.NewReader(jsonData))
+		req.Header.Add("Authorization", "Bearer "+token)
+		router.ServeHTTP(w, req)
+
+		expectedBodyJSON := `{"code":201,"message":"customer created successfully","data":null}`
+
+		assert.JSONEq(t, expectedBodyJSON, w.Body.String())
+	})
+
+	t.Run("FailedCreateCustomer", func(t *testing.T) {
+		w := httptest.NewRecorder()
+
+		request := setting.SettingCustomerCreateRequest{
+			FullName:              "failed test",
+			Gender:                "m",
+			Email:                 "failed-test@buon18.com",
+			Phone:                 "+85512123123",
+			AdditionalInformation: `{}`,
+		}
+
+		jsonData, err := json.Marshal(request)
+		assert.NoError(t, err)
+
+		req := httptest.NewRequest("POST", "/api/setting/customers", bytes.NewReader(jsonData))
+		req.Header.Add("Authorization", "Bearer "+token)
+		router.ServeHTTP(w, req)
+
+		w = httptest.NewRecorder()
+
+		req = httptest.NewRequest("POST", "/api/setting/customers", bytes.NewReader(jsonData))
+		req.Header.Add("Authorization", "Bearer "+token)
+		router.ServeHTTP(w, req)
+
+		expectedBodyJSON := `{"code":409,"message":"customer email already exists","data":null}`
+		assert.JSONEq(t, expectedBodyJSON, w.Body.String())
+	})
+
 	t.Run("SuccessCreateRole", func(t *testing.T) {
 		w := httptest.NewRecorder()
 
