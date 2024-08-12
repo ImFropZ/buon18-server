@@ -8,6 +8,9 @@ services:
       - POSTGRES_PASSWORD=postgres
     ports:
       - "5432:5432"
+    volumes:
+      - ./db/data:/var/lib/postgresql/data
+      - ./db/init:/docker-entrypoint-initdb.d
   valkey:
     image: valkey/valkey:8.0-alpine
     container_name: buon18-system-valkey
@@ -19,7 +22,7 @@ services:
       - ./valkey/valkey.conf:/etc/valkey/valkey.conf
     command: ["valkey-server", "/etc/valkey/valkey.conf"]
   server:
-    image: buon18/system-server:1.0.1
+    image: buon18/system-server:2.0.0-a.1
     container_name: buon18-system-server
     restart: unless-stopped
     depends_on:

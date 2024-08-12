@@ -50,14 +50,10 @@ func Authenticate(DB *sql.DB) gin.HandlerFunc {
 			COALESCE("setting.permission".name, '')
 		FROM 
 			"setting.user"
-		LEFT JOIN 
-			"setting.role" ON "setting.user".setting_role_id = "setting.role".id
-		LEFT JOIN 
-			"setting.role_permission" ON "setting.role".id = "setting.role_permission".setting_role_id 
-		LEFT JOIN 
-			"setting.permission" ON "setting.role_permission".setting_permission_id = "setting.permission".id
-		WHERE 
-			"setting.user".email = ?
+		LEFT JOIN "setting.role" ON "setting.user".setting_role_id = "setting.role".id
+		LEFT JOIN "setting.role_permission" ON "setting.role".id = "setting.role_permission".setting_role_id 
+		LEFT JOIN "setting.permission" ON "setting.role_permission".setting_permission_id = "setting.permission".id
+		WHERE "setting.user".email = ?
 		ORDER BY "setting.user".email, "setting.role".id, "setting.permission".id`, claims.Email).ToPgsql()
 		if err != nil {
 			c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
@@ -66,31 +62,28 @@ func Authenticate(DB *sql.DB) gin.HandlerFunc {
 		}
 
 		// -- Validate user
-		var user setting.SettingUser
-		var role setting.SettingRole
-		permissions := make([]setting.SettingPermission, 0)
-		if row := DB.QueryRow(query, params...); row.Err() != nil {
-			log.Printf("Error querying user: %v\n", row.Err())
+		rows, err := DB.Query(query, params...)
+		if err != nil {
+			log.Printf("Error querying user: %v\n", err)
 			c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
 			c.Abort()
 			return
-		} else {
-			var tmpPermission setting.SettingPermission
-			if err := row.Scan(&user.Id, &user.Name, &user.Email, &user.Typ, &role.Id, &role.Name, &role.Description, &tmpPermission.Id, &tmpPermission.Name); err != nil {
-				if err == sql.ErrNoRows {
-					c.JSON(401, utils.NewErrorResponse(401, "contact your administrator to create an account"))
-					c.Abort()
-					return
-				}
+		}
 
+		var user setting.SettingUser
+		var role setting.SettingRole
+		permissions := make([]setting.SettingPermission, 0)
+		for rows.Next() {
+			var permission setting.SettingPermission
+			err = rows.Scan(&user.Id, &user.Name, &user.Email, &user.Typ, &role.Id, &role.Name, &role.Description, &permission.Id, &permission.Name)
+			if err != nil {
 				log.Printf("Error scanning user: %v\n", err)
 				c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
 				c.Abort()
 				return
 			}
 
-			// -- Append permission
-			permissions = append(permissions, tmpPermission)
+			permissions = append(permissions, permission)
 		}
 
 		// -- Set user info
