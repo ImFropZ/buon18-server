@@ -231,4 +231,28 @@ func TestAccountingRoutes(t *testing.T) {
 
 		assert.JSONEq(t, expectedBodyJSON, w.Body.String())
 	})
+
+	t.Run("SuccessGetJournalEntryById", func(t *testing.T) {
+		w := httptest.NewRecorder()
+
+		req := httptest.NewRequest("GET", "/api/accounting/journal-entries/1", nil)
+		req.Header.Add("Authorization", "Bearer "+token)
+		router.ServeHTTP(w, req)
+
+		expectedBodyJSON := `{"code":200,"message":"","data":{"journal_entry":{"id":1,"name":"JE1001","date":"2024-08-09T00:00:00Z","note":"Entry for Sales Journal","status":"posted","amount_total_debit":100,"amount_total_credit":100,"lines":[{"id":1,"sequence":1,"name":"Line 1 for JE1001","amount_debit":100,"amount_credit":0,"account":{"id":1,"name":"Cash","code":"AC1001","type":"asset_current"}},{"id":2,"sequence":2,"name":"Line 2 for JE1001","amount_debit":0,"amount_credit":100,"account":{"id":2,"name":"Accounts Receivable","code":"AC1002","type":"asset_non_current"}}],"journal":{"id":1,"code":"JNL1001","name":"Sales Journal","type":"sales"}}}}`
+
+		assert.JSONEq(t, expectedBodyJSON, w.Body.String())
+	})
+
+	t.Run("NotFoundGetJournalEntryById", func(t *testing.T) {
+		w := httptest.NewRecorder()
+
+		req := httptest.NewRequest("GET", "/api/accounting/journal-entries/0", nil)
+		req.Header.Add("Authorization", "Bearer "+token)
+		router.ServeHTTP(w, req)
+
+		expectedBodyJSON := `{"code":404,"message":"journal entry not found","data":null}`
+
+		assert.JSONEq(t, expectedBodyJSON, w.Body.String())
+	})
 }
