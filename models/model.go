@@ -3,10 +3,16 @@ package models
 import "time"
 
 var (
+	SettingGenderTypMale   = "m"
+	SettingGenderTypFemale = "f"
+	SettingGenderTypOther  = "o"
+
 	// Setting user types
 	SettingUserTypUser = "user"
 	SettingUserTypBot  = "bot"
 )
+
+var VALID_GENDER_TYPES = []string{SettingGenderTypMale, SettingGenderTypFemale, SettingGenderTypOther}
 
 type CommonModel struct {
 	CId   uint

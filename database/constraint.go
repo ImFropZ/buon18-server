@@ -23,7 +23,8 @@ var PQ_ERROR_CODES = map[PQ_KEY_CONSTRAINTS]pq.Error{
 }
 
 const (
-	KEY_SETTING_USER_EMAIL = "setting.user_email_key"
+	KEY_SETTING_USER_EMAIL     = "setting.user_email_key"
+	KEY_SETTING_CUSTOMER_EMAIL = "setting.customer_email_key"
 
 	CHK_EXPIRY_DATE   = "chk_expiry_date"
 	CHK_DELIVERY_DATE = "chk_delivery_date"

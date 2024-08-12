@@ -4,14 +4,18 @@ import (
 	"database/sql"
 	"errors"
 	"log"
+	"server/database"
+	"server/models"
 	"server/models/setting"
 	"server/utils"
 
+	"github.com/lib/pq"
 	"github.com/nullism/bqb"
 )
 
 var (
-	ErrCustomerNotFound = errors.New("customer not found")
+	ErrCustomerNotFound    = errors.New("customer not found")
+	ErrCustomerEmailExists = errors.New("customer email already exists")
 )
 
 type SettingCustomerService struct {
@@ -113,4 +117,42 @@ func (service *SettingCustomerService) Customer(id string) (setting.SettingCusto
 	}
 
 	return setting.SettingCustomerToResponse(customer), 200, nil
+}
+
+func (service *SettingCustomerService) CreateCustomer(ctx *utils.CtxW, customer *setting.SettingCustomerCreateRequest) (int, error) {
+	commonModel := models.CommonModel{}
+	commonModel.PrepareForCreate(ctx.User.Id, ctx.User.Id)
+
+	bqbQuery := bqb.New(`INSERT INTO "setting.customer" (
+		fullname,
+		gender,
+		email,
+		phone,
+		additional_information,
+		cid,
+		ctime,
+		mid,
+		mtime
+	) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`, customer.FullName, customer.Gender, customer.Email, customer.Phone, customer.AdditionalInformation, commonModel.CId, commonModel.CTime, commonModel.MId, commonModel.MTime)
+
+	query, params, err := bqbQuery.ToPgsql()
+	if err != nil {
+		log.Printf("%s", err)
+		return 500, utils.ErrInternalServer
+	}
+
+	_, err = service.DB.Exec(query, params...)
+	if err != nil {
+		if pgErr := err.(*pq.Error); pgErr.Code == database.PQ_ERROR_CODES[database.DUPLICATE].Code {
+			switch pgErr.Constraint {
+			case database.KEY_SETTING_CUSTOMER_EMAIL:
+				return 409, ErrCustomerEmailExists
+			}
+		}
+
+		log.Printf("%s", err)
+		return 500, utils.ErrInternalServer
+	}
+
+	return 201, nil
 }

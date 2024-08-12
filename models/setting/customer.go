@@ -41,3 +41,11 @@ func SettingCustomerToResponse(settingCustomer SettingCustomer) SettingCustomerR
 		AdditionalInformation: additionalInformation,
 	}
 }
+
+type SettingCustomerCreateRequest struct {
+	FullName              string `json:"full_name" validate:"required"`
+	Gender                string `json:"gender" validate:"required,gender"`
+	Email                 string `json:"email" validate:"required,email"`
+	Phone                 string `json:"phone" validate:"required,phone"`
+	AdditionalInformation string `json:"additional_information" validate:"required,json"`
+}
