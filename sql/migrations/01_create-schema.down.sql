@@ -32,7 +32,7 @@ DROP TYPE IF EXISTS "accounting_account_typ";
 
 DROP TYPE IF EXISTS "accounting_journal_typ";
 
-DROP TYPE IF EXISTS "accounting_journal_typaccounting_journal_entry_status_typ";
+DROP TYPE IF EXISTS "accounting_journal_typ";
 
 DROP TYPE IF EXISTS "sales_quotation_status_typ";
 

@@ -1,31 +1,11 @@
 package database
 
-import "github.com/lib/pq"
-
-type PQ_KEY_CONSTRAINTS int
-
-const (
-	DUPLICATE PQ_KEY_CONSTRAINTS = iota
-	VIOLATE_FOREIGN_KEY
-	VIOLATE_CHECK
-)
-
-var PQ_ERROR_CODES = map[PQ_KEY_CONSTRAINTS]pq.Error{
-	DUPLICATE: {
-		Code: "23505",
-	},
-	VIOLATE_FOREIGN_KEY: {
-		Code: "23503",
-	},
-	VIOLATE_CHECK: {
-		Code: "23514",
-	},
-}
-
 const (
 	KEY_SETTING_USER_EMAIL     = "setting.user_email_key"
 	KEY_SETTING_CUSTOMER_EMAIL = "setting.customer_email_key"
+	KEY_SALES_QUOTATION_NAME   = "sales.quotation_name_key"
 
-	CHK_EXPIRY_DATE   = "chk_expiry_date"
-	CHK_DELIVERY_DATE = "chk_delivery_date"
+	FK_SALES_QUOTATION_CUSTOMER_ID = "setting.customer_id_fkey"
+
+	CHK_SALES_QUOTATION_DATE = "sales.quotation_date_chk"
 )

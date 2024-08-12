@@ -208,11 +208,9 @@ func (service *SettingUserService) CreateUser(ctx *utils.CtxW, user *setting.Set
 
 	_, err = service.DB.Exec(query, params...)
 	if err != nil {
-		if pgErr := err.(*pq.Error); pgErr.Code == database.PQ_ERROR_CODES[database.DUPLICATE].Code {
-			switch pgErr.Constraint {
-			case database.KEY_SETTING_USER_EMAIL:
-				return 409, ErrUserEmailExists
-			}
+		switch err.(*pq.Error).Constraint {
+		case database.KEY_SETTING_USER_EMAIL:
+			return 409, ErrUserEmailExists
 		}
 
 		log.Printf("%s", err)
