@@ -34,7 +34,8 @@ func InitValkey(addresses []string, password string) *valkey.Client {
 		Password:    password,
 	})
 	if err != nil {
-		log.Fatalf("Error connecting to valkey: %v\n", err)
+		log.Printf("Error connecting to valkey: %v\n", err)
+		return nil
 	}
 
 	return &client

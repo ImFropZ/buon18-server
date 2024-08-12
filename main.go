@@ -24,7 +24,9 @@ func main() {
 
 	// -- Initialize Valkey
 	valkeyClient := database.InitValkey(config.VALKEY_ADDRESSES, config.VALKEY_PWD)
-	defer (*valkeyClient).Close()
+	if valkeyClient != nil {
+		defer (*valkeyClient).Close()
+	}
 
 	connection := database.Connection{
 		DB:     DB,
