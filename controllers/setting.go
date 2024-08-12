@@ -7,6 +7,7 @@ import (
 	"server/models/setting"
 	"server/services"
 	"server/utils"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 )
@@ -51,6 +52,33 @@ func (handler *SettingHandler) User(c *gin.Context) {
 	c.JSON(statusCode, utils.NewResponse(statusCode, "", gin.H{
 		"user": user,
 	}))
+}
+
+func (handler *SettingHandler) CreateUser(c *gin.Context) {
+	ctx, err := utils.Ctx(c)
+	if err != nil {
+		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
+		return
+	}
+
+	var user setting.SettingUserCreateRequest
+	if err := c.ShouldBindJSON(&user); err != nil {
+		c.JSON(400, utils.NewErrorResponse(400, err.Error()))
+		return
+	}
+
+	if validationErrors, ok := utils.ValidateStruct(user); !ok {
+		c.JSON(400, utils.NewErrorResponse(400, strings.Join(validationErrors, ", ")))
+		return
+	}
+
+	statusCode, err := handler.ServiceFacade.SettingUserService.CreateUser(&ctx, &user)
+	if err != nil {
+		c.JSON(statusCode, utils.NewErrorResponse(statusCode, err.Error()))
+		return
+	}
+
+	c.JSON(statusCode, utils.NewResponse(statusCode, "user created successfully", nil))
 }
 
 func (handler *SettingHandler) Customers(c *gin.Context) {

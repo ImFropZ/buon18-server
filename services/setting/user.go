@@ -4,14 +4,18 @@ import (
 	"database/sql"
 	"errors"
 	"log"
+	"server/database"
+	"server/models"
 	"server/models/setting"
 	"server/utils"
 
+	"github.com/lib/pq"
 	"github.com/nullism/bqb"
 )
 
 var (
 	ErrUserNotFound = errors.New("user not found")
+	ErrEmailExists  = errors.New("email already exists")
 )
 
 type SettingUserService struct {
@@ -183,4 +187,37 @@ func (service *SettingUserService) User(id string) (setting.SettingUserResponse,
 	roleResponse := setting.SettingRoleToResponse(role, permissionsResponse)
 
 	return setting.SettingUserToResponse(user, roleResponse), 200, nil
+}
+
+func (service *SettingUserService) CreateUser(ctx *utils.CtxW, user *setting.SettingUserCreateRequest) (int, error) {
+	commonModel := models.CommonModel{}
+	commonModel.PrepareForCreate(ctx.User.Id, ctx.User.Id)
+
+	bqbQuery := bqb.New(`
+	INSERT INTO
+		"setting.user"
+		(name, email, setting_role_id, cid, ctime, mid, mtime)
+	VALUES
+		(?, ?, ?, ?, ?, ?, ?)
+	`, user.Name, user.Email, user.RoleId, commonModel.CId, commonModel.CTime, commonModel.MId, commonModel.MTime)
+	query, params, err := bqbQuery.ToPgsql()
+	if err != nil {
+		log.Printf("%s", err)
+		return 500, utils.ErrInternalServer
+	}
+
+	_, err = service.DB.Exec(query, params...)
+	if err != nil {
+		if pgErr := err.(*pq.Error); pgErr.Code == database.PQ_ERROR_CODES[database.DUPLICATE].Code {
+			switch pgErr.Constraint {
+			case database.KEY_SETTING_USER_EMAIL:
+				return 400, ErrEmailExists
+			}
+		}
+
+		log.Printf("%s", err)
+		return 500, utils.ErrInternalServer
+	}
+
+	return 201, nil
 }

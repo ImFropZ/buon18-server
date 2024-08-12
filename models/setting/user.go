@@ -35,3 +35,9 @@ func SettingUserToResponse(user SettingUser, role SettingRoleResponse) SettingUs
 		Role:  role,
 	}
 }
+
+type SettingUserCreateRequest struct {
+	Name   string `json:"name" validate:"required"`
+	Email  string `json:"email" validate:"required,email"`
+	RoleId uint   `json:"role_id" validate:"required"`
+}
