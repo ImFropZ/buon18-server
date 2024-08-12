@@ -81,8 +81,8 @@ psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-E
             mid BIGINT NOT NULL,
             mtime TIMESTAMP WITH TIME ZONE NOT NULL,
             PRIMARY KEY (setting_role_id, setting_permission_id),
-            CONSTRAINT fk_role_id FOREIGN KEY (setting_role_id) REFERENCES "setting.role" (id) ON DELETE RESTRICT,
-            CONSTRAINT fk_permission_id FOREIGN KEY (setting_permission_id) REFERENCES "setting.permission" (id) ON DELETE RESTRICT
+            CONSTRAINT "setting.role_id_fkey" FOREIGN KEY (setting_role_id) REFERENCES "setting.role" (id) ON DELETE RESTRICT,
+            CONSTRAINT "setting.permission_id_fkey" FOREIGN KEY (setting_permission_id) REFERENCES "setting.permission" (id) ON DELETE RESTRICT
         );
 
     CREATE TABLE IF NOT EXISTS
@@ -102,7 +102,7 @@ psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-E
             ctime TIMESTAMP WITH TIME ZONE NOT NULL,
             mid BIGINT NOT NULL,
             mtime TIMESTAMP WITH TIME ZONE NOT NULL,
-            FOREIGN KEY (setting_role_id) REFERENCES "setting.role" (id) ON DELETE RESTRICT
+            CONSTRAINT "setting.role_id_fkey" FOREIGN KEY (setting_role_id) REFERENCES "setting.role" (id) ON DELETE RESTRICT
         );
 
     CREATE TABLE IF NOT EXISTS
@@ -143,7 +143,8 @@ psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-E
             ctime TIMESTAMP WITH TIME ZONE NOT NULL,
             mid BIGINT NOT NULL,
             mtime TIMESTAMP WITH TIME ZONE NOT NULL,
-            FOREIGN KEY (setting_customer_id) REFERENCES "setting.customer" (id) ON DELETE RESTRICT
+            CONSTRAINT "setting.customer_id_fkey" FOREIGN KEY (setting_customer_id) REFERENCES "setting.customer" (id) ON DELETE RESTRICT,
+            CONSTRAINT "sales.quotation_date_chk" CHECK (creation_date < validity_date)
         );
 
     CREATE TABLE IF NOT EXISTS
@@ -163,7 +164,7 @@ psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-E
             ctime TIMESTAMP WITH TIME ZONE NOT NULL,
             mid BIGINT NOT NULL,
             mtime TIMESTAMP WITH TIME ZONE NOT NULL,
-            FOREIGN KEY (sales_quotation_id) REFERENCES "sales.quotation" (id) ON DELETE RESTRICT
+            CONSTRAINT "sales.quotation_id_fkey" FOREIGN KEY (sales_quotation_id) REFERENCES "sales.quotation" (id) ON DELETE RESTRICT
         );
 
     CREATE TABLE IF NOT EXISTS
@@ -190,7 +191,7 @@ psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-E
                     1000
             ) PRIMARY KEY,
             sequence INT NOT NULL DEFAULT 0,
-            value_amount_percent DECIMAL (5, 2) NOT NULL DEFAULT 100,
+            value_amount_percent DECIMAL(5, 2) NOT NULL DEFAULT 100,
             number_of_days INT NOT NULL DEFAULT 0,
             accounting_payment_term_id BIGINT NOT NULL,
             -- Timestamps
@@ -198,7 +199,7 @@ psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-E
             ctime TIMESTAMP WITH TIME ZONE NOT NULL,
             mid BIGINT NOT NULL,
             mtime TIMESTAMP WITH TIME ZONE NOT NULL,
-            FOREIGN KEY (accounting_payment_term_id) REFERENCES "accounting.payment_term" (id) ON DELETE RESTRICT
+            CONSTRAINT "accounting.payment_term_id_fkey" FOREIGN KEY (accounting_payment_term_id) REFERENCES "accounting.payment_term" (id) ON DELETE RESTRICT
         );
 
     CREATE TABLE IF NOT EXISTS
@@ -218,8 +219,8 @@ psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-E
             ctime TIMESTAMP WITH TIME ZONE NOT NULL,
             mid BIGINT NOT NULL,
             mtime TIMESTAMP WITH TIME ZONE NOT NULL,
-            FOREIGN KEY (sales_quotation_id) REFERENCES "sales.quotation" (id) ON DELETE RESTRICT,
-            FOREIGN KEY (accounting_payment_term_id) REFERENCES "accounting.payment_term" (id) ON DELETE RESTRICT
+            CONSTRAINT "sales.quotation_id_fkey" FOREIGN KEY (sales_quotation_id) REFERENCES "sales.quotation" (id) ON DELETE RESTRICT,
+            CONSTRAINT "accounting.payment_term_id_fkey" FOREIGN KEY (accounting_payment_term_id) REFERENCES "accounting.payment_term" (id) ON DELETE RESTRICT
         );
 
     CREATE TABLE IF NOT EXISTS
@@ -255,7 +256,7 @@ psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-E
             ctime TIMESTAMP WITH TIME ZONE NOT NULL,
             mid BIGINT NOT NULL,
             mtime TIMESTAMP WITH TIME ZONE NOT NULL,
-            FOREIGN KEY (accounting_account_id) REFERENCES "accounting.account" (id) ON DELETE RESTRICT
+            CONSTRAINT "accounting.account_id_fkey" FOREIGN KEY (accounting_account_id) REFERENCES "accounting.account" (id) ON DELETE RESTRICT
         );
 
     CREATE TABLE IF NOT EXISTS
@@ -275,7 +276,7 @@ psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-E
             ctime TIMESTAMP WITH TIME ZONE NOT NULL,
             mid BIGINT NOT NULL,
             mtime TIMESTAMP WITH TIME ZONE NOT NULL,
-            FOREIGN KEY (accounting_journal_id) REFERENCES "accounting.journal" (id) ON DELETE RESTRICT
+            CONSTRAINT "accounting.journal_id_fkey" FOREIGN KEY (accounting_journal_id) REFERENCES "accounting.journal" (id) ON DELETE RESTRICT
         );
 
     CREATE TABLE IF NOT EXISTS
@@ -296,9 +297,9 @@ psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-E
             ctime TIMESTAMP WITH TIME ZONE NOT NULL,
             mid BIGINT NOT NULL,
             mtime TIMESTAMP WITH TIME ZONE NOT NULL,
-            FOREIGN KEY (accounting_journal_entry_id) REFERENCES "accounting.journal_entry" (id) ON DELETE RESTRICT,
-            FOREIGN KEY (accounting_account_id) REFERENCES "accounting.account" (id) ON DELETE RESTRICT,
-            CHECK (
+            CONSTRAINT "accounting.journal_entry_id_fkey" FOREIGN KEY (accounting_journal_entry_id) REFERENCES "accounting.journal_entry" (id) ON DELETE RESTRICT,
+            CONSTRAINT "accounting.account_id_fkey" FOREIGN KEY (accounting_account_id) REFERENCES "accounting.account" (id) ON DELETE RESTRICT,
+            CONSTRAINT "accounting.journal_entry_line_amount_chk" CHECK (
                 amount_debit > 0
                 OR amount_credit > 0
             )
