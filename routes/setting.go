@@ -60,4 +60,9 @@ func Setting(e *gin.Engine, connection *database.Connection) {
 		middlewares.Authorize([]string{utils.PREDEFINED_PERMISSIONS.FULL_SETTING, utils.PREDEFINED_PERMISSIONS.SETTING_ROLES.VIEW}),
 		handler.Role,
 	)
+	e.POST(
+		"/api/setting/roles",
+		middlewares.Authorize([]string{utils.PREDEFINED_PERMISSIONS.FULL_SETTING, utils.PREDEFINED_PERMISSIONS.SETTING_ROLES.CREATE}),
+		handler.CreateRole,
+	)
 }

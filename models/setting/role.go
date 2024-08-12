@@ -27,3 +27,9 @@ func SettingRoleToResponse(role SettingRole, permissions []SettingPermissionResp
 		Permissions: permissions,
 	}
 }
+
+type SettingRoleCreateRequest struct {
+	Name          string `json:"name" validate:"required"`
+	Description   string `json:"description" validate:"required,max=255"`
+	PermissionIds []uint `json:"permission_ids" validate:"required,gt=0,dive"`
+}

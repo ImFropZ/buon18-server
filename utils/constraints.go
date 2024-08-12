@@ -1,5 +1,21 @@
 package utils
 
+var (
+	FULL_ACCESS_ID     = 1
+	FULL_AUTH_ID       = 2
+	FULL_SETTING_ID    = 3
+	FULL_SALES_ID      = 4
+	FULL_ACCOUNTING_ID = 5
+)
+
+var FULL_PERMISSION_IDS = []string{
+	IntToStr(FULL_ACCESS_ID),
+	IntToStr(FULL_AUTH_ID),
+	IntToStr(FULL_SETTING_ID),
+	IntToStr(FULL_SALES_ID),
+	IntToStr(FULL_ACCOUNTING_ID),
+}
+
 type CommonPermission struct {
 	VIEW   string
 	CREATE string

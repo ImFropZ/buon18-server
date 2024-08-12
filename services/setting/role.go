@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"errors"
 	"log"
+	"server/models"
 	"server/models/setting"
 	"server/utils"
 
@@ -11,7 +12,8 @@ import (
 )
 
 var (
-	ErrRoleNotFound = errors.New("role not found")
+	ErrRoleNotFound                 = errors.New("role not found")
+	ErrCreateRoleWithFullPermission = errors.New("unable to create role with full permission")
 )
 
 type SettingRoleService struct {
@@ -159,4 +161,104 @@ func (service *SettingRoleService) Role(id string) (setting.SettingRoleResponse,
 	}
 
 	return setting.SettingRoleToResponse(role, permissionsResponse), 200, nil
+}
+
+func (service *SettingRoleService) CreateRole(ctx *utils.CtxW, role *setting.SettingRoleCreateRequest) (int, error) {
+	commonModel := models.CommonModel{}
+	commonModel.PrepareForCreate(ctx.User.Id, ctx.User.Id)
+
+	tx, err := service.DB.Begin()
+	if err != nil {
+		log.Printf("%s\n", err)
+		return 500, utils.ErrInternalServer
+	}
+
+	bqbQuery := bqb.New(`SELECT COUNT(*) FROM "setting.permission" WHERE id in (`)
+	hasPermission := true
+	for index, permissionId := range role.PermissionIds {
+		if utils.ContainsString(utils.FULL_PERMISSION_IDS, utils.IntToStr(int(permissionId))) {
+			for _, permission := range ctx.Permissions {
+				if !utils.ContainsString([]string{utils.PREDEFINED_PERMISSIONS.FULL_ACCESS}, permission.Name) {
+					hasPermission = false
+				}
+			}
+		}
+		bqbQuery.Space(`?`, permissionId)
+		if index != len(role.PermissionIds)-1 {
+			bqbQuery.Space(`,`)
+		}
+	}
+	bqbQuery.Space(`)`)
+
+	if !hasPermission {
+		tx.Rollback()
+		return 403, ErrCreateRoleWithFullPermission
+	}
+
+	query, params, err := bqbQuery.ToPgsql()
+	if err != nil {
+		tx.Rollback()
+		log.Printf("%s\n", err)
+		return 500, utils.ErrInternalServer
+	}
+
+	var count int
+	err = tx.QueryRow(query, params...).Scan(&count)
+	if err != nil {
+		tx.Rollback()
+		log.Printf("%s\n", err)
+		return 500, utils.ErrInternalServer
+	}
+
+	if count != len(role.PermissionIds) {
+		tx.Rollback()
+		return 400, errors.New("permission_ids is invalid")
+	}
+
+	bqbQuery = bqb.New(`INSERT INTO "setting.role" (name, description, cid, ctime, mid, mtime) VALUES (?, ?, ?, ?, ?, ?) RETURNING id`, role.Name, role.Description, commonModel.CId, commonModel.CTime, commonModel.MId, commonModel.MTime)
+	query, params, err = bqbQuery.ToPgsql()
+	if err != nil {
+		tx.Rollback()
+		log.Printf("%s\n", err)
+		return 500, utils.ErrInternalServer
+	}
+
+	var roleId uint
+	err = tx.QueryRow(query, params...).Scan(&roleId)
+	if err != nil {
+		tx.Rollback()
+		log.Printf("%s\n", err)
+		return 500, utils.ErrInternalServer
+	}
+
+	bqbQuery = bqb.New(`INSERT INTO "setting.role_permission" (setting_role_id, setting_permission_id, cid, ctime, mid, mtime) VALUES`)
+	for index, permissionId := range role.PermissionIds {
+		bqbQuery.Space(`(?, ?, ?, ?, ?, ?)`, roleId, permissionId, commonModel.CId, commonModel.CTime, commonModel.MId, commonModel.MTime)
+		if index != len(role.PermissionIds)-1 {
+			bqbQuery.Space(`,`)
+		}
+	}
+
+	query, params, err = bqbQuery.ToPgsql()
+	if err != nil {
+		tx.Rollback()
+		log.Printf("%s\n", err)
+		return 500, utils.ErrInternalServer
+	}
+
+	_, err = tx.Exec(query, params...)
+	if err != nil {
+		tx.Rollback()
+		log.Printf("%s\n", err)
+		return 500, utils.ErrInternalServer
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		tx.Rollback()
+		log.Printf("%s\n", err)
+		return 500, utils.ErrInternalServer
+	}
+
+	return 201, nil
 }

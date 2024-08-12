@@ -154,3 +154,30 @@ func (handler *SettingHandler) Role(c *gin.Context) {
 		"role": role,
 	}))
 }
+
+func (handler *SettingHandler) CreateRole(c *gin.Context) {
+	ctx, err := utils.Ctx(c)
+	if err != nil {
+		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
+		return
+	}
+
+	var role setting.SettingRoleCreateRequest
+	if err := c.ShouldBindJSON(&role); err != nil {
+		c.JSON(400, utils.NewErrorResponse(400, err.Error()))
+		return
+	}
+
+	if validationErrors, ok := utils.ValidateStruct(role); !ok {
+		c.JSON(400, utils.NewErrorResponse(400, strings.Join(validationErrors, ", ")))
+		return
+	}
+
+	statusCode, err := handler.ServiceFacade.SettingRoleService.CreateRole(&ctx, &role)
+	if err != nil {
+		c.JSON(statusCode, utils.NewErrorResponse(statusCode, err.Error()))
+		return
+	}
+
+	c.JSON(statusCode, utils.NewResponse(statusCode, "role created successfully", nil))
+}
