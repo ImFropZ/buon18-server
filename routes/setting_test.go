@@ -1,12 +1,15 @@
 package routes_test
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"net/http/httptest"
 	"path/filepath"
 	"server/config"
 	"server/database"
 	"server/middlewares"
+	"server/models/setting"
 	"server/routes"
 	"server/utils"
 	"testing"
@@ -248,6 +251,46 @@ func TestSettingRoutes(t *testing.T) {
 		router.ServeHTTP(w, req)
 
 		expectedBodyJSON := `{"code":404,"message":"role not found","data":null}`
+
+		assert.JSONEq(t, expectedBodyJSON, w.Body.String())
+	})
+
+	t.Run("SuccessCreateUser", func(t *testing.T) {
+		w := httptest.NewRecorder()
+
+		request := setting.SettingUserCreateRequest{
+			Name:   "test",
+			Email:  "test@buon18.com",
+			RoleId: 2,
+		}
+		jsonData, err := json.Marshal(request)
+		assert.NoError(t, err)
+
+		req := httptest.NewRequest("POST", "/api/setting/users", bytes.NewReader(jsonData))
+		req.Header.Add("Authorization", "Bearer "+token)
+		router.ServeHTTP(w, req)
+
+		expectedBodyJSON := `{"code":201,"message":"user created successfully","data":null}`
+
+		assert.JSONEq(t, expectedBodyJSON, w.Body.String())
+	})
+
+	t.Run("FailedCreateUser", func(t *testing.T) {
+		w := httptest.NewRecorder()
+
+		request := setting.SettingUserCreateRequest{
+			Name:   "test",
+			Email:  "admin@buon18.com",
+			RoleId: 2,
+		}
+		jsonData, err := json.Marshal(request)
+		assert.NoError(t, err)
+
+		req := httptest.NewRequest("POST", "/api/setting/users", bytes.NewReader(jsonData))
+		req.Header.Add("Authorization", "Bearer "+token)
+		router.ServeHTTP(w, req)
+
+		expectedBodyJSON := `{"code":400,"message":"email already exists","data":null}`
 
 		assert.JSONEq(t, expectedBodyJSON, w.Body.String())
 	})
