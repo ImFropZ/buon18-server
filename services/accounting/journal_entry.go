@@ -2,11 +2,16 @@ package accounting
 
 import (
 	"database/sql"
+	"errors"
 	"log"
 	"server/models/accounting"
 	"server/utils"
 
 	"github.com/nullism/bqb"
+)
+
+var (
+	ErrJournalEntryNotFound = errors.New("journal entry not found")
 )
 
 type AccountingJournalEntryService struct {
@@ -147,4 +152,100 @@ func (service *AccountingJournalEntryService) JournalEntries(qp *utils.QueryPara
 	}
 
 	return journalEntriesResponse, total, 200, nil
+}
+
+func (service *AccountingJournalEntryService) JournalEntry(id string) (accounting.AccountingJournalEntryResponse, int, error) {
+	bqbQuery := bqb.New(`WITH limited_journal_entries AS (
+		SELECT
+			"accounting.journal_entry".id,
+			"accounting.journal_entry".name,
+			"accounting.journal_entry".date,
+			"accounting.journal_entry".note,
+			"accounting.journal_entry".status,
+			"accounting.journal_entry".accounting_journal_id
+		FROM
+			"accounting.journal_entry"
+		WHERE
+			"accounting.journal_entry".id = ?
+		)
+		SELECT
+			"limited_journal_entries".id,
+			"limited_journal_entries".name,
+			"limited_journal_entries".date,
+			"limited_journal_entries".note,
+			"limited_journal_entries".status,
+			"accounting.journal_entry_line".id,
+			"accounting.journal_entry_line".sequence,
+			"accounting.journal_entry_line".name,
+			"accounting.journal_entry_line".amount_debit,
+			"accounting.journal_entry_line".amount_credit,
+			"accounting.account".id,
+			"accounting.account".name,
+			"accounting.account".code,
+			"accounting.account".typ,
+			"accounting.journal".id,
+			"accounting.journal".code,
+			"accounting.journal".name,
+			"accounting.journal".typ
+		FROM
+			"limited_journal_entries"
+		INNER JOIN "accounting.journal_entry_line" ON "accounting.journal_entry_line".accounting_journal_entry_id = "limited_journal_entries".id
+		INNER JOIN "accounting.account" ON "accounting.account".id = "accounting.journal_entry_line".accounting_account_id
+		INNER JOIN "accounting.journal" ON "accounting.journal".id = "limited_journal_entries".accounting_journal_id
+		ORDER BY "limited_journal_entries".id ASC, "accounting.journal_entry_line".sequence ASC`, id)
+
+	query, params, err := bqbQuery.ToPgsql()
+	if err != nil {
+		log.Printf("%v", err)
+		return accounting.AccountingJournalEntryResponse{}, 500, utils.ErrInternalServer
+	}
+
+	rows, err := service.DB.Query(query, params...)
+	if err != nil {
+		log.Printf("%v", err)
+		return accounting.AccountingJournalEntryResponse{}, 500, utils.ErrInternalServer
+	}
+
+	journalEntry := accounting.AccountingJournalEntry{}
+	journal := accounting.AccountingJournal{}
+	journalEntryLinesResponse := make([]accounting.AccountingJournalEntryLineResponse, 0)
+	for rows.Next() {
+		tmpJournalEntryLine := accounting.AccountingJournalEntryLine{}
+		tmpAccount := accounting.AccountingAccount{}
+		err := rows.Scan(
+			&journalEntry.Id,
+			&journalEntry.Name,
+			&journalEntry.Date,
+			&journalEntry.Note,
+			&journalEntry.Status,
+			&tmpJournalEntryLine.Id,
+			&tmpJournalEntryLine.Sequence,
+			&tmpJournalEntryLine.Name,
+			&tmpJournalEntryLine.AmountDebit,
+			&tmpJournalEntryLine.AmountCredit,
+			&tmpAccount.Id,
+			&tmpAccount.Name,
+			&tmpAccount.Code,
+			&tmpAccount.Typ,
+			&journal.Id,
+			&journal.Code,
+			&journal.Name,
+			&journal.Typ,
+		)
+		if err != nil {
+			log.Printf("%v", err)
+			return accounting.AccountingJournalEntryResponse{}, 500, utils.ErrInternalServer
+		}
+
+		accountResponse := accounting.AccountingAccountToResponse(tmpAccount)
+		journalEntryLinesResponse = append(journalEntryLinesResponse, accounting.AccountingJournalEntryLineToResponse(tmpJournalEntryLine, accountResponse))
+	}
+
+	if journalEntry.Id == 0 {
+		return accounting.AccountingJournalEntryResponse{}, 404, ErrJournalEntryNotFound
+	}
+
+	journalResponse := accounting.AccountingJournalToResponse(journal, nil)
+
+	return accounting.AccountingJournalEntryToResponse(journalEntry, journalEntryLinesResponse, journalResponse), 200, nil
 }

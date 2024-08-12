@@ -149,3 +149,17 @@ func (handler *AccountingHandler) JournalEntries(c *gin.Context) {
 		c.Set("response", journalEntriesByte)
 	}
 }
+
+func (handler *AccountingHandler) JournalEntry(c *gin.Context) {
+	id := c.Param("id")
+
+	journalEntry, statusCode, err := handler.ServiceFacade.AccountingJournalEntryService.JournalEntry(id)
+	if err != nil {
+		c.JSON(statusCode, utils.NewErrorResponse(statusCode, err.Error()))
+		return
+	}
+
+	c.JSON(statusCode, utils.NewResponse(statusCode, "", gin.H{
+		"journal_entry": journalEntry,
+	}))
+}

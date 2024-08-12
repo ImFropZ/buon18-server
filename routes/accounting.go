@@ -62,4 +62,9 @@ func Accounting(e *gin.Engine, connection *database.Connection) {
 		middlewares.ValkeyCache[[]accounting.AccountingJournalEntry](connection, "journal-entries"),
 		handler.JournalEntries,
 	)
+	e.GET(
+		"/api/accounting/journal-entries/:id",
+		middlewares.Authorize([]string{utils.PREDEFINED_PERMISSIONS.FULL_ACCOUNTING, utils.PREDEFINED_PERMISSIONS.ACCOUNTING_JOURNAL_ENTRIES.VIEW}),
+		handler.JournalEntry,
+	)
 }
