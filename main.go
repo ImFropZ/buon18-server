@@ -2,6 +2,7 @@ package main
 
 import (
 	"database/sql"
+	"fmt"
 	"log"
 	"net/http"
 	"server/config"
@@ -56,7 +57,7 @@ func main() {
 	// -- Start HTTP Server
 	if config.CERT_FILE == "" || config.KEY_FILE == "" {
 		server := &http.Server{
-			Addr:    ":80",
+			Addr:    fmt.Sprintf(":%d", config.PORT),
 			Handler: router,
 		}
 

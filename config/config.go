@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"os"
 	"strconv"
 	"strings"
 	"sync"
@@ -11,6 +12,8 @@ import (
 var lock = &sync.Mutex{}
 
 type Config struct {
+	PORT int
+
 	DB_CONNECTION_STRING string
 	TOKEN_KEY            string
 	REFRESH_TOKEN_KEY    string
@@ -42,6 +45,13 @@ func GetConfigInstance() *Config {
 	if configInstance == nil {
 		lock.Lock()
 		defer lock.Unlock()
+
+		// -- Port
+		port, err := strconv.Atoi(os.Getenv("PORT"))
+		if err != nil {
+			fmt.Println("Error parsing PORT")
+			port = 80
+		}
 
 		// -- Token Duration
 		tokenDuration, err := strconv.Atoi(Env("TOKEN_DURATION_SEC"))
@@ -104,6 +114,8 @@ func GetConfigInstance() *Config {
 		}
 
 		configInstance = &Config{
+			PORT: port,
+
 			// -- Database
 			DB_CONNECTION_STRING: validateEnvString("DB_CONNECTION_STRING"),
 
