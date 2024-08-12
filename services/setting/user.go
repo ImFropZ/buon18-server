@@ -14,8 +14,8 @@ import (
 )
 
 var (
-	ErrUserNotFound = errors.New("user not found")
-	ErrEmailExists  = errors.New("email already exists")
+	ErrUserNotFound    = errors.New("user not found")
+	ErrUserEmailExists = errors.New("user email already exists")
 )
 
 type SettingUserService struct {
@@ -211,7 +211,7 @@ func (service *SettingUserService) CreateUser(ctx *utils.CtxW, user *setting.Set
 		if pgErr := err.(*pq.Error); pgErr.Code == database.PQ_ERROR_CODES[database.DUPLICATE].Code {
 			switch pgErr.Constraint {
 			case database.KEY_SETTING_USER_EMAIL:
-				return 400, ErrEmailExists
+				return 400, ErrUserEmailExists
 			}
 		}
 

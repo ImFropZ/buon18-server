@@ -255,7 +255,7 @@ func TestSettingRoutes(t *testing.T) {
 		req.Header.Add("Authorization", "Bearer "+token)
 		router.ServeHTTP(w, req)
 
-		expectedBodyJSON := `{"code":400,"message":"email already exists","data":null}`
+		expectedBodyJSON := `{"code":400,"message":"user email already exists","data":null}`
 
 		assert.JSONEq(t, expectedBodyJSON, w.Body.String())
 	})
