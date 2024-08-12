@@ -58,3 +58,14 @@ func SalesQuotationToResponse(
 		SalesOrderItems: orderItems,
 	}
 }
+
+type SalesQuotationCreateRequest struct {
+	Name            string                        `json:"name" validate:"required"`
+	CreationDate    time.Time                     `json:"creation_date" validate:"required"`
+	ValidityDate    time.Time                     `json:"validity_date" validate:"required"`
+	Discount        float64                       `json:"discount" validate:"numeric,min=0"`
+	AmountDelivery  float64                       `json:"amount_delivery" validate:"numeric,min=0"`
+	Status          string                        `json:"status" validate:"required,sales_quotation_status"`
+	CustomerId      uint                          `json:"customer_id" validate:"required"`
+	SalesOrderItems []SalesOrderItemCreateRequest `json:"items" validate:"required,gt=0,dive"`
+}

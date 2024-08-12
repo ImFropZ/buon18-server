@@ -4,15 +4,20 @@ import (
 	"database/sql"
 	"errors"
 	"log"
+	"server/database"
+	"server/models"
 	"server/models/sales"
 	"server/models/setting"
 	"server/utils"
 
+	"github.com/lib/pq"
 	"github.com/nullism/bqb"
 )
 
 var (
-	ErrQuotationNotFound = errors.New("quotation not found")
+	ErrQuotationNotFound   = errors.New("quotation not found")
+	ErrQuotationNameExists = errors.New("quotation name already exists")
+	ErrCustomerNotFound    = errors.New("customer not found")
 )
 
 type SalesQuotationService struct {
@@ -221,4 +226,73 @@ func (service *SalesQuotationService) Quotation(id string) (sales.SalesQuotation
 	}
 
 	return sales.SalesQuotationToResponse(quotation, customerResponse, orderItemsResponse), 200, nil
+}
+
+func (service *SalesQuotationService) CreateQuotation(ctx *utils.CtxW, quotation *sales.SalesQuotationCreateRequest) (int, error) {
+	commonModel := models.CommonModel{}
+	commonModel.PrepareForCreate(ctx.User.Id, ctx.User.Id)
+
+	tx, err := service.DB.Begin()
+	if err != nil {
+		log.Printf("%v", err)
+		return 500, utils.ErrInternalServer
+	}
+
+	bqbQuery := bqb.New(`INSERT INTO "sales.quotation" 
+	(name, creation_date, validity_date, discount, status, setting_customer_id, cid, ctime, mid, mtime)
+	VALUES
+	(?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`, quotation.Name, quotation.CreationDate, quotation.ValidityDate, quotation.Discount, quotation.Status, quotation.CustomerId, commonModel.CId, commonModel.CTime, commonModel.MId, commonModel.MTime)
+
+	query, params, err := bqbQuery.ToPgsql()
+	if err != nil {
+		log.Printf("%v", err)
+		tx.Rollback()
+		return 500, utils.ErrInternalServer
+	}
+
+	var id int
+	err = tx.QueryRow(query, params...).Scan(&id)
+	if err != nil {
+		switch err.(*pq.Error).Constraint {
+		case database.KEY_SALES_QUOTATION_NAME:
+			return 409, ErrQuotationNameExists
+		case database.FK_SALES_QUOTATION_CUSTOMER_ID:
+			return 400, ErrCustomerNotFound
+		}
+
+		log.Printf("%v", err)
+		tx.Rollback()
+		return 500, utils.ErrInternalServer
+	}
+
+	bqbQuery = bqb.New(`INSERT INTO "sales.order_item" (name, description, price, sales_quotation_id, cid, ctime, mid, mtime) VALUES`)
+
+	for index, item := range quotation.SalesOrderItems {
+		bqbQuery.Space(`(?, ?, ?, ?, ?, ?, ?, ?)`, item.Name, item.Description, item.Price, id, commonModel.CId, commonModel.CTime, commonModel.MId, commonModel.MTime)
+		if index != len(quotation.SalesOrderItems)-1 {
+			bqbQuery.Space(",")
+		}
+	}
+
+	query, params, err = bqbQuery.ToPgsql()
+	if err != nil {
+		log.Printf("%v", err)
+		tx.Rollback()
+		return 500, utils.ErrInternalServer
+	}
+
+	_, err = tx.Exec(query, params...)
+	if err != nil {
+		log.Printf("%v", err)
+		tx.Rollback()
+		return 500, utils.ErrInternalServer
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		log.Printf("%v", err)
+		return 500, utils.ErrInternalServer
+	}
+
+	return 201, nil
 }

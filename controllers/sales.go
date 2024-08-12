@@ -4,9 +4,11 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"log"
 	"server/models/sales"
 	"server/services"
 	"server/utils"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 )
@@ -51,6 +53,38 @@ func (handler *SalesHandler) Quotation(c *gin.Context) {
 	c.JSON(statusCode, utils.NewResponse(statusCode, "", gin.H{
 		"quotation": quotation,
 	}))
+}
+
+func (handler *SalesHandler) CreateQuotation(c *gin.Context) {
+	ctx, err := utils.Ctx(c)
+	if err != nil {
+		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
+		return
+	}
+
+	var quotation sales.SalesQuotationCreateRequest
+	if err := c.ShouldBindJSON(&quotation); err != nil {
+		log.Printf("Error binding JSON: %s", err)
+		if strings.HasPrefix(err.Error(), "parsing time") {
+			c.JSON(400, utils.NewErrorResponse(400, "invalid date format"))
+			return
+		}
+		c.JSON(400, utils.NewErrorResponse(400, err.Error()))
+		return
+	}
+
+	if validationErrors, ok := utils.ValidateStruct(quotation); !ok {
+		c.JSON(400, utils.NewErrorResponse(400, strings.Join(validationErrors, ", ")))
+		return
+	}
+
+	statusCode, err := handler.ServiceFacade.SalesQuotationService.CreateQuotation(&ctx, &quotation)
+	if err != nil {
+		c.JSON(statusCode, utils.NewErrorResponse(statusCode, err.Error()))
+		return
+	}
+
+	c.JSON(statusCode, utils.NewResponse(statusCode, "quotation created successfully", nil))
 }
 
 func (handler *SalesHandler) Orders(c *gin.Context) {

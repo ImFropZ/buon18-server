@@ -3,6 +3,7 @@ package utils
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"reflect"
 	"regexp"
 	"server/models"
@@ -35,6 +36,16 @@ func ValidateStruct(v interface{}) (validationErrors []string, ok bool) {
 		return false
 	})
 
+	validate.RegisterValidation("sales_quotation_status", func(fl validator.FieldLevel) bool {
+		status := fl.Field().String()
+		for _, validStatus := range models.VALID_SALES_QUOTATION_STATUS {
+			if status == validStatus {
+				return true
+			}
+		}
+		return false
+	})
+
 	validate.RegisterValidation("phone", func(fl validator.FieldLevel) bool {
 		// Define a regex pattern for phone numbers
 		phoneRegex := `^\+?[0-9]{10,15}$` // Example pattern: allows international numbers starting with + and 10-15 digits
@@ -45,6 +56,7 @@ func ValidateStruct(v interface{}) (validationErrors []string, ok bool) {
 	if err := validate.Struct(v); err != nil {
 		var validationErrors []string
 		for _, e := range err.(validator.ValidationErrors) {
+			log.Printf("Validation error: %s", e)
 			switch e.Tag() {
 			case "required":
 				validationErrors = append(validationErrors, fmt.Sprintf("%s is required", jsonFieldName(e.Namespace())))
@@ -64,6 +76,8 @@ func ValidateStruct(v interface{}) (validationErrors []string, ok bool) {
 				validationErrors = append(validationErrors, fmt.Sprintf("%s must be greater than or equal to %s", jsonFieldName(e.Namespace()), e.Param()))
 			case "gender":
 				validationErrors = append(validationErrors, fmt.Sprintf("%s must be one of %s", jsonFieldName(e.Namespace()), models.VALID_GENDER_TYPES))
+			case "sales_quotation_status":
+				validationErrors = append(validationErrors, fmt.Sprintf("%s must be one of %s", jsonFieldName(e.Namespace()), models.VALID_SALES_QUOTATION_STATUS))
 			case "phone":
 				validationErrors = append(validationErrors, fmt.Sprintf("%s is not a valid phone number", jsonFieldName(e.Namespace())))
 			case "json":

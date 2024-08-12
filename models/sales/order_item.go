@@ -32,3 +32,10 @@ func SalesOrderItemToResponse(item SalesOrderItem) SalesOrderItemResponse {
 		AmountTotal: item.Price - item.Discount,
 	}
 }
+
+type SalesOrderItemCreateRequest struct {
+	Name        string  `json:"name" validate:"required,max=63"`
+	Description string  `json:"description" validate:"required,max=255"`
+	Price       float64 `json:"price" validate:"numeric,min=0"`
+	Discount    float64 `json:"discount" validate:"numeric,min=0"`
+}

@@ -3,6 +3,7 @@ package models
 import "time"
 
 var (
+	// Gender
 	SettingGenderTypMale   = "m"
 	SettingGenderTypFemale = "f"
 	SettingGenderTypOther  = "o"
@@ -10,9 +11,16 @@ var (
 	// Setting user types
 	SettingUserTypUser = "user"
 	SettingUserTypBot  = "bot"
+
+	// Sales quotation status
+	SalesQuotationStatusQuotation      = "quotation"
+	SalesQuotationStatusQuotationSent  = "quotation_sent"
+	SalesQuotationStatusSalesOrder     = "sales_order"
+	SalesQuotationStatusSalesCancelled = "cancelled"
 )
 
 var VALID_GENDER_TYPES = []string{SettingGenderTypMale, SettingGenderTypFemale, SettingGenderTypOther}
+var VALID_SALES_QUOTATION_STATUS = []string{SalesQuotationStatusQuotation, SalesQuotationStatusQuotationSent, SalesQuotationStatusSalesOrder, SalesQuotationStatusSalesCancelled}
 
 type CommonModel struct {
 	CId   uint
