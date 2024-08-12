@@ -3,14 +3,20 @@ package utils
 import (
 	"encoding/json"
 	"fmt"
+	"reflect"
 	"regexp"
 	"server/models"
+	"strings"
 
 	"github.com/go-playground/validator/v10"
 )
 
 func ValidateStruct(v interface{}) (validationErrors []string, ok bool) {
 	validate := validator.New()
+
+	validate.RegisterTagNameFunc(func(fld reflect.StructField) string {
+		return fld.Tag.Get("json")
+	})
 
 	validate.RegisterValidation("json", func(fl validator.FieldLevel) bool {
 		if err := json.Unmarshal([]byte(fl.Field().String()), &map[string]interface{}{}); err != nil {
@@ -41,29 +47,29 @@ func ValidateStruct(v interface{}) (validationErrors []string, ok bool) {
 		for _, e := range err.(validator.ValidationErrors) {
 			switch e.Tag() {
 			case "required":
-				validationErrors = append(validationErrors, fmt.Sprintf("%s is required", e.Field()))
+				validationErrors = append(validationErrors, fmt.Sprintf("%s is required", jsonFieldName(e.Namespace())))
 			case "email":
-				validationErrors = append(validationErrors, fmt.Sprintf("%s is not a valid email", e.Field()))
+				validationErrors = append(validationErrors, fmt.Sprintf("%s is not a valid email", jsonFieldName(e.Namespace())))
 			case "gte":
-				validationErrors = append(validationErrors, fmt.Sprintf("%s length must be greater than or equal to %s", e.Field(), e.Param()))
+				validationErrors = append(validationErrors, fmt.Sprintf("%s length must be greater than or equal to %s", jsonFieldName(e.Namespace()), e.Param()))
 			case "gt":
-				validationErrors = append(validationErrors, fmt.Sprintf("%s length must be greater than %s", e.Field(), e.Param()))
+				validationErrors = append(validationErrors, fmt.Sprintf("%s length must be greater than %s", jsonFieldName(e.Namespace()), e.Param()))
 			case "lte":
-				validationErrors = append(validationErrors, fmt.Sprintf("%s length must be less than or equal to %s", e.Field(), e.Param()))
+				validationErrors = append(validationErrors, fmt.Sprintf("%s length must be less than or equal to %s", jsonFieldName(e.Namespace()), e.Param()))
 			case "lt":
-				validationErrors = append(validationErrors, fmt.Sprintf("%s length must be less than %s", e.Field(), e.Param()))
+				validationErrors = append(validationErrors, fmt.Sprintf("%s length must be less than %s", jsonFieldName(e.Namespace()), e.Param()))
 			case "max":
-				validationErrors = append(validationErrors, fmt.Sprintf("%s must be less than or equal to %s", e.Field(), e.Param()))
+				validationErrors = append(validationErrors, fmt.Sprintf("%s must be less than or equal to %s", jsonFieldName(e.Namespace()), e.Param()))
 			case "min":
-				validationErrors = append(validationErrors, fmt.Sprintf("%s must be greater than or equal to %s", e.Field(), e.Param()))
+				validationErrors = append(validationErrors, fmt.Sprintf("%s must be greater than or equal to %s", jsonFieldName(e.Namespace()), e.Param()))
 			case "gender":
-				validationErrors = append(validationErrors, fmt.Sprintf("%s must be one of %s", e.Field(), models.VALID_GENDER_TYPES))
+				validationErrors = append(validationErrors, fmt.Sprintf("%s must be one of %s", jsonFieldName(e.Namespace()), models.VALID_GENDER_TYPES))
 			case "phone":
-				validationErrors = append(validationErrors, fmt.Sprintf("%s is not a valid phone number", e.Field()))
+				validationErrors = append(validationErrors, fmt.Sprintf("%s is not a valid phone number", jsonFieldName(e.Namespace())))
 			case "json":
-				validationErrors = append(validationErrors, fmt.Sprintf("%s is not a valid json string", e.Field()))
+				validationErrors = append(validationErrors, fmt.Sprintf("%s is not a valid json string", jsonFieldName(e.Namespace())))
 			default:
-				validationErrors = append(validationErrors, fmt.Sprintf("%s is invalid", e.Field()))
+				validationErrors = append(validationErrors, fmt.Sprintf("%s is invalid", jsonFieldName(e.Namespace())))
 			}
 		}
 		if len(validationErrors) > 0 {
@@ -72,4 +78,8 @@ func ValidateStruct(v interface{}) (validationErrors []string, ok bool) {
 	}
 	ok = true
 	return
+}
+
+func jsonFieldName(str string) string {
+	return strings.Join(strings.Split(str, ".")[1:], ".")
 }
