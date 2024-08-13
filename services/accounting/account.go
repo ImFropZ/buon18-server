@@ -4,14 +4,18 @@ import (
 	"database/sql"
 	"errors"
 	"log"
+	"server/database"
+	"server/models"
 	"server/models/accounting"
 	"server/utils"
 
+	"github.com/lib/pq"
 	"github.com/nullism/bqb"
 )
 
 var (
-	ErrAccountNotFound = errors.New("account not found")
+	ErrAccountNotFound   = errors.New("account not found")
+	ErrAccountCodeExists = errors.New("account code already exists")
 )
 
 type AccountingAccountService struct {
@@ -98,4 +102,33 @@ func (service *AccountingAccountService) Account(id string) (accounting.Accounti
 	}
 
 	return accounting.AccountingAccountToResponse(account), 200, nil
+}
+
+func (service *AccountingAccountService) CreateAccount(ctx *utils.CtxW, account *accounting.AccountingAccountCreateRequest) (int, error) {
+	commonModel := models.CommonModel{}
+	commonModel.PrepareForCreate(ctx.User.Id, ctx.User.Id)
+
+	bqbQuery := bqb.New(`INSERT INTO "accounting.account" 
+	(name, code, typ, cid, ctime, mid, mtime) 
+	VALUES
+	(?, ?, ?, ?, ?, ?, ?)`, account.Name, account.Code, account.Typ, commonModel.CId, commonModel.CTime, commonModel.MId, commonModel.MTime)
+
+	query, params, err := bqbQuery.ToPgsql()
+	if err != nil {
+		log.Printf("%v", err)
+		return 500, utils.ErrInternalServer
+	}
+
+	_, err = service.DB.Exec(query, params...)
+	if err != nil {
+		switch err.(*pq.Error).Constraint {
+		case database.KEY_ACCOUNTING_ACCOUNT_CODE:
+			return 409, ErrAccountCodeExists
+		}
+
+		log.Printf("%v", err)
+		return 500, utils.ErrInternalServer
+	}
+
+	return 201, nil
 }

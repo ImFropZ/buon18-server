@@ -28,3 +28,9 @@ func AccountingAccountToResponse(account AccountingAccount) AccountingAccountRes
 		Typ:  account.Typ,
 	}
 }
+
+type AccountingAccountCreateRequest struct {
+	Name string `json:"name" validate:"required"`
+	Code string `json:"code" validate:"required"`
+	Typ  string `json:"type" validate:"required,accounting_account_typ"`
+}

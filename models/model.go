@@ -17,10 +17,22 @@ var (
 	SalesQuotationStatusQuotationSent  = "quotation_sent"
 	SalesQuotationStatusSalesOrder     = "sales_order"
 	SalesQuotationStatusSalesCancelled = "cancelled"
+
+	// Accounting account types
+	AccountingAccountTypAssetCurrent        = "asset_current"
+	AccountingAccountTypAssetNonCurrent     = "asset_non_current"
+	AccountingAccountTypLiabilityCurrent    = "liability_current"
+	AccountingAccountTypLiabilityNonCurrent = "liability_non_current"
+	AccountingAccountTypEquity              = "equity"
+	AccountingAccountTypIncome              = "income"
+	AccountingAccountTypExpense             = "expense"
+	AccountingAccountTypGain                = "gain"
+	AccountingAccountTypLoss                = "loss"
 )
 
 var VALID_GENDER_TYPES = []string{SettingGenderTypMale, SettingGenderTypFemale, SettingGenderTypOther}
 var VALID_SALES_QUOTATION_STATUS = []string{SalesQuotationStatusQuotation, SalesQuotationStatusQuotationSent, SalesQuotationStatusSalesOrder, SalesQuotationStatusSalesCancelled}
+var VALID_ACCOUNTING_ACCOUNT_TYPES = []string{AccountingAccountTypAssetCurrent, AccountingAccountTypAssetNonCurrent, AccountingAccountTypLiabilityCurrent, AccountingAccountTypLiabilityNonCurrent, AccountingAccountTypEquity, AccountingAccountTypIncome, AccountingAccountTypExpense, AccountingAccountTypGain, AccountingAccountTypLoss}
 
 type CommonModel struct {
 	CId   uint

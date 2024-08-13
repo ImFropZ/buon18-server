@@ -34,6 +34,11 @@ func Accounting(e *gin.Engine, connection *database.Connection) {
 		middlewares.Authorize([]string{utils.PREDEFINED_PERMISSIONS.FULL_ACCOUNTING, utils.PREDEFINED_PERMISSIONS.ACCOUNTING_ACCOUNTS.VIEW}),
 		handler.Account,
 	)
+	e.POST(
+		"/api/accounting/accounts",
+		middlewares.Authorize([]string{utils.PREDEFINED_PERMISSIONS.FULL_ACCOUNTING, utils.PREDEFINED_PERMISSIONS.ACCOUNTING_ACCOUNTS.CREATE}),
+		handler.CreateAccount,
+	)
 	e.GET(
 		"/api/accounting/payment-terms",
 		middlewares.Authorize([]string{utils.PREDEFINED_PERMISSIONS.FULL_ACCOUNTING, utils.PREDEFINED_PERMISSIONS.ACCOUNTING_PAYMENT_TERMS.VIEW}),
