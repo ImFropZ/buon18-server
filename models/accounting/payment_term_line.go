@@ -29,3 +29,9 @@ func AccountingPaymentTermLineToResponse(line AccountingPaymentTermLine) Account
 		NumberOfDays:       line.NumberOfDays,
 	}
 }
+
+type AccountingPaymentTermLineCreateRequest struct {
+	Sequence           int     `json:"sequence" validate:"required"`
+	ValueAmountPercent float64 `json:"value_amount_percent" validate:"required"`
+	NumberOfDays       int     `json:"number_of_days" validate:"required"`
+}

@@ -4,14 +4,18 @@ import (
 	"database/sql"
 	"errors"
 	"log"
+	"server/database"
+	"server/models"
 	"server/models/accounting"
 	"server/utils"
 
+	"github.com/lib/pq"
 	"github.com/nullism/bqb"
 )
 
 var (
-	ErrPaymentTermNotFound = errors.New("payment term not found")
+	ErrPaymentTermNotFound             = errors.New("payment term not found")
+	ErrAccountingPaymentTermNameExists = errors.New("accounting payment term name already exists")
 )
 
 type AccountingPaymentTermService struct {
@@ -189,4 +193,72 @@ func (service *AccountingPaymentTermService) PaymentTerm(id string) (accounting.
 	}
 
 	return accounting.AccountingPaymentTermToResponse(paymentTerm, paymentTermLinesResponse), 200, nil
+}
+
+func (service *AccountingPaymentTermService) CreatePaymentTerm(ctx *utils.CtxW, paymentTerm *accounting.AccountingPaymentTermCreateRequest) (int, error) {
+	commonModel := models.CommonModel{}
+	commonModel.PrepareForCreate(ctx.User.Id, ctx.User.Id)
+
+	tx, err := service.DB.Begin()
+	if err != nil {
+		log.Printf("%v", err)
+		return 500, utils.ErrInternalServer
+	}
+
+	bqbQuery := bqb.New(`INSERT INTO "accounting.payment_term" 
+	(name, description, cid, ctime, mid, mtime) 
+	VALUES 
+	(?, ?, ?, ?, ?, ?) RETURNING id`, paymentTerm.Name, paymentTerm.Description, commonModel.CId, commonModel.CTime, commonModel.MId, commonModel.MTime)
+
+	query, params, err := bqbQuery.ToPgsql()
+	if err != nil {
+		log.Printf("%v", err)
+		tx.Rollback()
+		return 500, utils.ErrInternalServer
+	}
+
+	var paymentTermId int
+	err = tx.QueryRow(query, params...).Scan(&paymentTermId)
+	if err != nil {
+		tx.Rollback()
+		switch err.(*pq.Error).Constraint {
+		case database.KEY_ACCOUNTING_PAYMENT_TERM_NAME:
+			return 409, ErrAccountingPaymentTermNameExists
+		}
+
+		log.Printf("%v", err)
+		return 500, utils.ErrInternalServer
+	}
+
+	bqbQuery = bqb.New(`INSERT INTO "accounting.payment_term_line"
+	(sequence, value_amount_percent, number_of_days, accounting_payment_term_id, cid, ctime, mid, mtime)
+	VALUES`)
+	for index, paymentTermLine := range paymentTerm.Lines {
+		bqbQuery.Space(`(?, ?, ?, ?, ?, ?, ?, ?)`, paymentTermLine.Sequence, paymentTermLine.ValueAmountPercent, paymentTermLine.NumberOfDays, paymentTermId, commonModel.CId, commonModel.CTime, commonModel.MId, commonModel.MTime)
+		if index != len(paymentTerm.Lines)-1 {
+			bqbQuery.Space(`,`)
+		}
+	}
+
+	query, params, err = bqbQuery.ToPgsql()
+	if err != nil {
+		log.Printf("%v", err)
+		tx.Rollback()
+		return 500, utils.ErrInternalServer
+	}
+
+	_, err = tx.Exec(query, params...)
+	if err != nil {
+		tx.Rollback()
+		log.Printf("%v", err)
+		return 500, utils.ErrInternalServer
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		log.Printf("%v", err)
+		return 500, utils.ErrInternalServer
+	}
+
+	return 201, nil
 }

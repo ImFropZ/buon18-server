@@ -32,3 +32,9 @@ func AccountingPaymentTermToResponse(
 		Lines:       lines,
 	}
 }
+
+type AccountingPaymentTermCreateRequest struct {
+	Name        string                                   `json:"name" validate:"required"`
+	Description string                                   `json:"description" validate:"required"`
+	Lines       []AccountingPaymentTermLineCreateRequest `json:"lines" validate:"required,gt=0,dive"`
+}
