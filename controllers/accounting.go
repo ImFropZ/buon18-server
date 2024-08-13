@@ -78,7 +78,7 @@ func (handler *AccountingHandler) CreateAccount(c *gin.Context) {
 		return
 	}
 
-	c.JSON(statusCode, utils.NewResponse(statusCode, "Account created successfully", nil))
+	c.JSON(statusCode, utils.NewResponse(statusCode, "account created successfully", nil))
 }
 
 func (handler *AccountingHandler) PaymentTerms(c *gin.Context) {

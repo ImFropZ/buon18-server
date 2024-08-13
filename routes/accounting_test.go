@@ -1,12 +1,15 @@
 package routes_test
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"net/http/httptest"
 	"path/filepath"
 	"server/config"
 	"server/database"
 	"server/middlewares"
+	"server/models/accounting"
 	"server/routes"
 	"server/utils"
 	"testing"
@@ -252,6 +255,46 @@ func TestAccountingRoutes(t *testing.T) {
 		router.ServeHTTP(w, req)
 
 		expectedBodyJSON := `{"code":404,"message":"journal entry not found","data":null}`
+
+		assert.JSONEq(t, expectedBodyJSON, w.Body.String())
+	})
+
+	t.Run("SuccessCreateAccount", func(t *testing.T) {
+		w := httptest.NewRecorder()
+
+		request := accounting.AccountingAccountCreateRequest{
+			Name: "New Account",
+			Code: "AC1000",
+			Typ:  "asset_current",
+		}
+		jsonData, err := json.Marshal(request)
+		assert.NoError(t, err)
+
+		req := httptest.NewRequest("POST", "/api/accounting/accounts", bytes.NewReader(jsonData))
+		req.Header.Add("Authorization", "Bearer "+token)
+		router.ServeHTTP(w, req)
+
+		expectedBodyJSON := `{"code":201,"message":"account created successfully","data":null}`
+
+		assert.JSONEq(t, expectedBodyJSON, w.Body.String())
+	})
+
+	t.Run("FailedCreateAccount", func(t *testing.T) {
+		w := httptest.NewRecorder()
+
+		request := accounting.AccountingAccountCreateRequest{
+			Name: "New Account",
+			Code: "AC1001",
+			Typ:  "asset_current",
+		}
+		jsonData, err := json.Marshal(request)
+		assert.NoError(t, err)
+
+		req := httptest.NewRequest("POST", "/api/accounting/accounts", bytes.NewReader(jsonData))
+		req.Header.Add("Authorization", "Bearer "+token)
+		router.ServeHTTP(w, req)
+
+		expectedBodyJSON := `{"code":409,"message":"account code already exists","data":null}`
 
 		assert.JSONEq(t, expectedBodyJSON, w.Body.String())
 	})
