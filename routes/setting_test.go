@@ -29,9 +29,9 @@ func TestSettingRoutes(t *testing.T) {
 		postgres.WithUsername("postgres"),
 		postgres.WithPassword("postgres"),
 		postgres.WithInitScripts(
-			filepath.Join("..", "database", "dev_scripts", "01_create-schema.sh"),
-			filepath.Join("..", "database", "dev_scripts", "02_seed.sh"),
-			filepath.Join("..", "database", "dev_scripts", "03_seed-customer.sh"),
+			filepath.Join("..", "database", "dev_scripts", "001_create-schema.sh"),
+			filepath.Join("..", "database", "dev_scripts", "002_seed.sh"),
+			filepath.Join("..", "database", "dev_scripts", "100_seed-customer.sh"),
 		),
 		postgres.BasicWaitStrategies(),
 	)

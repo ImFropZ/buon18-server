@@ -28,8 +28,8 @@ func TestAuthRoutes(t *testing.T) {
 		postgres.WithUsername("postgres"),
 		postgres.WithPassword("postgres"),
 		postgres.WithInitScripts(
-			filepath.Join("..", "database", "dev_scripts", "01_create-schema.sh"),
-			filepath.Join("..", "database", "dev_scripts", "02_seed.sh"),
+			filepath.Join("..", "database", "dev_scripts", "001_create-schema.sh"),
+			filepath.Join("..", "database", "dev_scripts", "002_seed.sh"),
 		),
 		postgres.BasicWaitStrategies(),
 	)
