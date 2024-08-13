@@ -14,8 +14,8 @@ import (
 )
 
 var (
-	ErrAccountNotFound   = errors.New("account not found")
-	ErrAccountCodeExists = errors.New("account code already exists")
+	ErrAccountNotFound             = errors.New("account not found")
+	ErrAccountingAccountCodeExists = errors.New("accounting account code already exists")
 )
 
 type AccountingAccountService struct {
@@ -123,7 +123,7 @@ func (service *AccountingAccountService) CreateAccount(ctx *utils.CtxW, account 
 	if err != nil {
 		switch err.(*pq.Error).Constraint {
 		case database.KEY_ACCOUNTING_ACCOUNT_CODE:
-			return 409, ErrAccountCodeExists
+			return 409, ErrAccountingAccountCodeExists
 		}
 
 		log.Printf("%v", err)

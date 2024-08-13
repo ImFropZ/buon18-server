@@ -35,3 +35,10 @@ func AccountingJournalToResponse(
 		Account: account,
 	}
 }
+
+type AccountingJournalCreateRequest struct {
+	Code      string `json:"code" validate:"required"`
+	Name      string `json:"name" validate:"required"`
+	Typ       string `json:"type" validate:"required,accounting_journal_typ"`
+	AccountId int    `json:"account_id" validate:"required"`
+}

@@ -28,11 +28,19 @@ var (
 	AccountingAccountTypExpense             = "expense"
 	AccountingAccountTypGain                = "gain"
 	AccountingAccountTypLoss                = "loss"
+
+	// Accounting journal types
+	AccountingJournalTypSales    = "sales"
+	AccountingJournalTypPurchase = "purchase"
+	AccountingJournalTypCash     = "cash"
+	AccountingJournalTypBank     = "bank"
+	AccountingJournalTypGeneral  = "general"
 )
 
 var VALID_GENDER_TYPES = []string{SettingGenderTypMale, SettingGenderTypFemale, SettingGenderTypOther}
 var VALID_SALES_QUOTATION_STATUS = []string{SalesQuotationStatusQuotation, SalesQuotationStatusQuotationSent, SalesQuotationStatusSalesOrder, SalesQuotationStatusSalesCancelled}
 var VALID_ACCOUNTING_ACCOUNT_TYPES = []string{AccountingAccountTypAssetCurrent, AccountingAccountTypAssetNonCurrent, AccountingAccountTypLiabilityCurrent, AccountingAccountTypLiabilityNonCurrent, AccountingAccountTypEquity, AccountingAccountTypIncome, AccountingAccountTypExpense, AccountingAccountTypGain, AccountingAccountTypLoss}
+var VALID_ACCOUNTING_JOURNAL_TYPES = []string{AccountingJournalTypSales, AccountingJournalTypPurchase, AccountingJournalTypCash, AccountingJournalTypBank, AccountingJournalTypGeneral}
 
 type CommonModel struct {
 	CId   uint

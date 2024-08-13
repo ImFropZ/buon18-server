@@ -294,7 +294,7 @@ func TestAccountingRoutes(t *testing.T) {
 		req.Header.Add("Authorization", "Bearer "+token)
 		router.ServeHTTP(w, req)
 
-		expectedBodyJSON := `{"code":409,"message":"account code already exists","data":null}`
+		expectedBodyJSON := `{"code":409,"message":"accounting account code already exists","data":null}`
 
 		assert.JSONEq(t, expectedBodyJSON, w.Body.String())
 	})

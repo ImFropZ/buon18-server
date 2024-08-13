@@ -4,14 +4,18 @@ import (
 	"database/sql"
 	"errors"
 	"log"
+	"server/database"
+	"server/models"
 	"server/models/accounting"
 	"server/utils"
 
+	"github.com/lib/pq"
 	"github.com/nullism/bqb"
 )
 
 var (
-	ErrJournalNotFound = errors.New("journal not found")
+	ErrJournalNotFound             = errors.New("journal not found")
+	ErrAccountingJournalCodeExists = errors.New("accounting journal code already exists")
 )
 
 type AccountingJournalService struct {
@@ -144,4 +148,35 @@ func (service *AccountingJournalService) Journal(id string) (accounting.Accounti
 	accountResponse := accounting.AccountingAccountToResponse(account)
 
 	return accounting.AccountingJournalToResponse(journal, &accountResponse), 200, nil
+}
+
+func (service *AccountingJournalService) CreateJournal(ctx *utils.CtxW, journal *accounting.AccountingJournalCreateRequest) (int, error) {
+	commonModel := models.CommonModel{}
+	commonModel.PrepareForCreate(ctx.User.Id, ctx.User.Id)
+
+	bqbQuery := bqb.New(`INSERT INTO "accounting.journal"
+	(code, name, typ, accounting_account_id, cid, ctime, mid, mtime)
+	VALUES
+	(?, ?, ?, ?, ?, ?, ?, ?)`, journal.Code, journal.Name, journal.Typ, journal.AccountId, commonModel.CId, commonModel.CTime, commonModel.MId, commonModel.MTime)
+
+	query, params, err := bqbQuery.ToPgsql()
+	if err != nil {
+		log.Printf("%v", err)
+		return 500, utils.ErrInternalServer
+	}
+
+	_, err = service.DB.Exec(query, params...)
+	if err != nil {
+		switch err.(*pq.Error).Constraint {
+		case database.FK_ACCOUNTING_ACCOUNT_ID:
+			return 400, ErrAccountNotFound
+		case database.KEY_ACCOUNTING_JOURNAL_CODE:
+			return 409, ErrAccountingJournalCodeExists
+		}
+
+		log.Printf("%v", err)
+		return 500, utils.ErrInternalServer
+	}
+
+	return 201, nil
 }
