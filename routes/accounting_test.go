@@ -298,4 +298,46 @@ func TestAccountingRoutes(t *testing.T) {
 
 		assert.JSONEq(t, expectedBodyJSON, w.Body.String())
 	})
+
+	t.Run("SuccessCreateJournal", func(t *testing.T) {
+		w := httptest.NewRecorder()
+
+		request := accounting.AccountingJournalCreateRequest{
+			Name:      "New Journal",
+			Code:      "JNL1000",
+			Typ:       "sales",
+			AccountId: 1,
+		}
+		jsonData, err := json.Marshal(request)
+		assert.NoError(t, err)
+
+		req := httptest.NewRequest("POST", "/api/accounting/journals", bytes.NewReader(jsonData))
+		req.Header.Add("Authorization", "Bearer "+token)
+		router.ServeHTTP(w, req)
+
+		expectedBodyJSON := `{"code":201,"message":"journal created successfully","data":null}`
+
+		assert.JSONEq(t, expectedBodyJSON, w.Body.String())
+	})
+
+	t.Run("FailedCreateJournal", func(t *testing.T) {
+		w := httptest.NewRecorder()
+
+		request := accounting.AccountingJournalCreateRequest{
+			Name:      "New Journal",
+			Code:      "JNL1001",
+			Typ:       "sales",
+			AccountId: 1,
+		}
+		jsonData, err := json.Marshal(request)
+		assert.NoError(t, err)
+
+		req := httptest.NewRequest("POST", "/api/accounting/journals", bytes.NewReader(jsonData))
+		req.Header.Add("Authorization", "Bearer "+token)
+		router.ServeHTTP(w, req)
+
+		expectedBodyJSON := `{"code":409,"message":"accounting journal code already exists","data":null}`
+
+		assert.JSONEq(t, expectedBodyJSON, w.Body.String())
+	})
 }
