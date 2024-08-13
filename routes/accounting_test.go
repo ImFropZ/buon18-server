@@ -340,4 +340,56 @@ func TestAccountingRoutes(t *testing.T) {
 
 		assert.JSONEq(t, expectedBodyJSON, w.Body.String())
 	})
+
+	t.Run("SuccessCreatePaymentTerm", func(t *testing.T) {
+		w := httptest.NewRecorder()
+
+		request := accounting.AccountingPaymentTermCreateRequest{
+			Name:        "New Payment Term",
+			Description: "New Payment Term",
+			Lines: []accounting.AccountingPaymentTermLineCreateRequest{
+				{
+					Sequence:           1,
+					ValueAmountPercent: 100,
+					NumberOfDays:       30,
+				},
+			},
+		}
+		jsonData, err := json.Marshal(request)
+		assert.NoError(t, err)
+
+		req := httptest.NewRequest("POST", "/api/accounting/payment-terms", bytes.NewReader(jsonData))
+		req.Header.Add("Authorization", "Bearer "+token)
+		router.ServeHTTP(w, req)
+
+		expectedBodyJSON := `{"code":201,"message":"payment term created successfully","data":null}`
+
+		assert.JSONEq(t, expectedBodyJSON, w.Body.String())
+	})
+
+	t.Run("FailedCreatePaymentTerm", func(t *testing.T) {
+		w := httptest.NewRecorder()
+
+		request := accounting.AccountingPaymentTermCreateRequest{
+			Name:        "Net 30",
+			Description: "Net 30",
+			Lines: []accounting.AccountingPaymentTermLineCreateRequest{
+				{
+					Sequence:           1,
+					ValueAmountPercent: 100,
+					NumberOfDays:       30,
+				},
+			},
+		}
+		jsonData, err := json.Marshal(request)
+		assert.NoError(t, err)
+
+		req := httptest.NewRequest("POST", "/api/accounting/payment-terms", bytes.NewReader(jsonData))
+		req.Header.Add("Authorization", "Bearer "+token)
+		router.ServeHTTP(w, req)
+
+		expectedBodyJSON := `{"code":409,"message":"accounting payment term name already exists","data":null}`
+
+		assert.JSONEq(t, expectedBodyJSON, w.Body.String())
+	})
 }
