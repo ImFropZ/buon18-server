@@ -65,6 +65,16 @@ func ValidateStruct(v interface{}) (validationErrors []string, ok bool) {
 		return false
 	})
 
+	validate.RegisterValidation("accounting_journal_entry_typ", func(fl validator.FieldLevel) bool {
+		typ := fl.Field().String()
+		for _, validTyp := range models.VALID_ACCOUNTING_JOURNAL_ENTRY_TYPES {
+			if typ == validTyp {
+				return true
+			}
+		}
+		return false
+	})
+
 	validate.RegisterValidation("phone", func(fl validator.FieldLevel) bool {
 		// Define a regex pattern for phone numbers
 		phoneRegex := `^\+?[0-9]{10,15}$` // Example pattern: allows international numbers starting with + and 10-15 digits
@@ -100,6 +110,8 @@ func ValidateStruct(v interface{}) (validationErrors []string, ok bool) {
 				validationErrors = append(validationErrors, fmt.Sprintf("%s must be one of %s", jsonFieldName(e.Namespace()), models.VALID_ACCOUNTING_ACCOUNT_TYPES))
 			case "accounting_journal_typ":
 				validationErrors = append(validationErrors, fmt.Sprintf("%s must be one of %s", jsonFieldName(e.Namespace()), models.VALID_ACCOUNTING_JOURNAL_TYPES))
+			case "accounting_journal_entry_typ":
+				validationErrors = append(validationErrors, fmt.Sprintf("%s must be one of %s", jsonFieldName(e.Namespace()), models.VALID_ACCOUNTING_JOURNAL_ENTRY_TYPES))
 			case "phone":
 				validationErrors = append(validationErrors, fmt.Sprintf("%s is not a valid phone number", jsonFieldName(e.Namespace())))
 			case "json":

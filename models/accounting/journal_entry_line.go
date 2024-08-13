@@ -33,3 +33,11 @@ func AccountingJournalEntryLineToResponse(line AccountingJournalEntryLine, accou
 		Account:      account,
 	}
 }
+
+type AccountingJournalEntryLineCreateRequest struct {
+	Sequence     int     `json:"sequence" validate:"required"`
+	Name         string  `json:"name" validate:"required"`
+	AmountDebit  float64 `json:"amount_debit"`
+	AmountCredit float64 `json:"amount_credit"`
+	AccountId    int     `json:"account_id" validate:"required"`
+}

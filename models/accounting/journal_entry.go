@@ -53,3 +53,12 @@ func AccountingJournalEntryToResponse(
 
 	return response
 }
+
+type AccountingJournalEntryCreateRequest struct {
+	Name      string                                    `json:"name" validate:"required"`
+	Date      time.Time                                 `json:"date" validate:"required"`
+	Note      string                                    `json:"note" validate:"required"`
+	Status    string                                    `json:"status" validate:"required,accounting_journal_entry_typ"`
+	JournalId int                                       `json:"journal_id" validate:"required"`
+	Lines     []AccountingJournalEntryLineCreateRequest `json:"lines" validate:"required,gt=0,dive"`
+}

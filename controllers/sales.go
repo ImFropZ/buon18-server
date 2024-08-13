@@ -64,11 +64,12 @@ func (handler *SalesHandler) CreateQuotation(c *gin.Context) {
 
 	var quotation sales.SalesQuotationCreateRequest
 	if err := c.ShouldBindJSON(&quotation); err != nil {
-		log.Printf("Error binding JSON: %s", err)
 		if strings.HasPrefix(err.Error(), "parsing time") {
 			c.JSON(400, utils.NewErrorResponse(400, "invalid date format"))
 			return
 		}
+
+		log.Printf("Error binding JSON: %s", err)
 		c.JSON(400, utils.NewErrorResponse(400, err.Error()))
 		return
 	}

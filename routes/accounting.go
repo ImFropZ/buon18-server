@@ -82,4 +82,9 @@ func Accounting(e *gin.Engine, connection *database.Connection) {
 		middlewares.Authorize([]string{utils.PREDEFINED_PERMISSIONS.FULL_ACCOUNTING, utils.PREDEFINED_PERMISSIONS.ACCOUNTING_JOURNAL_ENTRIES.VIEW}),
 		handler.JournalEntry,
 	)
+	e.POST(
+		"/api/accounting/journal-entries",
+		middlewares.Authorize([]string{utils.PREDEFINED_PERMISSIONS.FULL_ACCOUNTING, utils.PREDEFINED_PERMISSIONS.ACCOUNTING_JOURNAL_ENTRIES.CREATE}),
+		handler.CreateJournalEntry,
+	)
 }

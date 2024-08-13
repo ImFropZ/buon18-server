@@ -245,3 +245,35 @@ func (handler *AccountingHandler) JournalEntry(c *gin.Context) {
 		"journal_entry": journalEntry,
 	}))
 }
+
+func (handler *AccountingHandler) CreateJournalEntry(c *gin.Context) {
+	ctx, err := utils.Ctx(c)
+	if err != nil {
+		c.JSON(500, utils.NewErrorResponse(500, utils.ErrInternalServer.Error()))
+		return
+	}
+
+	var journalEntry accounting.AccountingJournalEntryCreateRequest
+	if err := c.ShouldBindJSON(&journalEntry); err != nil {
+		if strings.HasPrefix(err.Error(), "parsing time") {
+			c.JSON(400, utils.NewErrorResponse(400, "invalid date format"))
+			return
+		}
+
+		c.JSON(400, utils.NewErrorResponse(400, utils.ErrInternalServer.Error()))
+		return
+	}
+
+	if validationErrors, ok := utils.ValidateStruct(journalEntry); !ok {
+		c.JSON(400, utils.NewErrorResponse(400, strings.Join(validationErrors, ", ")))
+		return
+	}
+
+	statusCode, err := handler.ServiceFacade.AccountingJournalEntryService.CreateJournalEntry(&ctx, &journalEntry)
+	if err != nil {
+		c.JSON(statusCode, utils.NewErrorResponse(statusCode, err.Error()))
+		return
+	}
+
+	c.JSON(statusCode, utils.NewResponse(statusCode, "journal entry created successfully", nil))
+}
