@@ -4,16 +4,21 @@ import (
 	"database/sql"
 	"errors"
 	"log"
+	"server/database"
+	"server/models"
 	"server/models/accounting"
 	"server/models/sales"
 	"server/models/setting"
 	"server/utils"
+	"strings"
 
+	"github.com/lib/pq"
 	"github.com/nullism/bqb"
 )
 
 var (
-	ErrOrderNotFound = errors.New("order not found")
+	ErrOrderNotFound       = errors.New("order not found")
+	ErrPaymentTermNotFound = errors.New("payment term not found")
 )
 
 type SalesOrderService struct {
@@ -372,4 +377,34 @@ func (service *SalesOrderService) Order(id string) (sales.SalesOrderResponse, in
 	paymentTermResponse := accounting.AccountingPaymentTermToResponse(paymentTerm, paymentTermLinesResponse)
 
 	return sales.SalesOrderToResponse(order, quotationResponse, paymentTermResponse), 200, nil
+}
+
+func (service *SalesOrderService) CreateOrder(ctx *utils.CtxW, order *sales.SalesOrderCreateRequest) (int, error) {
+	commonModel := models.CommonModel{}
+	commonModel.PrepareForCreate(ctx.User.Id, ctx.User.Id)
+
+	bqbQuery := bqb.New(`CALL create_sales_order(?, ?, ?, ?, ?, ?, ?, ?, ?)`, order.Name, order.CommitmentDate, order.Note, order.QuotationId, order.PaymentTermId, commonModel.CId, commonModel.CTime, commonModel.MId, commonModel.MTime)
+
+	query, params, err := bqbQuery.ToPgsql()
+	if err != nil {
+		log.Printf("%v", err)
+		return 500, utils.ErrInternalServer
+	}
+
+	_, err = service.DB.Exec(query, params...)
+	if err != nil {
+		if message := err.(*pq.Error).Message; strings.HasPrefix(message, "custom_error:") {
+			return 400, errors.New(strings.TrimPrefix(message, "custom_error:"))
+		}
+
+		switch err.(*pq.Error).Constraint {
+		case database.FK_ACCOUNTING_PAYMENT_TERM_ID:
+			return 400, ErrPaymentTermNotFound
+		}
+
+		log.Printf("%v", err)
+		return 500, utils.ErrInternalServer
+	}
+
+	return 201, nil
 }

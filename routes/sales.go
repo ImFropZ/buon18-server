@@ -48,4 +48,9 @@ func Sales(e *gin.Engine, connection *database.Connection) {
 		middlewares.Authorize([]string{utils.PREDEFINED_PERMISSIONS.FULL_SALES, utils.PREDEFINED_PERMISSIONS.SALES_ORDERS.VIEW}),
 		handler.Order,
 	)
+	e.POST(
+		"/api/sales/orders",
+		middlewares.Authorize([]string{utils.PREDEFINED_PERMISSIONS.FULL_SALES, utils.PREDEFINED_PERMISSIONS.SALES_ORDERS.CREATE}),
+		handler.CreateOrder,
+	)
 }

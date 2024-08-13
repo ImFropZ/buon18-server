@@ -6,6 +6,7 @@ const (
 	KEY_SALES_QUOTATION_NAME   = "sales.quotation_name_key"
 
 	FK_SALES_QUOTATION_CUSTOMER_ID = "setting.customer_id_fkey"
+	FK_ACCOUNTING_PAYMENT_TERM_ID  = "accounting.payment_term_id_fkey"
 
 	CHK_SALES_QUOTATION_DATE = "sales.quotation_date_chk"
 )

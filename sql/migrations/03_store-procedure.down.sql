@@ -1,0 +1,1 @@
+DROP PROCEDURE IF EXISTS create_sales_order;
