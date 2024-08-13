@@ -45,9 +45,9 @@ func SalesOrderToResponse(
 }
 
 type SalesOrderCreateRequest struct {
-	Name           string `json:"name" validate:"required"`
-	CommitmentDate string `json:"commitment_date" validate:"required"`
-	Note           string `json:"note"`
-	QuotationId    uint   `json:"quotation_id" validate:"required"`
-	PaymentTermId  uint   `json:"payment_term_id" validate:"required"`
+	Name           string    `json:"name" validate:"required"`
+	CommitmentDate time.Time `json:"commitment_date" validate:"required"`
+	Note           string    `json:"note"`
+	QuotationId    uint      `json:"quotation_id" validate:"required"`
+	PaymentTermId  uint      `json:"payment_term_id" validate:"required"`
 }

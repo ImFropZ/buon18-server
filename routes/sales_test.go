@@ -33,6 +33,7 @@ func TestSalesRoutes(t *testing.T) {
 		postgres.WithInitScripts(
 			filepath.Join("..", "database", "dev_scripts", "001_create-schema.sh"),
 			filepath.Join("..", "database", "dev_scripts", "002_seed.sh"),
+			filepath.Join("..", "database", "dev_scripts", "003_store-procedure.sh"),
 			filepath.Join("..", "database", "dev_scripts", "100_seed-customer.sh"),
 			filepath.Join("..", "database", "dev_scripts", "101_seed-quotation.sh"),
 			filepath.Join("..", "database", "dev_scripts", "102_seed-payment-term.sh"),
@@ -229,6 +230,55 @@ func TestSalesRoutes(t *testing.T) {
 		router.ServeHTTP(w, req)
 
 		expectedBodyJSON := `{"code":409,"message":"quotation name already exists","data":null}`
+
+		assert.JSONEq(t, expectedBodyJSON, w.Body.String())
+	})
+
+	t.Run("SuccessCreateOrder", func(t *testing.T) {
+		w := httptest.NewRecorder()
+
+		testTime, err := time.Parse(time.RFC3339, "2021-07-01T00:00:00Z")
+		assert.NoError(t, err)
+
+		request := sales.SalesOrderCreateRequest{
+			Name:           "Order 4",
+			CommitmentDate: testTime,
+			Note:           "",
+			QuotationId:    4,
+			PaymentTermId:  1,
+		}
+		jsonData, err := json.Marshal(request)
+		assert.NoError(t, err)
+
+		req := httptest.NewRequest("POST", "/api/sales/orders", bytes.NewReader(jsonData))
+		req.Header.Add("Authorization", "Bearer "+token)
+		router.ServeHTTP(w, req)
+
+		expectedBodyJSON := `{"code":201,"message":"order created successfully","data":null}`
+		assert.JSONEq(t, expectedBodyJSON, w.Body.String())
+	})
+
+	t.Run("FailedCreateOrder", func(t *testing.T) {
+		w := httptest.NewRecorder()
+
+		testTime, err := time.Parse(time.RFC3339, "2021-07-01T00:00:00Z")
+		assert.NoError(t, err)
+
+		request := sales.SalesOrderCreateRequest{
+			Name:           "Order 1",
+			CommitmentDate: testTime,
+			Note:           "",
+			QuotationId:    4,
+			PaymentTermId:  1,
+		}
+		jsonData, err := json.Marshal(request)
+		assert.NoError(t, err)
+
+		req := httptest.NewRequest("POST", "/api/sales/orders", bytes.NewReader(jsonData))
+		req.Header.Add("Authorization", "Bearer "+token)
+		router.ServeHTTP(w, req)
+
+		expectedBodyJSON := `{"code":409,"message":"order name already exists","data":null}`
 
 		assert.JSONEq(t, expectedBodyJSON, w.Body.String())
 	})

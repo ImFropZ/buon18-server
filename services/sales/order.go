@@ -18,6 +18,7 @@ import (
 
 var (
 	ErrOrderNotFound       = errors.New("order not found")
+	ErrOrderNameExists     = errors.New("order name already exists")
 	ErrPaymentTermNotFound = errors.New("payment term not found")
 )
 
@@ -398,6 +399,8 @@ func (service *SalesOrderService) CreateOrder(ctx *utils.CtxW, order *sales.Sale
 		}
 
 		switch err.(*pq.Error).Constraint {
+		case database.KEY_SALES_ORDER_NAME:
+			return 409, ErrOrderNameExists
 		case database.FK_ACCOUNTING_PAYMENT_TERM_ID:
 			return 400, ErrPaymentTermNotFound
 		}
