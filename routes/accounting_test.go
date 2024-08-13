@@ -13,6 +13,7 @@ import (
 	"server/routes"
 	"server/utils"
 	"testing"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
@@ -389,6 +390,88 @@ func TestAccountingRoutes(t *testing.T) {
 		router.ServeHTTP(w, req)
 
 		expectedBodyJSON := `{"code":409,"message":"accounting payment term name already exists","data":null}`
+
+		assert.JSONEq(t, expectedBodyJSON, w.Body.String())
+	})
+
+	t.Run("SuccessCreateJournalEntry", func(t *testing.T) {
+		w := httptest.NewRecorder()
+
+		testTime, err := time.Parse(time.RFC3339, "2024-08-09T00:00:00Z")
+		assert.NoError(t, err)
+
+		request := accounting.AccountingJournalEntryCreateRequest{
+			Name:   "New Journal Entry",
+			Date:   testTime,
+			Note:   "New Journal Entry",
+			Status: "posted",
+			Lines: []accounting.AccountingJournalEntryLineCreateRequest{
+				{
+					Sequence:     1,
+					Name:         "Line 1 for JE1001",
+					AmountDebit:  100,
+					AmountCredit: 0,
+					AccountId:    1,
+				},
+				{
+					Sequence:     2,
+					Name:         "Line 2 for JE1001",
+					AmountDebit:  0,
+					AmountCredit: 100,
+					AccountId:    2,
+				},
+			},
+			JournalId: 1,
+		}
+		jsonData, err := json.Marshal(request)
+		assert.NoError(t, err)
+
+		req := httptest.NewRequest("POST", "/api/accounting/journal-entries", bytes.NewReader(jsonData))
+		req.Header.Add("Authorization", "Bearer "+token)
+		router.ServeHTTP(w, req)
+
+		expectedBodyJSON := `{"code":201,"message":"journal entry created successfully","data":null}`
+
+		assert.JSONEq(t, expectedBodyJSON, w.Body.String())
+	})
+
+	t.Run("FailedCreateJournalEntry", func(t *testing.T) {
+		w := httptest.NewRecorder()
+
+		testTime, err := time.Parse(time.RFC3339, "2024-08-09T00:00:00Z")
+		assert.NoError(t, err)
+
+		request := accounting.AccountingJournalEntryCreateRequest{
+			Name:   "JE1001",
+			Date:   testTime,
+			Note:   "Entry for Sales Journal",
+			Status: "posted",
+			Lines: []accounting.AccountingJournalEntryLineCreateRequest{
+				{
+					Sequence:     1,
+					Name:         "Line 1 for JE1001",
+					AmountDebit:  100,
+					AmountCredit: 0,
+					AccountId:    1,
+				},
+				{
+					Sequence:     2,
+					Name:         "Line 2 for JE1001",
+					AmountDebit:  0,
+					AmountCredit: 100,
+					AccountId:    2,
+				},
+			},
+			JournalId: 1,
+		}
+		jsonData, err := json.Marshal(request)
+		assert.NoError(t, err)
+
+		req := httptest.NewRequest("POST", "/api/accounting/journal-entries", bytes.NewReader(jsonData))
+		req.Header.Add("Authorization", "Bearer "+token)
+		router.ServeHTTP(w, req)
+
+		expectedBodyJSON := `{"code":409,"message":"accounting journal entry name already exists","data":null}`
 
 		assert.JSONEq(t, expectedBodyJSON, w.Body.String())
 	})
