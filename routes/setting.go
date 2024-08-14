@@ -38,6 +38,11 @@ func Setting(e *gin.Engine, connection *database.Connection) {
 		middlewares.Authorize([]string{utils.PREDEFINED_PERMISSIONS.FULL_SETTING, utils.PREDEFINED_PERMISSIONS.SETTING_USERS.CREATE}),
 		handler.CreateUser,
 	)
+	e.PATCH(
+		"/api/setting/users/:id",
+		middlewares.Authorize([]string{utils.PREDEFINED_PERMISSIONS.FULL_SETTING, utils.PREDEFINED_PERMISSIONS.SETTING_USERS.UPDATE}),
+		handler.UpdateUser,
+	)
 	e.GET(
 		"/api/setting/customers",
 		middlewares.Authorize([]string{utils.PREDEFINED_PERMISSIONS.FULL_SETTING, utils.PREDEFINED_PERMISSIONS.SETTING_CUSTOMERS.VIEW}),

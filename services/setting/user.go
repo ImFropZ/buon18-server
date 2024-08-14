@@ -16,6 +16,7 @@ import (
 var (
 	ErrUserNotFound    = errors.New("user not found")
 	ErrUserEmailExists = errors.New("user email already exists")
+	ErrUpdateUserPwd   = errors.New("unable to update user password")
 )
 
 type SettingUserService struct {
@@ -209,6 +210,8 @@ func (service *SettingUserService) CreateUser(ctx *utils.CtxW, user *setting.Set
 	_, err = service.DB.Exec(query, params...)
 	if err != nil {
 		switch err.(*pq.Error).Constraint {
+		case database.FK_SETTING_ROLE_ID:
+			return 404, ErrRoleNotFound
 		case database.KEY_SETTING_USER_EMAIL:
 			return 409, ErrUserEmailExists
 		}
@@ -218,4 +221,60 @@ func (service *SettingUserService) CreateUser(ctx *utils.CtxW, user *setting.Set
 	}
 
 	return 201, nil
+}
+
+func (service *SettingUserService) UpdateUser(ctx *utils.CtxW, id string, user *setting.SettingUserUpdateRequest) (int, error) {
+	commonModel := models.CommonModel{}
+	commonModel.PrepareForUpdate(ctx.User.Id)
+
+	bqbQuery := bqb.New(`UPDATE "setting.user" SET mid = ?, mtime = ?`, commonModel.MId, commonModel.MTime)
+	utils.PrepareUpdateBqbQuery(bqbQuery, user)
+
+	if user.Password != nil {
+		hasPermission := false
+		for _, permission := range ctx.Permissions {
+			if utils.ContainsString([]string{utils.IntToStr(utils.FULL_ACCESS_ID), utils.IntToStr(utils.FULL_SETTING_ID)}, utils.IntToStr(int(permission.Id))) {
+				hasPermission = true
+			}
+		}
+
+		if !hasPermission {
+			return 403, ErrUpdateUserPwd
+		}
+
+		pwd, err := utils.HashPwd(*user.Password)
+		if err == nil {
+			bqbQuery.Comma("pwd = ?", pwd)
+		}
+	}
+
+	bqbQuery.Space(`WHERE id = ?`, id)
+
+	query, params, err := bqbQuery.ToPgsql()
+	if err != nil {
+		log.Printf("%s", err)
+		return 500, utils.ErrInternalServer
+	}
+
+	result, err := service.DB.Exec(query, params...)
+	if err != nil {
+		switch err.(*pq.Error).Constraint {
+		case database.KEY_SETTING_USER_EMAIL:
+			return 409, ErrUserEmailExists
+		case database.FK_SETTING_ROLE_ID:
+			return 404, ErrRoleNotFound
+		}
+
+		log.Printf("%s", err)
+		return 500, utils.ErrInternalServer
+	}
+
+	if n, err := result.RowsAffected(); err != nil || n == 0 {
+		if n == 0 {
+			return 404, ErrUserNotFound
+		}
+		return 500, utils.ErrInternalServer
+	}
+
+	return 200, nil
 }

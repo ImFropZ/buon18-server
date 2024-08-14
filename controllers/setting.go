@@ -81,6 +81,46 @@ func (handler *SettingHandler) CreateUser(c *gin.Context) {
 	c.JSON(statusCode, utils.NewResponse(statusCode, "user created successfully", nil))
 }
 
+func (handler *SettingHandler) UpdateUser(c *gin.Context) {
+	ctx, err := utils.Ctx(c)
+	if err != nil {
+		c.JSON(500, utils.NewErrorResponse(500, utils.ErrInternalServer.Error()))
+		return
+	}
+
+	id := c.Param("id")
+
+	var user setting.SettingUserUpdateRequest
+	if err := c.ShouldBindJSON(&user); err != nil {
+		c.JSON(400, utils.NewErrorResponse(500, utils.ErrInternalServer.Error()))
+		return
+	}
+
+	if utils.IsAllFieldsNil(&user) {
+		c.JSON(400, utils.NewErrorResponse(400, "no fields to update"))
+		return
+	}
+
+	if validationErrors, ok := utils.ValidateStruct(user); !ok {
+		c.JSON(400, utils.NewErrorResponse(400, strings.Join(validationErrors, ", ")))
+		return
+	}
+
+	// unable to update the system user's role
+	if id == "1" && (user.RoleId != nil || user.Password != nil) {
+		c.JSON(400, utils.NewErrorResponse(400, "unable to update the system user's role or password"))
+		return
+	}
+
+	statusCode, err := handler.ServiceFacade.SettingUserService.UpdateUser(&ctx, id, &user)
+	if err != nil {
+		c.JSON(statusCode, utils.NewErrorResponse(statusCode, err.Error()))
+		return
+	}
+
+	c.JSON(statusCode, utils.NewResponse(statusCode, "user updated successfully", nil))
+}
+
 func (handler *SettingHandler) Customers(c *gin.Context) {
 	qp := utils.NewQueryParams().
 		PrepareFilters(c, setting.SettingCustomerAllowFilterFieldsAndOps, `"setting.customer"`).
