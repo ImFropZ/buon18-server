@@ -441,4 +441,49 @@ func TestSettingRoutes(t *testing.T) {
 		expectedBodyJSON := `{"code":404,"message":"user not found","data":null}`
 		assert.JSONEq(t, expectedBodyJSON, w.Body.String())
 	})
+
+	t.Run("SuccessUpdateRole", func(t *testing.T) {
+		w := httptest.NewRecorder()
+
+		name := "success"
+		request := setting.SettingRoleUpdateRequest{
+			Name: &name,
+		}
+		jsonData, err := json.Marshal(request)
+		assert.NoError(t, err)
+
+		req := httptest.NewRequest("PATCH", "/api/setting/roles/2", bytes.NewReader(jsonData))
+		req.Header.Add("Authorization", "Bearer "+token)
+		router.ServeHTTP(w, req)
+
+		expectedBodyJSON := `{"code":200,"message":"role updated successfully","data":null}`
+		assert.JSONEq(t, expectedBodyJSON, w.Body.String())
+
+		w = httptest.NewRecorder()
+
+		req = httptest.NewRequest("GET", "/api/setting/roles/2", nil)
+		req.Header.Add("Authorization", "Bearer "+token)
+		router.ServeHTTP(w, req)
+
+		expectedBodyJSON = `{"code":200,"message":"","data":{"role":{"id":2,"name":"success","description":"User","permissions":[{"id":6,"name":"VIEW_PROFILE"},{"id":7,"name":"UPDATE_PROFILE"}]}}}`
+		assert.JSONEq(t, w.Body.String(), expectedBodyJSON)
+	})
+
+	t.Run("FailedUpdateRole", func(t *testing.T) {
+		w := httptest.NewRecorder()
+
+		name := "success"
+		request := setting.SettingRoleUpdateRequest{
+			Name: &name,
+		}
+		jsonData, err := json.Marshal(request)
+		assert.NoError(t, err)
+
+		req := httptest.NewRequest("PATCH", "/api/setting/roles/0", bytes.NewReader(jsonData))
+		req.Header.Add("Authorization", "Bearer "+token)
+		router.ServeHTTP(w, req)
+
+		expectedBodyJSON := `{"code":404,"message":"role not found","data":null}`
+		assert.JSONEq(t, expectedBodyJSON, w.Body.String())
+	})
 }
