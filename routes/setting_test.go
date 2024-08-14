@@ -396,4 +396,49 @@ func TestSettingRoutes(t *testing.T) {
 		expectedBodyJSON := `{"code":404,"message":"customer not found","data":null}`
 		assert.JSONEq(t, expectedBodyJSON, w.Body.String())
 	})
+
+	t.Run("SuccessUpdateUser", func(t *testing.T) {
+		w := httptest.NewRecorder()
+
+		name := "success"
+		request := setting.SettingUserUpdateRequest{
+			Name: &name,
+		}
+		jsonData, err := json.Marshal(request)
+		assert.NoError(t, err)
+
+		req := httptest.NewRequest("PATCH", "/api/setting/users/1", bytes.NewReader(jsonData))
+		req.Header.Add("Authorization", "Bearer "+token)
+		router.ServeHTTP(w, req)
+
+		expectedBodyJSON := `{"code":200,"message":"user updated successfully","data":null}`
+		assert.JSONEq(t, expectedBodyJSON, w.Body.String())
+
+		w = httptest.NewRecorder()
+
+		req = httptest.NewRequest("GET", "/api/setting/users/1", nil)
+		req.Header.Add("Authorization", "Bearer "+token)
+		router.ServeHTTP(w, req)
+
+		expectedBodyJSON = `{"code":200,"message":"","data":{"user":{"id":1,"name":"success","email":"bot@buon18.com","type":"bot","role":{"id":1,"name":"bot","description":"BOT","permissions":[{"id":1,"name":"FULL_ACCESS"}]}}}}`
+		assert.Contains(t, w.Body.String(), expectedBodyJSON)
+	})
+
+	t.Run("FailedUpdateUser", func(t *testing.T) {
+		w := httptest.NewRecorder()
+
+		name := "success"
+		request := setting.SettingUserUpdateRequest{
+			Name: &name,
+		}
+		jsonData, err := json.Marshal(request)
+		assert.NoError(t, err)
+
+		req := httptest.NewRequest("PATCH", "/api/setting/users/0", bytes.NewReader(jsonData))
+		req.Header.Add("Authorization", "Bearer "+token)
+		router.ServeHTTP(w, req)
+
+		expectedBodyJSON := `{"code":404,"message":"user not found","data":null}`
+		assert.JSONEq(t, expectedBodyJSON, w.Body.String())
+	})
 }
