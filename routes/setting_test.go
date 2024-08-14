@@ -350,4 +350,50 @@ func TestSettingRoutes(t *testing.T) {
 
 		assert.JSONEq(t, expectedBodyJSON, w.Body.String())
 	})
+
+	t.Run("SuccessUpdateCustomer", func(t *testing.T) {
+		w := httptest.NewRecorder()
+
+		fullName := "success"
+		request := setting.SettingCustomerUpdateRequest{
+			FullName: &fullName,
+		}
+		jsonData, err := json.Marshal(request)
+		assert.NoError(t, err)
+
+		req := httptest.NewRequest("PATCH", "/api/setting/customers/500", bytes.NewReader(jsonData))
+		req.Header.Add("Authorization", "Bearer "+token)
+		router.ServeHTTP(w, req)
+
+		expectedBodyJSON := `{"code":200,"message":"customer updated successfully","data":null}`
+		assert.JSONEq(t, expectedBodyJSON, w.Body.String())
+
+		w = httptest.NewRecorder()
+
+		req = httptest.NewRequest("GET", "/api/setting/customers/500", nil)
+		req.Header.Add("Authorization", "Bearer "+token)
+		router.ServeHTTP(w, req)
+
+		expectedBodyJSON = `{"code":200,"message":"","data":{"customer":{"id":500,"full_name":"success","gender":"m","email":"jd@dummy-data.com","phone":"096123456","additional_information":{"note":"This is a dummy data from john doe"}}}}`
+
+		assert.JSONEq(t, expectedBodyJSON, w.Body.String())
+	})
+
+	t.Run("FailedUpdateCustomer", func(t *testing.T) {
+		w := httptest.NewRecorder()
+
+		fullName := "success"
+		request := setting.SettingCustomerUpdateRequest{
+			FullName: &fullName,
+		}
+		jsonData, err := json.Marshal(request)
+		assert.NoError(t, err)
+
+		req := httptest.NewRequest("PATCH", "/api/setting/customers/0", bytes.NewReader(jsonData))
+		req.Header.Add("Authorization", "Bearer "+token)
+		router.ServeHTTP(w, req)
+
+		expectedBodyJSON := `{"code":404,"message":"customer not found","data":null}`
+		assert.JSONEq(t, expectedBodyJSON, w.Body.String())
+	})
 }
