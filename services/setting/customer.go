@@ -154,3 +154,34 @@ func (service *SettingCustomerService) CreateCustomer(ctx *utils.CtxW, customer 
 
 	return 201, nil
 }
+
+func (service *SettingCustomerService) UpdateCustomer(ctx *utils.CtxW, id string, customer *setting.SettingCustomerUpdateRequest) (int, error) {
+	commonModel := models.CommonModel{}
+	commonModel.PrepareForUpdate(ctx.User.Id)
+
+	bqbQuery := bqb.New(`UPDATE "setting.customer" SET mid = ?, mtime = ?`, commonModel.MId, commonModel.MTime)
+	utils.PrepareUpdateBqbQuery(bqbQuery, customer)
+	bqbQuery.Space(` WHERE id = ?`, id)
+
+	query, params, err := bqbQuery.ToPgsql()
+	if err != nil {
+		log.Printf("%v", err)
+		return 500, utils.ErrInternalServer
+	}
+
+	result, err := service.DB.Exec(query, params...)
+	if err != nil {
+		log.Printf("%v", err)
+		return 500, utils.ErrInternalServer
+	}
+
+	if n, err := result.RowsAffected(); err != nil || n == 0 {
+		if n == 0 {
+			return 404, ErrCustomerNotFound
+		}
+		log.Printf("%v", err)
+		return 500, utils.ErrInternalServer
+	}
+
+	return 200, nil
+}

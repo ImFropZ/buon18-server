@@ -3,6 +3,9 @@ package setting
 import (
 	"encoding/json"
 	"server/models"
+	"strings"
+
+	"github.com/nullism/bqb"
 )
 
 var SettingCustomerAllowFilterFieldsAndOps = []string{"fullname:like", "gender:in", "email:like", "phone:like"}
@@ -48,4 +51,30 @@ type SettingCustomerCreateRequest struct {
 	Email                 string `json:"email" validate:"required,email"`
 	Phone                 string `json:"phone" validate:"required,phone"`
 	AdditionalInformation string `json:"additional_information" validate:"required,json"`
+}
+
+type SettingCustomerUpdateRequest struct {
+	FullName              *string `json:"full_name"`
+	Gender                *string `json:"gender" validate:"omitempty,gender"`
+	Email                 *string `json:"email" validate:"omitempty,email"`
+	Phone                 *string `json:"phone" validate:"omitempty,phone"`
+	AdditionalInformation *string `json:"additional_information" validate:"omitempty,json"`
+}
+
+func (request SettingCustomerUpdateRequest) MapUpdateFields(bqbQuery *bqb.Query, fieldname string, value interface{}) error {
+	switch strings.ToLower(fieldname) {
+	case "fullname":
+		bqbQuery.Comma("fullname = ?", value)
+	case "gender":
+		bqbQuery.Comma("gender = ?", value)
+	case "email":
+		bqbQuery.Comma("email = ?", value)
+	case "phone":
+		bqbQuery.Comma("phone = ?", value)
+	case "additional_information":
+		bqbQuery.Comma("additional_information = ?", value)
+	default:
+		return models.ErrInvalidUpdateField
+	}
+	return nil
 }

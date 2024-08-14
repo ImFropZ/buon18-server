@@ -145,6 +145,40 @@ func (handler *SettingHandler) CreateCustomer(c *gin.Context) {
 	c.JSON(statusCode, utils.NewResponse(statusCode, "customer created successfully", nil))
 }
 
+func (handler *SettingHandler) UpdateCustomer(c *gin.Context) {
+	ctx, err := utils.Ctx(c)
+	if err != nil {
+		c.JSON(500, utils.NewErrorResponse(500, utils.ErrInternalServer.Error()))
+		return
+	}
+
+	id := c.Param("id")
+
+	var customer setting.SettingCustomerUpdateRequest
+	if err := c.ShouldBindJSON(&customer); err != nil {
+		c.JSON(400, utils.NewErrorResponse(400, err.Error()))
+		return
+	}
+
+	if utils.IsAllFieldsNil(&customer) {
+		c.JSON(400, utils.NewErrorResponse(400, "no fields to update"))
+		return
+	}
+
+	if validationErrors, ok := utils.ValidateStruct(customer); !ok {
+		c.JSON(400, utils.NewErrorResponse(400, strings.Join(validationErrors, ", ")))
+		return
+	}
+
+	statusCode, err := handler.ServiceFacade.SettingCustomerService.UpdateCustomer(&ctx, id, &customer)
+	if err != nil {
+		c.JSON(statusCode, utils.NewErrorResponse(statusCode, err.Error()))
+		return
+	}
+
+	c.JSON(statusCode, utils.NewResponse(statusCode, "customer updated successfully", nil))
+}
+
 func (handler *SettingHandler) Roles(c *gin.Context) {
 	qp := utils.NewQueryParams().
 		PrepareFilters(c, setting.SettingRoleAllowFilterFieldsAndOps, `"setting.role"`).
