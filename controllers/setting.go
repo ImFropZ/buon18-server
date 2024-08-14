@@ -282,3 +282,92 @@ func (handler *SettingHandler) CreateRole(c *gin.Context) {
 
 	c.JSON(statusCode, utils.NewResponse(statusCode, "role created successfully", nil))
 }
+
+func (handler *SettingHandler) UpdateRole(c *gin.Context) {
+	ctx, err := utils.Ctx(c)
+	if err != nil {
+		c.JSON(500, utils.NewErrorResponse(500, utils.ErrInternalServer.Error()))
+		return
+	}
+
+	id := c.Param("id")
+
+	if id == "1" {
+		c.JSON(403, utils.NewErrorResponse(403, "unable to update the system role"))
+		return
+	}
+
+	var role setting.SettingRoleUpdateRequest
+	if err := c.ShouldBindJSON(&role); err != nil {
+		c.JSON(400, utils.NewErrorResponse(400, err.Error()))
+	}
+
+	if utils.IsAllFieldsNil(&role) {
+		c.JSON(400, utils.NewErrorResponse(400, "no fields to update"))
+		return
+	}
+
+	if validationErrors, ok := utils.ValidateStruct(role); !ok {
+		c.JSON(400, utils.NewErrorResponse(400, strings.Join(validationErrors, ", ")))
+		return
+	}
+
+	if role.AddPermissionIds != nil || role.RemovePermissionIds != nil {
+		needPermission := false
+
+		if role.AddPermissionIds != nil {
+			for _, permissionId := range *role.AddPermissionIds {
+				if utils.ContainsString(utils.FULL_PERMISSION_IDS, utils.IntToStr(int(permissionId))) {
+					needPermission = true
+				}
+			}
+		}
+		if role.RemovePermissionIds != nil {
+			for _, permissionId := range *role.RemovePermissionIds {
+				if utils.ContainsString(utils.FULL_PERMISSION_IDS, utils.IntToStr(int(permissionId))) {
+					needPermission = true
+				}
+			}
+		}
+
+		if needPermission {
+			hasPermission := false
+
+			if role.AddPermissionIds != nil {
+				for _, permissionId := range *role.AddPermissionIds {
+					if utils.ContainsString(utils.FULL_PERMISSION_IDS, utils.IntToStr(int(permissionId))) {
+						for _, permission := range ctx.Permissions {
+							if utils.ContainsString([]string{utils.PREDEFINED_PERMISSIONS.FULL_ACCESS}, permission.Name) {
+								hasPermission = true
+							}
+						}
+					}
+				}
+			}
+			if role.RemovePermissionIds != nil {
+				for _, permissionId := range *role.RemovePermissionIds {
+					if utils.ContainsString(utils.FULL_PERMISSION_IDS, utils.IntToStr(int(permissionId))) {
+						for _, permission := range ctx.Permissions {
+							if utils.ContainsString([]string{utils.PREDEFINED_PERMISSIONS.FULL_ACCESS}, permission.Name) {
+								hasPermission = true
+							}
+						}
+					}
+				}
+			}
+
+			if !hasPermission {
+				c.JSON(403, utils.NewErrorResponse(403, "unable to update role with full permission"))
+				return
+			}
+		}
+	}
+
+	statusCode, err := handler.ServiceFacade.SettingRoleService.UpdateRole(&ctx, id, &role)
+	if err != nil {
+		c.JSON(statusCode, utils.NewErrorResponse(statusCode, err.Error()))
+		return
+	}
+
+	c.JSON(statusCode, utils.NewResponse(statusCode, "role updated successfully", nil))
+}

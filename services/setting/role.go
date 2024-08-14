@@ -262,3 +262,94 @@ func (service *SettingRoleService) CreateRole(ctx *utils.CtxW, role *setting.Set
 
 	return 201, nil
 }
+
+func (service *SettingRoleService) UpdateRole(ctx *utils.CtxW, id string, role *setting.SettingRoleUpdateRequest) (int, error) {
+	commonModel := models.CommonModel{}
+	commonModel.PrepareForUpdate(ctx.User.Id)
+
+	tx, err := service.DB.Begin()
+	if err != nil {
+		log.Printf("%s\n", err)
+		return 500, utils.ErrInternalServer
+	}
+
+	bqbQuery := bqb.New(`UPDATE "setting.role" SET mid = ?, mtime = ?`, commonModel.MId, commonModel.MTime)
+	utils.PrepareUpdateBqbQuery(bqbQuery, role)
+	bqbQuery.Space(`WHERE id = ?`, id)
+
+	query, params, err := bqbQuery.ToPgsql()
+	if err != nil {
+		tx.Rollback()
+		log.Printf("%s\n", err)
+		return 500, utils.ErrInternalServer
+	}
+
+	result, err := tx.Exec(query, params...)
+	if err != nil {
+		tx.Rollback()
+		log.Printf("%s\n", err)
+		return 500, utils.ErrInternalServer
+	}
+
+	if rowsAffected, _ := result.RowsAffected(); rowsAffected == 0 {
+		tx.Rollback()
+		return 404, ErrRoleNotFound
+	}
+
+	if role.AddPermissionIds != nil {
+		bqbQuery := bqb.New(`INSERT INTO "setting.role_permission" (setting_role_id, setting_permission_id, cid, ctime, mid, mtime) VALUES`)
+		for index, permissionId := range *role.AddPermissionIds {
+			bqbQuery.Space(`(?, ?, ?, ?, ?, ?)`, id, permissionId, commonModel.CId, commonModel.CTime, commonModel.MId, commonModel.MTime)
+			if index != len(*role.AddPermissionIds)-1 {
+				bqbQuery.Space(`,`)
+			}
+		}
+
+		query, params, err := bqbQuery.ToPgsql()
+		if err != nil {
+			tx.Rollback()
+			log.Printf("%s\n", err)
+			return 500, utils.ErrInternalServer
+		}
+
+		_, err = tx.Exec(query, params...)
+		if err != nil {
+			tx.Rollback()
+			log.Printf("%s\n", err)
+			return 500, utils.ErrInternalServer
+		}
+	}
+
+	if role.RemovePermissionIds != nil {
+		bqbQuery := bqb.New(`DELETE FROM "setting.role_permission" WHERE setting_role_id = ? AND setting_permission_id IN (`, id)
+		for index, permissionId := range *role.RemovePermissionIds {
+			bqbQuery.Space(`?`, permissionId)
+			if index != len(*role.RemovePermissionIds)-1 {
+				bqbQuery.Space(`,`)
+			}
+		}
+		bqbQuery.Space(`)`)
+		query, params, err := bqbQuery.ToPgsql()
+		if err != nil {
+			tx.Rollback()
+			log.Printf("%s\n", err)
+			return 500, utils.ErrInternalServer
+		}
+
+		_, err = tx.Exec(query, params...)
+		if err != nil {
+			tx.Rollback()
+			log.Printf("%s\n", err)
+			return 500, utils.ErrInternalServer
+		}
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		tx.Rollback()
+		log.Printf("%s\n", err)
+		return 500, utils.ErrInternalServer
+	}
+
+	return 200, nil
+}
