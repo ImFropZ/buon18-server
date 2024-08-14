@@ -56,7 +56,7 @@ func Authenticate(DB *sql.DB) gin.HandlerFunc {
 		WHERE "setting.user".email = ?
 		ORDER BY "setting.user".email, "setting.role".id, "setting.permission".id`, claims.Email).ToPgsql()
 		if err != nil {
-			c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
+			c.JSON(500, utils.NewErrorResponse(500, utils.ErrInternalServer.Error()))
 			c.Abort()
 			return
 		}
@@ -65,7 +65,7 @@ func Authenticate(DB *sql.DB) gin.HandlerFunc {
 		rows, err := DB.Query(query, params...)
 		if err != nil {
 			log.Printf("Error querying user: %v\n", err)
-			c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
+			c.JSON(500, utils.NewErrorResponse(500, utils.ErrInternalServer.Error()))
 			c.Abort()
 			return
 		}
@@ -78,7 +78,7 @@ func Authenticate(DB *sql.DB) gin.HandlerFunc {
 			err = rows.Scan(&user.Id, &user.Name, &user.Email, &user.Typ, &role.Id, &role.Name, &role.Description, &permission.Id, &permission.Name)
 			if err != nil {
 				log.Printf("Error scanning user: %v\n", err)
-				c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
+				c.JSON(500, utils.NewErrorResponse(500, utils.ErrInternalServer.Error()))
 				c.Abort()
 				return
 			}

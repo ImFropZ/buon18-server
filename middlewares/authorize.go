@@ -17,7 +17,7 @@ func Authorize(allowPermissions []string) gin.HandlerFunc {
 			ctxPermissions = cPermissions.([]setting.SettingPermission)
 		} else {
 			log.Printf("permission not found in context\n")
-			c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
+			c.JSON(500, utils.NewErrorResponse(500, utils.ErrInternalServer.Error()))
 			c.Abort()
 			return
 		}
@@ -37,7 +37,7 @@ func Authorize(allowPermissions []string) gin.HandlerFunc {
 		}
 
 		if !allow {
-			c.JSON(403, utils.NewErrorResponse(403, "forbidden"))
+			c.JSON(403, utils.NewErrorResponse(403, utils.ErrForbidden.Error()))
 			c.Abort()
 			return
 		}

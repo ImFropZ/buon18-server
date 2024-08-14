@@ -58,7 +58,7 @@ func (handler *SalesHandler) Quotation(c *gin.Context) {
 func (handler *SalesHandler) CreateQuotation(c *gin.Context) {
 	ctx, err := utils.Ctx(c)
 	if err != nil {
-		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
+		c.JSON(500, utils.NewErrorResponse(500, utils.ErrInternalServer.Error()))
 		return
 	}
 
@@ -128,7 +128,7 @@ func (handler *SalesHandler) Order(c *gin.Context) {
 func (handler *SalesHandler) CreateOrder(c *gin.Context) {
 	ctx, err := utils.Ctx(c)
 	if err != nil {
-		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
+		c.JSON(500, utils.NewErrorResponse(500, utils.ErrInternalServer.Error()))
 		return
 	}
 

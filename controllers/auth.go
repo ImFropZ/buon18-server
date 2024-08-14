@@ -16,7 +16,7 @@ type AuthHandler struct {
 func (handler *AuthHandler) Me(c *gin.Context) {
 	ctx, err := utils.Ctx(c)
 	if err != nil {
-		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
+		c.JSON(500, utils.NewErrorResponse(500, utils.ErrInternalServer.Error()))
 		return
 	}
 
@@ -68,7 +68,7 @@ func (handler *AuthHandler) RefreshToken(c *gin.Context) {
 func (handler *AuthHandler) UpdatePassword(c *gin.Context) {
 	ctx, err := utils.Ctx(c)
 	if err != nil {
-		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
+		c.JSON(500, utils.NewErrorResponse(500, utils.ErrInternalServer.Error()))
 		return
 	}
 
@@ -91,7 +91,7 @@ func (handler *AuthHandler) UpdatePassword(c *gin.Context) {
 func (handler *AuthHandler) UpdateProfile(c *gin.Context) {
 	ctx, err := utils.Ctx(c)
 	if err != nil {
-		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
+		c.JSON(500, utils.NewErrorResponse(500, utils.ErrInternalServer.Error()))
 		return
 	}
 

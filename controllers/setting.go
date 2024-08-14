@@ -57,7 +57,7 @@ func (handler *SettingHandler) User(c *gin.Context) {
 func (handler *SettingHandler) CreateUser(c *gin.Context) {
 	ctx, err := utils.Ctx(c)
 	if err != nil {
-		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
+		c.JSON(500, utils.NewErrorResponse(500, utils.ErrInternalServer.Error()))
 		return
 	}
 
@@ -121,7 +121,7 @@ func (handler *SettingHandler) Customer(c *gin.Context) {
 func (handler *SettingHandler) CreateCustomer(c *gin.Context) {
 	ctx, err := utils.Ctx(c)
 	if err != nil {
-		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
+		c.JSON(500, utils.NewErrorResponse(500, utils.ErrInternalServer.Error()))
 		return
 	}
 
@@ -185,7 +185,7 @@ func (handler *SettingHandler) Role(c *gin.Context) {
 func (handler *SettingHandler) CreateRole(c *gin.Context) {
 	ctx, err := utils.Ctx(c)
 	if err != nil {
-		c.JSON(500, utils.NewErrorResponse(500, "internal server error"))
+		c.JSON(500, utils.NewErrorResponse(500, utils.ErrInternalServer.Error()))
 		return
 	}
 
