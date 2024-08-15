@@ -8,6 +8,7 @@ import (
 	"server/models"
 	"server/models/accounting"
 	"server/utils"
+	"sync"
 
 	"github.com/lib/pq"
 	"github.com/nullism/bqb"
@@ -16,6 +17,7 @@ import (
 var (
 	ErrJournalEntryNotFound             = errors.New("journal entry not found")
 	ErrAccountingJournalEntryNameExists = errors.New("accounting journal entry name already exists")
+	ErrBothDebitAndCreditZero           = errors.New("amount debit and credit cannot be zero")
 )
 
 type AccountingJournalEntryService struct {
@@ -261,7 +263,7 @@ func (service *AccountingJournalEntryService) CreateJournalEntry(ctx *utils.CtxW
 	// Check if lines are empty debit and credit
 	for _, line := range journalEntry.Lines {
 		if line.AmountDebit == 0 && line.AmountCredit == 0 {
-			return 400, errors.New("amount debit and credit cannot be zero")
+			return 400, ErrBothDebitAndCreditZero
 		}
 	}
 
@@ -337,4 +339,185 @@ func (service *AccountingJournalEntryService) CreateJournalEntry(ctx *utils.CtxW
 	}
 
 	return 201, nil
+}
+
+func (service *AccountingJournalEntryService) UpdateJournalEntry(ctx *utils.CtxW, id string, journalEntry *accounting.AccountingJournalEntryUpdateRequest) (int, error) {
+	commonModel := models.CommonModel{}
+	commonModel.PrepareForCreate(ctx.User.Id, ctx.User.Id)
+
+	tx, err := service.DB.Begin()
+	if err != nil {
+		log.Printf("%v", err)
+		return 500, utils.ErrInternalServer
+	}
+
+	bqbQuery := bqb.New(`SELECT status FROM "accounting.journal_entry" WHERE id = ?`, id)
+
+	query, params, err := bqbQuery.ToPgsql()
+	if err != nil {
+		tx.Rollback()
+		log.Printf("%v", err)
+		return 500, utils.ErrInternalServer
+	}
+
+	var status string
+	err = tx.QueryRow(query, params...).Scan(&status)
+	if err != nil {
+		tx.Rollback()
+		log.Printf("%v", err)
+		return 500, utils.ErrInternalServer
+	}
+
+	if status == models.AccountingJournalEntryStatusPosted || status == models.AccountingJournalEntryStatusCancelled {
+		tx.Rollback()
+		return 400, errors.New("cannot update journal entry with status posted or cancelled")
+	}
+
+	bqbQuery = bqb.New(`UPDATE "accounting.journal_entry" SET mid = ?, mtime = ?`, commonModel.MId, commonModel.MTime)
+	utils.PrepareUpdateBqbQuery(bqbQuery, journalEntry)
+	bqbQuery.Space(`WHERE id = ?`, id)
+
+	query, params, err = bqbQuery.ToPgsql()
+	if err != nil {
+		tx.Rollback()
+		log.Printf("%v", err)
+		return 500, utils.ErrInternalServer
+	}
+
+	_, err = tx.Exec(query, params...)
+	if err != nil {
+		tx.Rollback()
+
+		switch err.(*pq.Error).Constraint {
+		case database.KEY_ACCOUNTING_JOURNAL_ENTRY_NAME:
+			return 409, ErrAccountingJournalEntryNameExists
+		case database.FK_ACCOUNTING_JOURNAL_ID:
+			return 400, ErrJournalNotFound
+		}
+
+		log.Printf("%v", err)
+		return 500, utils.ErrInternalServer
+	}
+
+	errorChan := make(chan error)
+	var wg sync.WaitGroup
+
+	if journalEntry.AddLines != nil {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			bqbQuery := bqb.New(`INSERT INTO "accounting.journal_entry_line"
+			(sequence, name, amount_debit, amount_credit, accounting_journal_entry_id, accounting_account_id, cid, ctime, mid, mtime)
+			VALUES`)
+			for index, line := range *journalEntry.AddLines {
+				bqbQuery.Space(`(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, line.Sequence, line.Name, line.AmountDebit, line.AmountCredit, id, line.AccountId, commonModel.CId, commonModel.CTime, commonModel.MId, commonModel.MTime)
+				if index != len(*journalEntry.AddLines)-1 {
+					bqbQuery.Space(`,`)
+				}
+			}
+
+			query, params, err := bqbQuery.ToPgsql()
+			if err != nil {
+				errorChan <- err
+				return
+			}
+
+			_, err = tx.Exec(query, params...)
+			if err != nil {
+				errorChan <- err
+				return
+			}
+		}()
+	}
+
+	if journalEntry.UpdateLines != nil {
+		for _, line := range *journalEntry.UpdateLines {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				bqbQuery := bqb.New(`UPDATE "accounting.journal_entry_line" SET mid = ?, mtime = ?`, commonModel.MId, commonModel.MTime)
+				utils.PrepareUpdateBqbQuery(bqbQuery, &line)
+				bqbQuery.Space(`WHERE id = ? AND accounting_journal_entry_id = ?`, line.Id, id)
+
+				query, params, err := bqbQuery.ToPgsql()
+				if err != nil {
+					errorChan <- err
+					return
+				}
+
+				_, err = tx.Exec(query, params...)
+				if err != nil {
+					errorChan <- err
+					return
+				}
+			}()
+		}
+	}
+
+	if journalEntry.DeleteLines != nil {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			bqbQuery := bqb.New(`DELETE FROM "accounting.journal_entry_line" WHERE id IN (`)
+			for index, lineId := range *journalEntry.DeleteLines {
+				if index == 0 {
+					bqbQuery.Space(`?`, lineId)
+				} else {
+					bqbQuery.Comma(`?`, lineId)
+				}
+			}
+			bqbQuery.Space(`) AND accounting_journal_entry_id = ?`, id)
+
+			query, params, err := bqbQuery.ToPgsql()
+			if err != nil {
+				errorChan <- err
+				return
+			}
+
+			_, err = tx.Exec(query, params...)
+			if err != nil {
+				errorChan <- err
+				return
+			}
+		}()
+	}
+
+	hasError := false
+	var errorMessage error
+	go func() {
+		for err := range errorChan {
+			switch err.(*pq.Error).Constraint {
+			case database.CHK_ACCOUNTING_JOURANL_ENTRY_LINE_AMOUNT:
+				errorMessage = ErrBothDebitAndCreditZero
+			case database.FK_ACCOUNTING_ACCOUNT_ID:
+				errorMessage = ErrAccountNotFound
+			}
+			if !hasError {
+				hasError = true
+				tx.Rollback()
+			}
+		}
+	}()
+
+	wg.Wait()
+	close(errorChan)
+
+	if hasError {
+		switch errorMessage {
+		case ErrBothDebitAndCreditZero:
+			return 400, ErrBothDebitAndCreditZero
+		case ErrAccountNotFound:
+			return 400, ErrAccountNotFound
+		}
+
+		return 500, utils.ErrInternalServer
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		log.Printf("%v", err)
+		return 500, utils.ErrInternalServer
+	}
+
+	return 200, nil
 }

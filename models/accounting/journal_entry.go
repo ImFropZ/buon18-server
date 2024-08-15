@@ -2,7 +2,10 @@ package accounting
 
 import (
 	"server/models"
+	"strings"
 	"time"
+
+	"github.com/nullism/bqb"
 )
 
 var AccountingJournalEntryAllowFilterFieldsAndOps = []string{"status:in", "date:gte", "date:lte", "date:gt", "date:lt", "date:eq", "name:like"}
@@ -61,4 +64,34 @@ type AccountingJournalEntryCreateRequest struct {
 	Status    string                                    `json:"status" validate:"required,accounting_journal_entry_typ"`
 	JournalId int                                       `json:"journal_id" validate:"required"`
 	Lines     []AccountingJournalEntryLineCreateRequest `json:"lines" validate:"required,gt=0,dive"`
+}
+
+type AccountingJournalEntryUpdateRequest struct {
+	Name        *string                                    `json:"name"`
+	Date        *time.Time                                 `json:"date"`
+	Note        *string                                    `json:"note"`
+	Status      *string                                    `json:"status" validate:"omitempty,accounting_journal_entry_typ"`
+	JournalId   *int                                       `json:"journal_id"`
+	AddLines    *[]AccountingJournalEntryLineCreateRequest `json:"add_lines" validate:"omitempty,gt=0,dive"`
+	UpdateLines *[]AccountingJournalEntryLineUpdateRequest `json:"update_lines" validate:"omitempty,gt=0,dive"`
+	DeleteLines *[]int                                     `json:"delete_lines" validate:"omitempty,gt=0,dive"`
+}
+
+func (request AccountingJournalEntryUpdateRequest) MapUpdateFields(bqbQuery *bqb.Query, fieldname string, value interface{}) error {
+	switch strings.ToLower(fieldname) {
+	case "name":
+		bqbQuery.Comma("name = ?", value)
+	case "date":
+		bqbQuery.Comma("date = ?", value)
+	case "note":
+		bqbQuery.Comma("note = ?", value)
+	case "status":
+		bqbQuery.Comma("status = ?", value)
+	case "journalid":
+		bqbQuery.Comma("accounting_journal_id = ?", value)
+	default:
+		return models.ErrInvalidUpdateField
+	}
+
+	return nil
 }

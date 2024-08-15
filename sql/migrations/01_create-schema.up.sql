@@ -296,7 +296,9 @@ CREATE TABLE IF NOT EXISTS
         CONSTRAINT "accounting.journal_entry_id_fkey" FOREIGN KEY (accounting_journal_entry_id) REFERENCES "accounting.journal_entry" (id) ON DELETE RESTRICT,
         CONSTRAINT "accounting.account_id_fkey" FOREIGN KEY (accounting_account_id) REFERENCES "accounting.account" (id) ON DELETE RESTRICT,
         CONSTRAINT "accounting.journal_entry_line_amount_chk" CHECK (
-            amount_debit > 0
-            OR amount_credit > 0
+            NOT (
+                amount_debit = 0
+                AND amount_credit = 0
+            )
         )
     );

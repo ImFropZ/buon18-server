@@ -16,5 +16,6 @@ const (
 	FK_ACCOUNTING_ACCOUNT_ID       = "accounting.account_id_fkey"
 	FK_ACCOUNTING_JOURNAL_ID       = "accounting.journal_id_fkey"
 
-	CHK_SALES_QUOTATION_DATE = "sales.quotation_date_chk"
+	CHK_SALES_QUOTATION_DATE                 = "sales.quotation_date_chk"
+	CHK_ACCOUNTING_JOURANL_ENTRY_LINE_AMOUNT = "accounting.journal_entry_line_amount_chk"
 )

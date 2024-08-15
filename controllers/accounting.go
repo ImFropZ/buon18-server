@@ -386,3 +386,39 @@ func (handler *AccountingHandler) CreateJournalEntry(c *gin.Context) {
 
 	c.JSON(statusCode, utils.NewResponse(statusCode, "journal entry created successfully", nil))
 }
+
+func (handler *AccountingHandler) UpdateJournalEntry(c *gin.Context) {
+	ctx, err := utils.Ctx(c)
+	if err != nil {
+		log.Printf("%v", err)
+		c.JSON(500, utils.NewErrorResponse(500, utils.ErrInternalServer.Error()))
+		return
+	}
+
+	id := c.Param("id")
+
+	var journalEntry accounting.AccountingJournalEntryUpdateRequest
+	if err := c.ShouldBindJSON(&journalEntry); err != nil {
+		log.Printf("%v", err)
+		c.JSON(400, utils.NewErrorResponse(400, utils.ErrInternalServer.Error()))
+		return
+	}
+
+	if utils.IsAllFieldsNil(&journalEntry) {
+		c.JSON(400, utils.NewErrorResponse(400, "no fields to update"))
+		return
+	}
+
+	if validationErrors, ok := utils.ValidateStruct(journalEntry); !ok {
+		c.JSON(400, utils.NewErrorResponse(400, strings.Join(validationErrors, ", ")))
+		return
+	}
+
+	statusCode, err := handler.ServiceFacade.AccountingJournalEntryService.UpdateJournalEntry(&ctx, id, &journalEntry)
+	if err != nil {
+		c.JSON(statusCode, utils.NewErrorResponse(statusCode, err.Error()))
+		return
+	}
+
+	c.JSON(statusCode, utils.NewResponse(statusCode, "journal entry updated successfully", nil))
+}
