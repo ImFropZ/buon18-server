@@ -22,7 +22,7 @@ services:
       - ./valkey/valkey.conf:/etc/valkey/valkey.conf
     command: ["valkey-server", "/etc/valkey/valkey.conf"]
   server:
-    image: buon18/system-server:2.0.0-a.1
+    image: buon18/system-server:2.0.0-a.3
     container_name: buon18-system-server
     restart: unless-stopped
     depends_on:
