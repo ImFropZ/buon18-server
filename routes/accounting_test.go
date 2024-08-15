@@ -475,4 +475,190 @@ func TestAccountingRoutes(t *testing.T) {
 
 		assert.JSONEq(t, expectedBodyJSON, w.Body.String())
 	})
+
+	t.Run("SuccessUpdateAccount", func(t *testing.T) {
+		w := httptest.NewRecorder()
+
+		name := "Updated Account"
+		request := accounting.AccountingAccountUpdateRequest{
+			Name: &name,
+		}
+		jsonData, err := json.Marshal(request)
+		assert.NoError(t, err)
+
+		req := httptest.NewRequest("PATCH", "/api/accounting/accounts/1", bytes.NewReader(jsonData))
+		req.Header.Add("Authorization", "Bearer "+token)
+		router.ServeHTTP(w, req)
+
+		expectedBodyJSON := `{"code":200,"message":"account updated successfully","data":null}`
+
+		assert.JSONEq(t, expectedBodyJSON, w.Body.String())
+
+		w = httptest.NewRecorder()
+
+		req = httptest.NewRequest("GET", "/api/accounting/accounts/1", nil)
+		req.Header.Add("Authorization", "Bearer "+token)
+		router.ServeHTTP(w, req)
+
+		expectedBodyJSON = `{"code":200,"message":"","data":{"account":{"id":1,"name":"Updated Account","code":"AC1001","type":"asset_current"}}}`
+		assert.JSONEq(t, expectedBodyJSON, w.Body.String())
+	})
+
+	t.Run("FailedUpdateAccount", func(t *testing.T) {
+		w := httptest.NewRecorder()
+
+		code := "LC1003"
+		request := accounting.AccountingAccountUpdateRequest{
+			Code: &code,
+		}
+		jsonData, err := json.Marshal(request)
+		assert.NoError(t, err)
+
+		req := httptest.NewRequest("PATCH", "/api/accounting/accounts/2", bytes.NewReader(jsonData))
+		req.Header.Add("Authorization", "Bearer "+token)
+		router.ServeHTTP(w, req)
+
+		expectedBodyJSON := `{"code":409,"message":"accounting account code already exists","data":null}`
+		assert.JSONEq(t, expectedBodyJSON, w.Body.String())
+	})
+
+	t.Run("SuccessUpdateJournal", func(t *testing.T) {
+		w := httptest.NewRecorder()
+
+		name := "Updated Journal"
+		request := accounting.AccountingJournalUpdateRequest{
+			Name: &name,
+		}
+		jsonData, err := json.Marshal(request)
+		assert.NoError(t, err)
+
+		req := httptest.NewRequest("PATCH", "/api/accounting/journals/1", bytes.NewReader(jsonData))
+		req.Header.Add("Authorization", "Bearer "+token)
+		router.ServeHTTP(w, req)
+
+		expectedBodyJSON := `{"code":200,"message":"journal updated successfully","data":null}`
+
+		assert.JSONEq(t, expectedBodyJSON, w.Body.String())
+
+		w = httptest.NewRecorder()
+
+		req = httptest.NewRequest("GET", "/api/accounting/journals/1", nil)
+		req.Header.Add("Authorization", "Bearer "+token)
+		router.ServeHTTP(w, req)
+
+		expectedBodyJSON = `{"code":200,"message":"","data":{"journal":{"id":1,"code":"JNL1001","name":"Updated Journal","type":"sales","account":{"id":2,"name":"Accounts Receivable","code":"AC1002","type":"asset_non_current"}}}}`
+		assert.JSONEq(t, expectedBodyJSON, w.Body.String())
+	})
+
+	t.Run("FailedUpdateJournal", func(t *testing.T) {
+		w := httptest.NewRecorder()
+
+		code := "JNL1002"
+		request := accounting.AccountingJournalUpdateRequest{
+			Code: &code,
+		}
+		jsonData, err := json.Marshal(request)
+		assert.NoError(t, err)
+
+		req := httptest.NewRequest("PATCH", "/api/accounting/journals/1", bytes.NewReader(jsonData))
+		req.Header.Add("Authorization", "Bearer "+token)
+		router.ServeHTTP(w, req)
+
+		expectedBodyJSON := `{"code":409,"message":"accounting journal code already exists","data":null}`
+		assert.JSONEq(t, expectedBodyJSON, w.Body.String())
+	})
+
+	t.Run("SuccessUpdatePaymentTerm", func(t *testing.T) {
+		w := httptest.NewRecorder()
+
+		name := "Updated Payment Term"
+		request := accounting.AccountingPaymentTermUpdateRequest{
+			Name: &name,
+		}
+		jsonData, err := json.Marshal(request)
+		assert.NoError(t, err)
+
+		req := httptest.NewRequest("PATCH", "/api/accounting/payment-terms/1", bytes.NewReader(jsonData))
+		req.Header.Add("Authorization", "Bearer "+token)
+		router.ServeHTTP(w, req)
+
+		expectedBodyJSON := `{"code":200,"message":"payment term updated successfully","data":null}`
+
+		assert.JSONEq(t, expectedBodyJSON, w.Body.String())
+
+		w = httptest.NewRecorder()
+
+		req = httptest.NewRequest("GET", "/api/accounting/payment-terms/1", nil)
+		req.Header.Add("Authorization", "Bearer "+token)
+		router.ServeHTTP(w, req)
+
+		expectedBodyJSON = `{"code":200,"message":"","data":{"payment_term":{"id":1,"name":"Updated Payment Term","description":"Net 30","lines":[{"id":1,"sequence":1,"value_amount_percent":100,"number_of_days":30}]}}}`
+		assert.JSONEq(t, expectedBodyJSON, w.Body.String())
+	})
+
+	t.Run("FailedUpdatePaymentTerm", func(t *testing.T) {
+		w := httptest.NewRecorder()
+
+		name := "Net 90"
+		request := accounting.AccountingPaymentTermUpdateRequest{
+			Name: &name,
+		}
+		jsonData, err := json.Marshal(request)
+		assert.NoError(t, err)
+
+		req := httptest.NewRequest("PATCH", "/api/accounting/payment-terms/2", bytes.NewReader(jsonData))
+		req.Header.Add("Authorization", "Bearer "+token)
+		router.ServeHTTP(w, req)
+
+		expectedBodyJSON := `{"code":409,"message":"accounting payment term name already exists","data":null}`
+		assert.JSONEq(t, expectedBodyJSON, w.Body.String())
+	})
+
+	t.Run("SuccessUpdateJournalEntry", func(t *testing.T) {
+		w := httptest.NewRecorder()
+
+		name := "Updated Journal Entry"
+		request := accounting.AccountingJournalEntryUpdateRequest{
+			Name: &name,
+		}
+		jsonData, err := json.Marshal(request)
+		assert.NoError(t, err)
+
+		req := httptest.NewRequest("PATCH", "/api/accounting/journal-entries/2", bytes.NewReader(jsonData))
+		req.Header.Add("Authorization", "Bearer "+token)
+		router.ServeHTTP(w, req)
+
+		expectedBodyJSON := `{"code":200,"message":"journal entry updated successfully","data":null}`
+
+		assert.JSONEq(t, expectedBodyJSON, w.Body.String())
+
+		w = httptest.NewRecorder()
+
+		req = httptest.NewRequest("GET", "/api/accounting/journal-entries/2", nil)
+		req.Header.Add("Authorization", "Bearer "+token)
+		router.ServeHTTP(w, req)
+
+		t.Logf("%s", w.Body.String())
+
+		expectedBodyJSON = `{"code":200,"message":"","data":{"journal_entry":{"id":2,"name":"Updated Journal Entry","date":"2024-08-10T00:00:00Z","note":"Entry for Purchase Journal","status":"draft","amount_total_debit":50,"amount_total_credit":50,"lines":[{"id":3,"sequence":1,"name":"Line 1 for JE1002","amount_debit":50,"amount_credit":0,"account":{"id":3,"name":"Accounts Payable","code":"LC1003","type":"liability_current"}},{"id":4,"sequence":2,"name":"Line 2 for JE1002","amount_debit":0,"amount_credit":50,"account":{"id":4,"name":"Long-term Debt","code":"LC1004","type":"liability_non_current"}}],"journal":{"id":2,"code":"JNL1002","name":"Purchase Journal","type":"purchase"}}}}`
+		assert.JSONEq(t, expectedBodyJSON, w.Body.String())
+	})
+
+	t.Run("FailedUpdateJournalEntry", func(t *testing.T) {
+		w := httptest.NewRecorder()
+
+		name := "JE1003"
+		request := accounting.AccountingJournalEntryUpdateRequest{
+			Name: &name,
+		}
+		jsonData, err := json.Marshal(request)
+		assert.NoError(t, err)
+
+		req := httptest.NewRequest("PATCH", "/api/accounting/journal-entries/1", bytes.NewReader(jsonData))
+		req.Header.Add("Authorization", "Bearer "+token)
+		router.ServeHTTP(w, req)
+
+		expectedBodyJSON := `{"code":400,"message":"cannot update journal entry with status posted or cancelled","data":null}`
+		assert.JSONEq(t, expectedBodyJSON, w.Body.String())
+	})
 }

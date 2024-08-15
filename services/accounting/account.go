@@ -149,6 +149,11 @@ func (service *AccountingAccountService) UpdateAccount(ctx *utils.CtxW, id strin
 
 	result, err := service.DB.Exec(query, params...)
 	if err != nil {
+		switch err.(*pq.Error).Constraint {
+		case database.KEY_ACCOUNTING_ACCOUNT_CODE:
+			return 409, ErrAccountingAccountCodeExists
+		}
+
 		log.Printf("%v", err)
 		return 500, utils.ErrInternalServer
 	}
