@@ -282,6 +282,42 @@ func (handler *AccountingHandler) CreateJournal(c *gin.Context) {
 	c.JSON(statusCode, utils.NewResponse(statusCode, "journal created successfully", nil))
 }
 
+func (handler *AccountingHandler) UpdateJournal(c *gin.Context) {
+	ctx, err := utils.Ctx(c)
+	if err != nil {
+		log.Printf("%v", err)
+		c.JSON(500, utils.NewErrorResponse(500, utils.ErrInternalServer.Error()))
+		return
+	}
+
+	id := c.Param("id")
+
+	var journal accounting.AccountingJournalUpdateRequest
+	if err := c.ShouldBindJSON(&journal); err != nil {
+		log.Printf("%v", err)
+		c.JSON(500, utils.NewErrorResponse(500, utils.ErrInternalServer.Error()))
+		return
+	}
+
+	if utils.IsAllFieldsNil(&journal) {
+		c.JSON(400, utils.NewErrorResponse(400, "no fields to update"))
+		return
+	}
+
+	if validationErrors, ok := utils.ValidateStruct(journal); !ok {
+		c.JSON(400, utils.NewErrorResponse(400, strings.Join(validationErrors, ", ")))
+		return
+	}
+
+	statusCode, err := handler.ServiceFacade.AccountingJournalService.UpdateJournal(&ctx, id, &journal)
+	if err != nil {
+		c.JSON(statusCode, utils.NewErrorResponse(statusCode, err.Error()))
+		return
+	}
+
+	c.JSON(statusCode, utils.NewResponse(statusCode, "journal updated successfully", nil))
+}
+
 func (handler *AccountingHandler) JournalEntries(c *gin.Context) {
 	qp := utils.NewQueryParams().
 		PrepareFilters(c, accounting.AccountingJournalEntryAllowFilterFieldsAndOps, `"accounting.journal_entry"`).

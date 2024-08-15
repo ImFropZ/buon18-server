@@ -53,7 +53,6 @@ type SettingUserUpdateRequest struct {
 }
 
 func (request SettingUserUpdateRequest) MapUpdateFields(bqbQuery *bqb.Query, fieldName string, value interface{}) error {
-
 	switch strings.ToLower(fieldName) {
 	case "name":
 		bqbQuery.Comma("name = ?", value)

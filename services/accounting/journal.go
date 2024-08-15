@@ -180,3 +180,40 @@ func (service *AccountingJournalService) CreateJournal(ctx *utils.CtxW, journal 
 
 	return 201, nil
 }
+
+func (service *AccountingJournalService) UpdateJournal(ctx *utils.CtxW, id string, journal *accounting.AccountingJournalUpdateRequest) (int, error) {
+	commonModel := models.CommonModel{}
+	commonModel.PrepareForUpdate(ctx.User.Id)
+
+	bqbQuery := bqb.New(`UPDATE "accounting.journal" SET mid = ?, mtime = ?`, commonModel.MId, commonModel.MTime)
+	utils.PrepareUpdateBqbQuery(bqbQuery, journal)
+	bqbQuery.Space(`WHERE id = ?`, id)
+
+	query, params, err := bqbQuery.ToPgsql()
+	if err != nil {
+		log.Printf("%v", err)
+		return 500, utils.ErrInternalServer
+	}
+
+	log.Printf("%v", query)
+	log.Printf("%v", params)
+
+	result, err := service.DB.Exec(query, params...)
+	if err != nil {
+		switch err.(*pq.Error).Constraint {
+		case database.FK_ACCOUNTING_ACCOUNT_ID:
+			return 400, ErrAccountNotFound
+		case database.KEY_ACCOUNTING_JOURNAL_CODE:
+			return 409, ErrAccountingJournalCodeExists
+		}
+
+		log.Printf("%v", err)
+		return 500, utils.ErrInternalServer
+	}
+
+	if n, _ := result.RowsAffected(); n == 0 {
+		return 404, ErrJournalNotFound
+	}
+
+	return 200, nil
+}

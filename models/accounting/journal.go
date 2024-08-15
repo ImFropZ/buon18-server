@@ -1,6 +1,11 @@
 package accounting
 
-import "server/models"
+import (
+	"server/models"
+	"strings"
+
+	"github.com/nullism/bqb"
+)
 
 var AccountingJournalAllowFilterFieldsAndOps = []string{"code:like", "name:like", "typ:eq"}
 var AccountingJournalAllowSortFields = []string{"code", "name", "typ"}
@@ -40,5 +45,28 @@ type AccountingJournalCreateRequest struct {
 	Code      string `json:"code" validate:"required"`
 	Name      string `json:"name" validate:"required"`
 	Typ       string `json:"type" validate:"required,accounting_journal_typ"`
-	AccountId int    `json:"account_id" validate:"required"`
+	AccountId uint   `json:"account_id" validate:"required"`
+}
+
+type AccountingJournalUpdateRequest struct {
+	Code      *string `json:"code"`
+	Name      *string `json:"name"`
+	Typ       *string `json:"type" validate:"omitempty,accounting_journal_typ"`
+	AccountId *uint   `json:"account_id"`
+}
+
+func (request AccountingJournalUpdateRequest) MapUpdateFields(bqbQuery *bqb.Query, fieldname string, value interface{}) error {
+	switch strings.ToLower(fieldname) {
+	case "code":
+		bqbQuery.Comma("code = ?", value)
+	case "name":
+		bqbQuery.Comma("name = ?", value)
+	case "typ":
+		bqbQuery.Comma("typ = ?", value)
+	case "accountid":
+		bqbQuery.Comma("accounting_account_id = ?", value)
+	default:
+		return models.ErrInvalidUpdateField
+	}
+	return nil
 }
