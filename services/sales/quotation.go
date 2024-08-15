@@ -365,7 +365,7 @@ func (service *SalesQuotationService) UpdateQuotation(ctx *utils.CtxW, id string
 		return 404, ErrQuotationNotFound
 	}
 
-	var errorChan = make(chan error)
+	errorChan := make(chan error)
 	var wg sync.WaitGroup
 
 	if quotation.AddSalesOrderItems != nil {
@@ -445,17 +445,36 @@ func (service *SalesQuotationService) UpdateQuotation(ctx *utils.CtxW, id string
 		}()
 	}
 
+	hasError := false
+	var errorMessage error
+	go func() {
+		for err := range errorChan {
+			switch err.(*pq.Error).Constraint {
+			case database.KEY_SALES_QUOTATION_NAME:
+				errorMessage = ErrQuotationNameExists
+			case database.FK_SALES_QUOTATION_CUSTOMER_ID:
+				errorMessage = ErrCustomerNotFound
+			}
+			if !hasError {
+				hasError = true
+				tx.Rollback()
+			}
+		}
+	}()
+
 	wg.Wait()
 	close(errorChan)
 
-	hasError := false
-	for err := range errorChan {
-		log.Printf("%v", err)
-		if !hasError {
-			hasError = true
-			tx.Rollback()
-			return 500, utils.ErrInternalServer
+	if hasError {
+		switch errorMessage {
+		case ErrQuotationNameExists:
+			return 409, errorMessage
+		case ErrCustomerNotFound:
+			return 400, errorMessage
 		}
+
+		log.Printf("%v", errorMessage)
+		return 500, errorMessage
 	}
 
 	err = tx.Commit()

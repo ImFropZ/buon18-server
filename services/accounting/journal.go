@@ -195,9 +195,6 @@ func (service *AccountingJournalService) UpdateJournal(ctx *utils.CtxW, id strin
 		return 500, utils.ErrInternalServer
 	}
 
-	log.Printf("%v", query)
-	log.Printf("%v", params)
-
 	result, err := service.DB.Exec(query, params...)
 	if err != nil {
 		switch err.(*pq.Error).Constraint {

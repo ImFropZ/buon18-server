@@ -303,7 +303,7 @@ func (service *AccountingPaymentTermService) UpdatePaymentTerm(ctx *utils.CtxW, 
 		return 404, ErrPaymentTermNotFound
 	}
 
-	var errorChan = make(chan error)
+	errorChan := make(chan error)
 	var wg sync.WaitGroup
 
 	if paymentTerm.AddLines != nil {
@@ -390,17 +390,32 @@ func (service *AccountingPaymentTermService) UpdatePaymentTerm(ctx *utils.CtxW, 
 		}()
 	}
 
+	hasError := false
+	var errorMessage error
+	go func() {
+		for err := range errorChan {
+			switch err.(*pq.Error).Constraint {
+			case database.KEY_ACCOUNTING_PAYMENT_TERM_NAME:
+				errorMessage = ErrAccountingPaymentTermNameExists
+			}
+			if !hasError {
+				hasError = true
+				tx.Rollback()
+			}
+		}
+	}()
+
 	wg.Wait()
 	close(errorChan)
 
-	hasError := false
-	for err := range errorChan {
-		log.Printf("%v", err)
-		if !hasError {
-			hasError = true
-			tx.Rollback()
-			return 500, utils.ErrInternalServer
+	if hasError {
+		switch errorMessage {
+		case ErrAccountingPaymentTermNameExists:
+			return 409, ErrAccountingPaymentTermNameExists
 		}
+
+		log.Printf("%v", errorMessage)
+		return 500, utils.ErrInternalServer
 	}
 
 	err = tx.Commit()
