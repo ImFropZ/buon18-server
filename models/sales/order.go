@@ -3,7 +3,10 @@ package sales
 import (
 	"server/models"
 	"server/models/accounting"
+	"strings"
 	"time"
+
+	"github.com/nullism/bqb"
 )
 
 var SalesOrderAllowFilterFieldsAndOps = []string{"name:like", "commitment_date:eq", "commitment_date:gt", "commitment_date:gte", "commitment_date:lt", "commitment_date:lte", "sales_quotation_id:eq", "accounting_payment_term_id:eq"}
@@ -50,4 +53,27 @@ type SalesOrderCreateRequest struct {
 	Note           string    `json:"note"`
 	QuotationId    uint      `json:"quotation_id" validate:"required"`
 	PaymentTermId  uint      `json:"payment_term_id" validate:"required"`
+}
+
+type SalesOrderUpdateRequest struct {
+	Name           *string    `json:"name" validate:"omitempty"`
+	CommitmentDate *time.Time `json:"commitment_date" validate:"omitempty"`
+	Note           *string    `json:"note" validate:"omitempty"`
+	PaymentTermId  *uint      `json:"payment_term_id" validate:"omitempty"`
+}
+
+func (request SalesOrderUpdateRequest) MapUpdateFields(bqbQuery *bqb.Query, fieldname string, value interface{}) error {
+	switch strings.ToLower(fieldname) {
+	case "name":
+		bqbQuery.Comma("name = ?", value)
+	case "commitmentdate":
+		bqbQuery.Comma("commitment_date = ?", value)
+	case "note":
+		bqbQuery.Comma("note = ?", value)
+	case "paymenttermid":
+		bqbQuery.Comma("accounting_payment_term_id = ?", value)
+	default:
+		return models.ErrInvalidUpdateField
+	}
+	return nil
 }

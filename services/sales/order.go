@@ -411,3 +411,52 @@ func (service *SalesOrderService) CreateOrder(ctx *utils.CtxW, order *sales.Sale
 
 	return 201, nil
 }
+
+func (service *SalesOrderService) UpdateOrder(ctx *utils.CtxW, id string, order *sales.SalesOrderUpdateRequest) (int, error) {
+	commonModel := models.CommonModel{}
+	commonModel.PrepareForUpdate(ctx.User.Id)
+
+	tx, err := service.DB.Begin()
+	if err != nil {
+		log.Printf("%v", err)
+		return 500, utils.ErrInternalServer
+	}
+
+	bqbQuery := bqb.New(`UPDATE "sales.order" SET mid = ?, mtime = ?`, commonModel.MId, commonModel.MTime)
+	utils.PrepareUpdateBqbQuery(bqbQuery, order)
+	bqbQuery.Space(`WHERE id = ?`, id)
+
+	query, params, err := bqbQuery.ToPgsql()
+	if err != nil {
+		log.Printf("%v", err)
+		return 500, utils.ErrInternalServer
+	}
+
+	result, err := tx.Exec(query, params...)
+	if err != nil {
+		tx.Rollback()
+
+		switch err.(*pq.Error).Constraint {
+		case database.KEY_SALES_ORDER_NAME:
+			return 409, ErrOrderNameExists
+		case database.FK_ACCOUNTING_PAYMENT_TERM_ID:
+			return 400, ErrPaymentTermNotFound
+		}
+
+		log.Printf("%v", err)
+		return 500, utils.ErrInternalServer
+	}
+
+	if n, _ := result.RowsAffected(); n == 0 {
+		tx.Rollback()
+		return 404, ErrOrderNotFound
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		log.Printf("%v", err)
+		return 500, utils.ErrInternalServer
+	}
+
+	return 200, nil
+}

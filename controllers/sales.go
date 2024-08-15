@@ -196,3 +196,42 @@ func (handler *SalesHandler) CreateOrder(c *gin.Context) {
 
 	c.JSON(statusCode, utils.NewResponse(statusCode, "order created successfully", nil))
 }
+
+func (handler *SalesHandler) UpdateOrder(c *gin.Context) {
+	ctx, err := utils.Ctx(c)
+	if err != nil {
+		c.JSON(500, utils.NewErrorResponse(500, utils.ErrInternalServer.Error()))
+		return
+	}
+
+	id := c.Param("id")
+
+	var order sales.SalesOrderUpdateRequest
+	if err := c.ShouldBindJSON(&order); err != nil {
+		log.Printf("Error binding JSON: %s", err)
+		if strings.HasPrefix(err.Error(), "parsing time") {
+			c.JSON(400, utils.NewErrorResponse(400, "invalid date format"))
+			return
+		}
+		c.JSON(400, utils.NewErrorResponse(400, err.Error()))
+		return
+	}
+
+	if utils.IsAllFieldsNil(&order) {
+		c.JSON(400, utils.NewErrorResponse(400, "no fields to update"))
+		return
+	}
+
+	if validationErrors, ok := utils.ValidateStruct(order); !ok {
+		c.JSON(400, utils.NewErrorResponse(400, strings.Join(validationErrors, ", ")))
+		return
+	}
+
+	statusCode, err := handler.ServiceFacade.SalesOrderService.UpdateOrder(&ctx, id, &order)
+	if err != nil {
+		c.JSON(statusCode, utils.NewErrorResponse(statusCode, err.Error()))
+		return
+	}
+
+	c.JSON(statusCode, utils.NewResponse(statusCode, "order updated successfully", nil))
+}
