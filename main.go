@@ -44,6 +44,8 @@ func main() {
 		MaxAge:        config.MAX_AGE,
 	}))
 
+	router.Use(middlewares.Logger())
+
 	// -- Routes
 	// -- Public
 	routes.Auth(router, DB)

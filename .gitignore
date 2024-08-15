@@ -28,3 +28,6 @@ go.work.sum
 /tmp
 /db
 /valkey
+
+# log files
+*.log

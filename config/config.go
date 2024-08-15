@@ -20,6 +20,8 @@ type Config struct {
 	TOKEN_DURATION_SEC   int
 	REFRESH_TOKEN_SEC    int
 
+	LOGGIN_DIR string
+
 	// -- Valkey
 	VALKEY_ADDRESSES []string
 	VALKEY_PWD       string
@@ -115,6 +117,9 @@ func GetConfigInstance() *Config {
 
 		configInstance = &Config{
 			PORT: port,
+
+			// -- Logging
+			LOGGIN_DIR: Env("LOGGIN_DIR"),
 
 			// -- Database
 			DB_CONNECTION_STRING: validateEnvString("DB_CONNECTION_STRING"),
