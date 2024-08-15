@@ -9,6 +9,7 @@ import (
 	"server/models/sales"
 	"server/models/setting"
 	"server/utils"
+	"sync"
 
 	"github.com/lib/pq"
 	"github.com/nullism/bqb"
@@ -265,10 +266,10 @@ func (service *SalesQuotationService) CreateQuotation(ctx *utils.CtxW, quotation
 		return 500, utils.ErrInternalServer
 	}
 
-	bqbQuery = bqb.New(`INSERT INTO "sales.order_item" (name, description, price, sales_quotation_id, cid, ctime, mid, mtime) VALUES`)
+	bqbQuery = bqb.New(`INSERT INTO "sales.order_item" (name, description, price, discount, sales_quotation_id, cid, ctime, mid, mtime) VALUES`)
 
 	for index, item := range quotation.SalesOrderItems {
-		bqbQuery.Space(`(?, ?, ?, ?, ?, ?, ?, ?)`, item.Name, item.Description, item.Price, id, commonModel.CId, commonModel.CTime, commonModel.MId, commonModel.MTime)
+		bqbQuery.Space(`(?, ?, ?, ?, ?, ?, ?, ?)`, item.Name, item.Description, item.Price, item.Discount, id, commonModel.CId, commonModel.CTime, commonModel.MId, commonModel.MTime)
 		if index != len(quotation.SalesOrderItems)-1 {
 			bqbQuery.Space(",")
 		}
@@ -295,4 +296,173 @@ func (service *SalesQuotationService) CreateQuotation(ctx *utils.CtxW, quotation
 	}
 
 	return 201, nil
+}
+
+func (service *SalesQuotationService) UpdateQuotation(ctx *utils.CtxW, id string, quotation *sales.SalesQuotationUpdateRequest) (int, error) {
+	commonModel := models.CommonModel{}
+	commonModel.PrepareForCreate(ctx.User.Id, ctx.User.Id)
+
+	tx, err := service.DB.Begin()
+	if err != nil {
+		log.Printf("%v", err)
+		return 500, utils.ErrInternalServer
+	}
+
+	bqbQuery := bqb.New(`SELECT status FROM "sales.quotation" WHERE id = ?`, id)
+
+	query, params, err := bqbQuery.ToPgsql()
+	if err != nil {
+		log.Printf("%v", err)
+		tx.Rollback()
+		return 500, utils.ErrInternalServer
+	}
+
+	var status string
+	err = tx.QueryRow(query, params...).Scan(&status)
+	if err != nil {
+		tx.Rollback()
+
+		if err == sql.ErrNoRows {
+			return 404, ErrQuotationNotFound
+		}
+
+		log.Printf("%v", err)
+		return 500, utils.ErrInternalServer
+	}
+
+	if status == models.SalesQuotationStatusSalesOrder || status == models.SalesQuotationStatusSalesCancelled {
+		tx.Rollback()
+		return 400, errors.New("this quotation is not allowed to be updated")
+	}
+
+	bqbQuery = bqb.New(`UPDATE "sales.quotation" SET mid = ?, mtime = ?`, commonModel.MId, commonModel.MTime)
+	utils.PrepareUpdateBqbQuery(bqbQuery, quotation)
+	bqbQuery.Space(`WHERE id = ?`, id)
+
+	query, params, err = bqbQuery.ToPgsql()
+	if err != nil {
+		log.Printf("%v", err)
+		tx.Rollback()
+		return 500, utils.ErrInternalServer
+	}
+
+	result, err := tx.Exec(query, params...)
+	if err != nil {
+		switch err.(*pq.Error).Constraint {
+		case database.KEY_SALES_QUOTATION_NAME:
+			return 409, ErrQuotationNameExists
+		case database.FK_SALES_QUOTATION_CUSTOMER_ID:
+			return 400, ErrCustomerNotFound
+		}
+
+		log.Printf("%v", err)
+		tx.Rollback()
+		return 500, utils.ErrInternalServer
+	}
+
+	if n, _ := result.RowsAffected(); n == 0 {
+		tx.Rollback()
+		return 404, ErrQuotationNotFound
+	}
+
+	var errorChan = make(chan error)
+	var wg sync.WaitGroup
+
+	if quotation.AddSalesOrderItems != nil {
+		wg.Add(1)
+		go func() {
+			bqbQuery := bqb.New(`INSERT INTO "sales.order_item" (name, description, price, discount, sales_quotation_id, cid, ctime, mid, mtime) VALUES`)
+			for index, item := range *quotation.AddSalesOrderItems {
+				bqbQuery.Space(`(?, ?, ?, ?, ?, ?, ?, ?, ?)`, item.Name, item.Description, item.Price, item.Discount, id, commonModel.CId, commonModel.CTime, commonModel.MId, commonModel.MTime)
+				if index != len(*quotation.AddSalesOrderItems)-1 {
+					bqbQuery.Space(",")
+				}
+			}
+
+			query, params, err := bqbQuery.ToPgsql()
+			if err != nil {
+				log.Printf("%v", err)
+			}
+
+			result, err = tx.Exec(query, params...)
+			if err != nil {
+				log.Printf("%v", err)
+				errorChan <- err
+			}
+
+			wg.Done()
+		}()
+	}
+
+	if quotation.UpdateSalesOrderItems != nil {
+		for _, item := range *quotation.UpdateSalesOrderItems {
+			wg.Add(1)
+			go func() {
+				bqbQuery := bqb.New(`UPDATE "sales.order_item" SET mid = ?, mtime = ?`, commonModel.MId, commonModel.MTime)
+				utils.PrepareUpdateBqbQuery(bqbQuery, &item)
+				bqbQuery.Space(`WHERE id = ? AND sales_quotation_id = ?`, item.Id, id)
+
+				query, params, err := bqbQuery.ToPgsql()
+				if err != nil {
+					log.Printf("%v", err)
+				}
+
+				_, err = tx.Exec(query, params...)
+				if err != nil {
+					log.Printf("%v", err)
+					errorChan <- err
+				}
+
+				wg.Done()
+			}()
+		}
+	}
+
+	if quotation.DeleteSalesOrderItemIds != nil {
+		wg.Add(1)
+		go func() {
+			bqbQuery := bqb.New(`DELETE FROM "sales.order_item" WHERE id IN (`)
+			for index, id := range *quotation.DeleteSalesOrderItemIds {
+				bqbQuery.Space(`?`, id)
+				if index != len(*quotation.DeleteSalesOrderItemIds)-1 {
+					bqbQuery.Space(",")
+				}
+			}
+			bqbQuery.Space(`) AND sales_quotation_id = ?`, id)
+
+			query, params, err := bqbQuery.ToPgsql()
+			if err != nil {
+				log.Printf("%v", err)
+			}
+
+			_, err = tx.Exec(query, params...)
+			if err != nil {
+				log.Printf("%v", err)
+				errorChan <- err
+			}
+
+			wg.Done()
+		}()
+	}
+
+	wg.Wait()
+	close(errorChan)
+
+	hasError := false
+	for err := range errorChan {
+		log.Printf("%v", err)
+		if !hasError {
+			hasError = true
+			tx.Rollback()
+			return 500, utils.ErrInternalServer
+		}
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		log.Printf("%v", err)
+		return 500, utils.ErrInternalServer
+	}
+
+	return 200, nil
 }

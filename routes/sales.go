@@ -37,6 +37,11 @@ func Sales(e *gin.Engine, connection *database.Connection) {
 		middlewares.Authorize([]string{utils.PREDEFINED_PERMISSIONS.FULL_SALES, utils.PREDEFINED_PERMISSIONS.SALES_QUOTATIONS.CREATE}),
 		handler.CreateQuotation,
 	)
+	e.PATCH(
+		"/api/sales/quotations/:id",
+		middlewares.Authorize([]string{utils.PREDEFINED_PERMISSIONS.FULL_SALES, utils.PREDEFINED_PERMISSIONS.SALES_QUOTATIONS.UPDATE}),
+		handler.UpdateQuotation,
+	)
 	e.GET(
 		"/api/sales/orders",
 		middlewares.Authorize([]string{utils.PREDEFINED_PERMISSIONS.FULL_SALES, utils.PREDEFINED_PERMISSIONS.SALES_ORDERS.VIEW}),

@@ -2,6 +2,9 @@ package sales
 
 import (
 	"server/models"
+	"strings"
+
+	"github.com/nullism/bqb"
 )
 
 type SalesOrderItem struct {
@@ -38,4 +41,28 @@ type SalesOrderItemCreateRequest struct {
 	Description string  `json:"description" validate:"required,max=255"`
 	Price       float64 `json:"price" validate:"numeric,min=0"`
 	Discount    float64 `json:"discount" validate:"numeric,min=0"`
+}
+
+type SalesOrderItemUpdateRequest struct {
+	Id          *int     `json:"id" validate:"required"`
+	Name        *string  `json:"name" validate:"omitempty,max=63"`
+	Description *string  `json:"description" validate:"omitempty,max=255"`
+	Price       *float64 `json:"price" validate:"omitempty,numeric,min=0"`
+	Discount    *float64 `json:"discount" validate:"omitempty,numeric,min=0"`
+}
+
+func (request SalesOrderItemUpdateRequest) MapUpdateFields(bqbQuery *bqb.Query, fieldname string, value interface{}) error {
+	switch strings.ToLower(fieldname) {
+	case "name":
+		bqbQuery.Comma("name = ?", value)
+	case "description":
+		bqbQuery.Comma("description = ?", value)
+	case "price":
+		bqbQuery.Comma("price = ?", value)
+	case "discount":
+		bqbQuery.Comma("discount = ?", value)
+	default:
+		return models.ErrInvalidUpdateField
+	}
+	return nil
 }
