@@ -269,7 +269,7 @@ func (service *SalesQuotationService) CreateQuotation(ctx *utils.CtxW, quotation
 	bqbQuery = bqb.New(`INSERT INTO "sales.order_item" (name, description, price, discount, sales_quotation_id, cid, ctime, mid, mtime) VALUES`)
 
 	for index, item := range quotation.SalesOrderItems {
-		bqbQuery.Space(`(?, ?, ?, ?, ?, ?, ?, ?)`, item.Name, item.Description, item.Price, item.Discount, id, commonModel.CId, commonModel.CTime, commonModel.MId, commonModel.MTime)
+		bqbQuery.Space(`(?, ?, ?, ?, ?, ?, ?, ?, ?)`, item.Name, item.Description, item.Price, item.Discount, id, commonModel.CId, commonModel.CTime, commonModel.MId, commonModel.MTime)
 		if index != len(quotation.SalesOrderItems)-1 {
 			bqbQuery.Space(",")
 		}
