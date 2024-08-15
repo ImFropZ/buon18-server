@@ -132,3 +132,30 @@ func (service *AccountingAccountService) CreateAccount(ctx *utils.CtxW, account 
 
 	return 201, nil
 }
+
+func (service *AccountingAccountService) UpdateAccount(ctx *utils.CtxW, id string, account *accounting.AccountingAccountUpdateRequest) (int, error) {
+	commonModel := models.CommonModel{}
+	commonModel.PrepareForUpdate(ctx.User.Id)
+
+	bqbQuery := bqb.New(`UPDATE "accounting.account" SET mid = ?, mtime = ?`, commonModel.MId, commonModel.MTime)
+	utils.PrepareUpdateBqbQuery(bqbQuery, account)
+	bqbQuery.Space(`WHERE id = ?`, id)
+
+	query, params, err := bqbQuery.ToPgsql()
+	if err != nil {
+		log.Printf("%v", err)
+		return 500, utils.ErrInternalServer
+	}
+
+	result, err := service.DB.Exec(query, params...)
+	if err != nil {
+		log.Printf("%v", err)
+		return 500, utils.ErrInternalServer
+	}
+
+	if n, _ := result.RowsAffected(); n == 0 {
+		return 404, ErrAccountNotFound
+	}
+
+	return 200, nil
+}

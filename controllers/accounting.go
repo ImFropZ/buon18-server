@@ -55,6 +55,42 @@ func (handler *AccountingHandler) Account(c *gin.Context) {
 	}))
 }
 
+func (handler *AccountingHandler) UpdateAccount(c *gin.Context) {
+	ctx, err := utils.Ctx(c)
+	if err != nil {
+		log.Printf("%v", err)
+		c.JSON(500, utils.NewErrorResponse(500, utils.ErrInternalServer.Error()))
+		return
+	}
+
+	id := c.Param("id")
+
+	var account accounting.AccountingAccountUpdateRequest
+	if err := c.ShouldBindJSON(&account); err != nil {
+		log.Printf("%v", err)
+		c.JSON(400, utils.NewErrorResponse(400, utils.ErrInternalServer.Error()))
+		return
+	}
+
+	if utils.IsAllFieldsNil(&account) {
+		c.JSON(400, utils.NewErrorResponse(400, "no fields to update"))
+		return
+	}
+
+	if validationErrors, ok := utils.ValidateStruct(account); !ok {
+		c.JSON(400, utils.NewErrorResponse(400, strings.Join(validationErrors, ", ")))
+		return
+	}
+
+	statusCode, err := handler.ServiceFacade.AccountingAccountService.UpdateAccount(&ctx, id, &account)
+	if err != nil {
+		c.JSON(statusCode, utils.NewErrorResponse(statusCode, err.Error()))
+		return
+	}
+
+	c.JSON(statusCode, utils.NewResponse(statusCode, "account updated successfully", nil))
+}
+
 func (handler *AccountingHandler) CreateAccount(c *gin.Context) {
 	ctx, err := utils.Ctx(c)
 	if err != nil {
