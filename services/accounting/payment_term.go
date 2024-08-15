@@ -8,6 +8,7 @@ import (
 	"server/models"
 	"server/models/accounting"
 	"server/utils"
+	"sync"
 
 	"github.com/lib/pq"
 	"github.com/nullism/bqb"
@@ -261,4 +262,152 @@ func (service *AccountingPaymentTermService) CreatePaymentTerm(ctx *utils.CtxW, 
 	}
 
 	return 201, nil
+}
+
+func (service *AccountingPaymentTermService) UpdatePaymentTerm(ctx *utils.CtxW, id string, paymentTerm *accounting.AccountingPaymentTermUpdateRequest) (int, error) {
+	commonModel := models.CommonModel{}
+	commonModel.PrepareForCreate(ctx.User.Id, ctx.User.Id)
+
+	tx, err := service.DB.Begin()
+	if err != nil {
+		log.Printf("%v", err)
+		return 500, utils.ErrInternalServer
+	}
+
+	bqbQuery := bqb.New(`UPDATE "accounting.payment_term" SET mid = ?, mtime = ?`, commonModel.MId, commonModel.MTime)
+	utils.PrepareUpdateBqbQuery(bqbQuery, paymentTerm)
+	bqbQuery.Space(`WHERE id = ?`, id)
+
+	query, params, err := bqbQuery.ToPgsql()
+	if err != nil {
+		log.Printf("%v", err)
+		tx.Rollback()
+		return 500, utils.ErrInternalServer
+	}
+
+	result, err := tx.Exec(query, params...)
+	if err != nil {
+		tx.Rollback()
+
+		switch err.(*pq.Error).Constraint {
+		case database.KEY_ACCOUNTING_PAYMENT_TERM_NAME:
+			return 409, ErrAccountingPaymentTermNameExists
+		}
+
+		log.Printf("%v", err)
+		return 500, utils.ErrInternalServer
+	}
+
+	if rowsAffected, _ := result.RowsAffected(); rowsAffected == 0 {
+		tx.Rollback()
+		return 404, ErrPaymentTermNotFound
+	}
+
+	var errorChan = make(chan error)
+	var wg sync.WaitGroup
+
+	if paymentTerm.AddLines != nil {
+		wg.Add(1)
+		go func() {
+			bqbQuery := bqb.New(`INSERT INTO "accounting.payment_term_line"
+			(sequence, value_amount_percent, number_of_days, accounting_payment_term_id, cid, ctime, mid, mtime)
+			VALUES`)
+
+			for index, line := range paymentTerm.AddLines {
+				bqbQuery.Space(`(?, ?, ?, ?, ?, ?, ?, ?)`, line.Sequence, line.ValueAmountPercent, line.NumberOfDays, id, commonModel.CId, commonModel.CTime, commonModel.MId, commonModel.MTime)
+				if index != len(paymentTerm.AddLines)-1 {
+					bqbQuery.Space(`,`)
+				}
+			}
+
+			query, params, err := bqbQuery.ToPgsql()
+			if err != nil {
+				errorChan <- err
+				return
+			}
+
+			_, err = tx.Exec(query, params...)
+			if err != nil {
+				errorChan <- err
+				return
+			}
+
+			wg.Done()
+		}()
+	}
+
+	if paymentTerm.UpdateLines != nil {
+		for _, line := range paymentTerm.UpdateLines {
+			wg.Add(1)
+			go func() {
+				bqbQuery := bqb.New(`UPDATE "accounting.payment_term_line" SET mid = ?, mtime = ?`, commonModel.MId, commonModel.MTime)
+				utils.PrepareUpdateBqbQuery(bqbQuery, &line)
+				bqbQuery.Space(`WHERE id = ? AND accounting_payment_term_id = ?`, line.Id, id)
+
+				query, params, err := bqbQuery.ToPgsql()
+				if err != nil {
+					errorChan <- err
+					return
+				}
+
+				_, err = tx.Exec(query, params...)
+				if err != nil {
+					errorChan <- err
+					return
+				}
+
+				wg.Done()
+			}()
+		}
+	}
+
+	if paymentTerm.RemoveLineIds != nil {
+		wg.Add(1)
+		go func() {
+			bqbQuery := bqb.New(`DELETE FROM "accounting.payment_term_line" WHERE id IN (`)
+			for index, id := range paymentTerm.RemoveLineIds {
+				if index == 0 {
+					bqbQuery.Space(`?`, id)
+				} else {
+					bqbQuery.Comma(`?`, id)
+				}
+			}
+			bqbQuery.Space(`) AND accounting_payment_term_id = ?`, id)
+
+			query, params, err := bqbQuery.ToPgsql()
+			if err != nil {
+				errorChan <- err
+				return
+			}
+
+			_, err = tx.Exec(query, params...)
+			if err != nil {
+				errorChan <- err
+				return
+			}
+
+			wg.Done()
+		}()
+	}
+
+	wg.Wait()
+	close(errorChan)
+
+	hasError := false
+	for err := range errorChan {
+		log.Printf("%v", err)
+		if !hasError {
+			hasError = true
+			tx.Rollback()
+			return 500, utils.ErrInternalServer
+		}
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		log.Printf("%v", err)
+		return 500, utils.ErrInternalServer
+	}
+
+	return 200, nil
 }

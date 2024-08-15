@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"log"
 	"server/models/accounting"
 	"server/services"
 	"server/utils"
@@ -143,6 +144,42 @@ func (handler *AccountingHandler) CreatePaymentTerm(c *gin.Context) {
 	}
 
 	c.JSON(statusCode, utils.NewResponse(statusCode, "payment term created successfully", nil))
+}
+
+func (handler *AccountingHandler) UpdatePaymentTerm(c *gin.Context) {
+	ctx, err := utils.Ctx(c)
+	if err != nil {
+		log.Printf("%v", err)
+		c.JSON(500, utils.NewErrorResponse(500, utils.ErrInternalServer.Error()))
+		return
+	}
+
+	id := c.Param("id")
+
+	var paymentTerm accounting.AccountingPaymentTermUpdateRequest
+	if err := c.ShouldBindJSON(&paymentTerm); err != nil {
+		log.Printf("%v", err)
+		c.JSON(400, utils.NewErrorResponse(400, utils.ErrInternalServer.Error()))
+		return
+	}
+
+	if utils.IsAllFieldsNil(&paymentTerm) {
+		c.JSON(400, utils.NewErrorResponse(400, "no fields to update"))
+		return
+	}
+
+	if validationErrors, ok := utils.ValidateStruct(paymentTerm); !ok {
+		c.JSON(400, utils.NewErrorResponse(400, strings.Join(validationErrors, ", ")))
+		return
+	}
+
+	statusCode, err := handler.ServiceFacade.AccountingPaymentTermService.UpdatePaymentTerm(&ctx, id, &paymentTerm)
+	if err != nil {
+		c.JSON(statusCode, utils.NewErrorResponse(statusCode, err.Error()))
+		return
+	}
+
+	c.JSON(statusCode, utils.NewResponse(statusCode, "payment term updated successfully", nil))
 }
 
 func (handler *AccountingHandler) Journals(c *gin.Context) {

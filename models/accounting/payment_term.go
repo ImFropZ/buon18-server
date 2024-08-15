@@ -2,6 +2,9 @@ package accounting
 
 import (
 	"server/models"
+	"strings"
+
+	"github.com/nullism/bqb"
 )
 
 var AccountingPaymentTermAllowFilterFieldsAndOps = []string{"name:like", "description:like"}
@@ -37,4 +40,22 @@ type AccountingPaymentTermCreateRequest struct {
 	Name        string                                   `json:"name" validate:"required"`
 	Description string                                   `json:"description" validate:"required"`
 	Lines       []AccountingPaymentTermLineCreateRequest `json:"lines" validate:"required,gt=0,dive"`
+}
+
+type AccountingPaymentTermUpdateRequest struct {
+	Name          *string                                  `json:"name" validate:"omitempty"`
+	Description   *string                                  `json:"description" validate:"omitempty"`
+	AddLines      []AccountingPaymentTermLineCreateRequest `json:"add_lines" validate:"omitempty,dive"`
+	UpdateLines   []AccountingPaymentTermLineUpdateRequest `json:"update_lines" validate:"omitempty,dive"`
+	RemoveLineIds []uint                                   `json:"remove_line_ids" validate:"omitempty,dive"`
+}
+
+func (request AccountingPaymentTermUpdateRequest) MapUpdateFields(bqbQuery *bqb.Query, fieldname string, value interface{}) error {
+	switch strings.ToLower(fieldname) {
+	case "name":
+		bqbQuery.Comma("name = ?", value)
+	case "description":
+		bqbQuery.Comma("description = ?", value)
+	}
+	return nil
 }
