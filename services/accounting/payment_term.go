@@ -15,8 +15,9 @@ import (
 )
 
 var (
-	ErrPaymentTermNotFound             = errors.New("payment term not found")
-	ErrAccountingPaymentTermNameExists = errors.New("accounting payment term name already exists")
+	ErrPaymentTermNotFound                    = errors.New("payment term not found")
+	ErrAccountingPaymentTermNameExists        = errors.New("accounting payment term name already exists")
+	ErrUnableToDeleteCurrentlyUsedPaymentTerm = errors.New("unable to delete currently used payment term")
 )
 
 type AccountingPaymentTermService struct {
@@ -416,6 +417,63 @@ func (service *AccountingPaymentTermService) UpdatePaymentTerm(ctx *utils.CtxW, 
 
 		log.Printf("%v", errorMessage)
 		return 500, utils.ErrInternalServer
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		log.Printf("%v", err)
+		return 500, utils.ErrInternalServer
+	}
+
+	return 200, nil
+}
+
+func (service *AccountingPaymentTermService) DeletePaymentTerm(id string) (int, error) {
+	tx, err := service.DB.Begin()
+	if err != nil {
+		log.Printf("%v", err)
+		return 500, utils.ErrInternalServer
+	}
+
+	bqbQuery := bqb.New(`DELETE FROM "accounting.payment_term_line" WHERE accounting_payment_term_id = ?`, id)
+	query, params, err := bqbQuery.ToPgsql()
+	if err != nil {
+		log.Printf("%v", err)
+		tx.Rollback()
+		return 500, utils.ErrInternalServer
+	}
+
+	_, err = tx.Exec(query, params...)
+	if err != nil {
+		log.Printf("%v", err)
+		tx.Rollback()
+		return 500, utils.ErrInternalServer
+	}
+
+	bqbQuery = bqb.New(`DELETE FROM "accounting.payment_term" WHERE id = ?`, id)
+	query, params, err = bqbQuery.ToPgsql()
+	if err != nil {
+		log.Printf("%v", err)
+		tx.Rollback()
+		return 500, utils.ErrInternalServer
+	}
+
+	result, err := tx.Exec(query, params...)
+	if err != nil {
+		tx.Rollback()
+
+		switch err.(*pq.Error).Constraint {
+		case database.FK_ACCOUNTING_PAYMENT_TERM_ID:
+			return 409, ErrUnableToDeleteCurrentlyUsedPaymentTerm
+		}
+
+		log.Printf("%v", err)
+		return 500, utils.ErrInternalServer
+	}
+
+	if rowsAffected, _ := result.RowsAffected(); rowsAffected == 0 {
+		tx.Rollback()
+		return 404, ErrPaymentTermNotFound
 	}
 
 	err = tx.Commit()

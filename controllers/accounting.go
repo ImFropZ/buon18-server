@@ -230,6 +230,18 @@ func (handler *AccountingHandler) UpdatePaymentTerm(c *gin.Context) {
 	c.JSON(statusCode, utils.NewResponse(statusCode, "payment term updated successfully", nil))
 }
 
+func (handler *AccountingHandler) DeletePaymentTerm(c *gin.Context) {
+	id := c.Param("id")
+
+	statusCode, err := handler.ServiceFacade.AccountingPaymentTermService.DeletePaymentTerm(id)
+	if err != nil {
+		c.JSON(statusCode, utils.NewErrorResponse(statusCode, err.Error()))
+		return
+	}
+
+	c.JSON(statusCode, utils.NewResponse(statusCode, "payment term deleted successfully", nil))
+}
+
 func (handler *AccountingHandler) Journals(c *gin.Context) {
 	qp := utils.NewQueryParams().
 		PrepareFilters(c, accounting.AccountingJournalAllowFilterFieldsAndOps, `"accounting.journal"`).
