@@ -55,6 +55,33 @@ func (handler *AccountingHandler) Account(c *gin.Context) {
 	}))
 }
 
+func (handler *AccountingHandler) CreateAccount(c *gin.Context) {
+	ctx, err := utils.Ctx(c)
+	if err != nil {
+		c.JSON(500, utils.NewErrorResponse(500, utils.ErrInternalServer.Error()))
+		return
+	}
+
+	var account accounting.AccountingAccountCreateRequest
+	if err := c.ShouldBindJSON(&account); err != nil {
+		c.JSON(400, utils.NewErrorResponse(400, utils.ErrInternalServer.Error()))
+		return
+	}
+
+	if validationErrors, ok := utils.ValidateStruct(account); !ok {
+		c.JSON(400, utils.NewErrorResponse(400, strings.Join(validationErrors, ", ")))
+		return
+	}
+
+	statusCode, err := handler.ServiceFacade.AccountingAccountService.CreateAccount(&ctx, &account)
+	if err != nil {
+		c.JSON(statusCode, utils.NewErrorResponse(statusCode, err.Error()))
+		return
+	}
+
+	c.JSON(statusCode, utils.NewResponse(statusCode, "account created successfully", nil))
+}
+
 func (handler *AccountingHandler) UpdateAccount(c *gin.Context) {
 	ctx, err := utils.Ctx(c)
 	if err != nil {
@@ -91,31 +118,16 @@ func (handler *AccountingHandler) UpdateAccount(c *gin.Context) {
 	c.JSON(statusCode, utils.NewResponse(statusCode, "account updated successfully", nil))
 }
 
-func (handler *AccountingHandler) CreateAccount(c *gin.Context) {
-	ctx, err := utils.Ctx(c)
-	if err != nil {
-		c.JSON(500, utils.NewErrorResponse(500, utils.ErrInternalServer.Error()))
-		return
-	}
+func (handler *AccountingHandler) DeleteAccount(c *gin.Context) {
+	id := c.Param("id")
 
-	var account accounting.AccountingAccountCreateRequest
-	if err := c.ShouldBindJSON(&account); err != nil {
-		c.JSON(400, utils.NewErrorResponse(400, utils.ErrInternalServer.Error()))
-		return
-	}
-
-	if validationErrors, ok := utils.ValidateStruct(account); !ok {
-		c.JSON(400, utils.NewErrorResponse(400, strings.Join(validationErrors, ", ")))
-		return
-	}
-
-	statusCode, err := handler.ServiceFacade.AccountingAccountService.CreateAccount(&ctx, &account)
+	statusCode, err := handler.ServiceFacade.AccountingAccountService.DeleteAccount(id)
 	if err != nil {
 		c.JSON(statusCode, utils.NewErrorResponse(statusCode, err.Error()))
 		return
 	}
 
-	c.JSON(statusCode, utils.NewResponse(statusCode, "account created successfully", nil))
+	c.JSON(statusCode, utils.NewResponse(statusCode, "account deleted successfully", nil))
 }
 
 func (handler *AccountingHandler) PaymentTerms(c *gin.Context) {

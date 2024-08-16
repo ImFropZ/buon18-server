@@ -14,8 +14,9 @@ import (
 )
 
 var (
-	ErrAccountNotFound             = errors.New("account not found")
-	ErrAccountingAccountCodeExists = errors.New("accounting account code already exists")
+	ErrAccountNotFound                    = errors.New("account not found")
+	ErrAccountingAccountCodeExists        = errors.New("accounting account code already exists")
+	ErrUnableToDeleteCurrentlyUsedAccount = errors.New("unable to delete currently used account")
 )
 
 type AccountingAccountService struct {
@@ -152,6 +153,32 @@ func (service *AccountingAccountService) UpdateAccount(ctx *utils.CtxW, id strin
 		switch err.(*pq.Error).Constraint {
 		case database.KEY_ACCOUNTING_ACCOUNT_CODE:
 			return 409, ErrAccountingAccountCodeExists
+		}
+
+		log.Printf("%v", err)
+		return 500, utils.ErrInternalServer
+	}
+
+	if n, _ := result.RowsAffected(); n == 0 {
+		return 404, ErrAccountNotFound
+	}
+
+	return 200, nil
+}
+
+func (service *AccountingAccountService) DeleteAccount(id string) (int, error) {
+	bqbQuery := bqb.New(`DELETE FROM "accounting.account" WHERE id = ?`, id)
+	query, params, err := bqbQuery.ToPgsql()
+	if err != nil {
+		log.Printf("%v", err)
+		return 500, utils.ErrInternalServer
+	}
+
+	result, err := service.DB.Exec(query, params...)
+	if err != nil {
+		switch err.(*pq.Error).Constraint {
+		case database.FK_ACCOUNTING_ACCOUNT_ID:
+			return 409, ErrUnableToDeleteCurrentlyUsedAccount
 		}
 
 		log.Printf("%v", err)

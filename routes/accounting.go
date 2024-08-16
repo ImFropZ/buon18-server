@@ -44,6 +44,11 @@ func Accounting(e *gin.Engine, connection *database.Connection) {
 		middlewares.Authorize([]string{utils.PREDEFINED_PERMISSIONS.FULL_ACCOUNTING, utils.PREDEFINED_PERMISSIONS.ACCOUNTING_ACCOUNTS.UPDATE}),
 		handler.UpdateAccount,
 	)
+	e.DELETE(
+		"/api/accounting/accounts/:id",
+		middlewares.Authorize([]string{utils.PREDEFINED_PERMISSIONS.FULL_ACCOUNTING, utils.PREDEFINED_PERMISSIONS.ACCOUNTING_ACCOUNTS.DELETE}),
+		handler.DeleteAccount,
+	)
 	e.GET(
 		"/api/accounting/payment-terms",
 		middlewares.Authorize([]string{utils.PREDEFINED_PERMISSIONS.FULL_ACCOUNTING, utils.PREDEFINED_PERMISSIONS.ACCOUNTING_PAYMENT_TERMS.VIEW}),
