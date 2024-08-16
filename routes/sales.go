@@ -42,6 +42,11 @@ func Sales(e *gin.Engine, connection *database.Connection) {
 		middlewares.Authorize([]string{utils.PREDEFINED_PERMISSIONS.FULL_SALES, utils.PREDEFINED_PERMISSIONS.SALES_QUOTATIONS.UPDATE}),
 		handler.UpdateQuotation,
 	)
+	e.DELETE(
+		"/api/sales/quotations/:id",
+		middlewares.Authorize([]string{utils.PREDEFINED_PERMISSIONS.FULL_SALES, utils.PREDEFINED_PERMISSIONS.SALES_QUOTATIONS.DELETE}),
+		handler.DeleteQuotation,
+	)
 	e.GET(
 		"/api/sales/orders",
 		middlewares.Authorize([]string{utils.PREDEFINED_PERMISSIONS.FULL_SALES, utils.PREDEFINED_PERMISSIONS.SALES_ORDERS.VIEW}),

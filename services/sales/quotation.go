@@ -19,6 +19,7 @@ var (
 	ErrQuotationNotFound   = errors.New("quotation not found")
 	ErrQuotationNameExists = errors.New("quotation name already exists")
 	ErrCustomerNotFound    = errors.New("customer not found")
+	ErrNotAllowToBeDeleted = errors.New("this quotation is not allowed to be deleted")
 )
 
 type SalesQuotationService struct {
@@ -475,6 +476,83 @@ func (service *SalesQuotationService) UpdateQuotation(ctx *utils.CtxW, id string
 
 		log.Printf("%v", errorMessage)
 		return 500, errorMessage
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		log.Printf("%v", err)
+		return 500, utils.ErrInternalServer
+	}
+
+	return 200, nil
+}
+
+func (service *SalesQuotationService) DeleteQuotation(id string) (int, error) {
+	tx, err := service.DB.Begin()
+	if err != nil {
+		log.Printf("%v", err)
+		return 500, utils.ErrInternalServer
+	}
+
+	bqbQuery := bqb.New(`SELECT status FROM "sales.quotation" WHERE id = ?`, id)
+	query, params, err := bqbQuery.ToPgsql()
+	if err != nil {
+		log.Printf("%v", err)
+		tx.Rollback()
+		return 500, utils.ErrInternalServer
+	}
+
+	var status string
+	err = tx.QueryRow(query, params...).Scan(&status)
+	if err != nil {
+		tx.Rollback()
+
+		if err == sql.ErrNoRows {
+			return 404, ErrQuotationNotFound
+		}
+
+		log.Printf("%v", err)
+		return 500, utils.ErrInternalServer
+	}
+
+	if status == models.SalesQuotationStatusSalesOrder || status == models.SalesQuotationStatusSalesCancelled {
+		tx.Rollback()
+		return 400, ErrNotAllowToBeDeleted
+	}
+
+	bqbQuery = bqb.New(`DELETE FROM "sales.order_item" WHERE sales_quotation_id = ?`, id)
+	query, params, err = bqbQuery.ToPgsql()
+	if err != nil {
+		log.Printf("%v", err)
+		tx.Rollback()
+		return 500, utils.ErrInternalServer
+	}
+
+	_, err = tx.Exec(query, params...)
+	if err != nil {
+		log.Printf("%v", err)
+		tx.Rollback()
+		return 500, utils.ErrInternalServer
+	}
+
+	bqbQuery = bqb.New(`DELETE FROM "sales.quotation" WHERE id = ?`, id)
+	query, params, err = bqbQuery.ToPgsql()
+	if err != nil {
+		log.Printf("%v", err)
+		tx.Rollback()
+		return 500, utils.ErrInternalServer
+	}
+
+	result, err := tx.Exec(query, params...)
+	if err != nil {
+		log.Printf("%v", err)
+		tx.Rollback()
+		return 500, utils.ErrInternalServer
+	}
+
+	if n, _ := result.RowsAffected(); n == 0 {
+		tx.Rollback()
+		return 404, ErrQuotationNotFound
 	}
 
 	err = tx.Commit()

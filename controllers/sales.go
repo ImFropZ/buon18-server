@@ -128,6 +128,18 @@ func (handler *SalesHandler) UpdateQuotation(c *gin.Context) {
 	c.JSON(statusCode, utils.NewResponse(statusCode, "quotation updated successfully", nil))
 }
 
+func (handler *SalesHandler) DeleteQuotation(c *gin.Context) {
+	id := c.Param("id")
+
+	statusCode, err := handler.ServiceFacade.SalesQuotationService.DeleteQuotation(id)
+	if err != nil {
+		c.JSON(statusCode, utils.NewErrorResponse(statusCode, err.Error()))
+		return
+	}
+
+	c.JSON(statusCode, utils.NewResponse(statusCode, "quotation deleted successfully", nil))
+}
+
 func (handler *SalesHandler) Orders(c *gin.Context) {
 	qp := utils.NewQueryParams().
 		PrepareFilters(c, sales.SalesOrderAllowFilterFieldsAndOps, `"sales.order"`).
