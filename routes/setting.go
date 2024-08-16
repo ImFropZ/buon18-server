@@ -64,6 +64,11 @@ func Setting(e *gin.Engine, connection *database.Connection) {
 		middlewares.Authorize([]string{utils.PREDEFINED_PERMISSIONS.FULL_SETTING, utils.PREDEFINED_PERMISSIONS.SETTING_CUSTOMERS.UPDATE}),
 		handler.UpdateCustomer,
 	)
+	e.DELETE(
+		"/api/setting/customers/:id",
+		middlewares.Authorize([]string{utils.PREDEFINED_PERMISSIONS.FULL_SETTING, utils.PREDEFINED_PERMISSIONS.SETTING_CUSTOMERS.DELETE}),
+		handler.DeleteCustomer,
+	)
 	e.GET(
 		"/api/setting/roles",
 		middlewares.Authorize([]string{utils.PREDEFINED_PERMISSIONS.FULL_SETTING, utils.PREDEFINED_PERMISSIONS.SETTING_ROLES.VIEW}),

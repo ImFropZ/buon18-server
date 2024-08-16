@@ -219,6 +219,18 @@ func (handler *SettingHandler) UpdateCustomer(c *gin.Context) {
 	c.JSON(statusCode, utils.NewResponse(statusCode, "customer updated successfully", nil))
 }
 
+func (handler *SettingHandler) DeleteCustomer(c *gin.Context) {
+	id := c.Param("id")
+
+	statusCode, err := handler.ServiceFacade.SettingCustomerService.DeleteCustomer(id)
+	if err != nil {
+		c.JSON(statusCode, utils.NewErrorResponse(statusCode, err.Error()))
+		return
+	}
+
+	c.JSON(statusCode, utils.NewResponse(statusCode, "customer deleted successfully", nil))
+}
+
 func (handler *SettingHandler) Roles(c *gin.Context) {
 	qp := utils.NewQueryParams().
 		PrepareFilters(c, setting.SettingRoleAllowFilterFieldsAndOps, `"setting.role"`).

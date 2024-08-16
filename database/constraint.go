@@ -10,6 +10,7 @@ const (
 	KEY_ACCOUNTING_PAYMENT_TERM_NAME  = "accounting.payment_term_name_key"
 	KEY_ACCOUNTING_JOURNAL_ENTRY_NAME = "accounting.journal_entry_name_key"
 
+	FK_SETTING_CUSTOMER_ID         = "setting.customer_id_fkey"
 	FK_SETTING_ROLE_ID             = "setting.role_id_fkey"
 	FK_SALES_QUOTATION_CUSTOMER_ID = "setting.customer_id_fkey"
 	FK_ACCOUNTING_PAYMENT_TERM_ID  = "accounting.payment_term_id_fkey"

@@ -14,8 +14,9 @@ import (
 )
 
 var (
-	ErrCustomerNotFound    = errors.New("customer not found")
-	ErrCustomerEmailExists = errors.New("customer email already exists")
+	ErrCustomerNotFound       = errors.New("customer not found")
+	ErrCustomerEmailExists    = errors.New("customer email already exists")
+	ErrUnableToDeleteCustomer = errors.New("unable to delete customer")
 )
 
 type SettingCustomerService struct {
@@ -184,4 +185,33 @@ func (service *SettingCustomerService) UpdateCustomer(ctx *utils.CtxW, id string
 	}
 
 	return 200, nil
+}
+
+func (service *SettingCustomerService) DeleteCustomer(id string) (int, error) {
+	bqbQuery := bqb.New(`DELETE FROM "setting.customer" WHERE id = ?`, id)
+
+	query, params, err := bqbQuery.ToPgsql()
+	if err != nil {
+		log.Printf("%v", err)
+		return 500, utils.ErrInternalServer
+	}
+
+	result, err := service.DB.Exec(query, params...)
+	if err != nil {
+		switch err.(*pq.Error).Constraint {
+		case database.FK_SETTING_CUSTOMER_ID:
+			return 409, ErrUnableToDeleteCustomer
+		}
+		return 500, utils.ErrInternalServer
+	}
+
+	if n, err := result.RowsAffected(); err != nil || n == 0 {
+		if n == 0 {
+			return 404, ErrCustomerNotFound
+		}
+		log.Printf("%v", err)
+		return 500, utils.ErrInternalServer
+	}
+
+	return 204, nil
 }
