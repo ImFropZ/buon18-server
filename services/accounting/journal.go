@@ -14,8 +14,9 @@ import (
 )
 
 var (
-	ErrJournalNotFound             = errors.New("journal not found")
-	ErrAccountingJournalCodeExists = errors.New("accounting journal code already exists")
+	ErrJournalNotFound                    = errors.New("journal not found")
+	ErrAccountingJournalCodeExists        = errors.New("accounting journal code already exists")
+	ErrUnableToDeleteCurrentlyUsedJournal = errors.New("unable to delete currently used journal")
 )
 
 type AccountingJournalService struct {
@@ -202,6 +203,32 @@ func (service *AccountingJournalService) UpdateJournal(ctx *utils.CtxW, id strin
 			return 400, ErrAccountNotFound
 		case database.KEY_ACCOUNTING_JOURNAL_CODE:
 			return 409, ErrAccountingJournalCodeExists
+		}
+
+		log.Printf("%v", err)
+		return 500, utils.ErrInternalServer
+	}
+
+	if n, _ := result.RowsAffected(); n == 0 {
+		return 404, ErrJournalNotFound
+	}
+
+	return 200, nil
+}
+
+func (service *AccountingJournalService) DeleteJournal(id string) (int, error) {
+	bqbQuery := bqb.New(`DELETE FROM "accounting.journal" WHERE id = ?`, id)
+	query, params, err := bqbQuery.ToPgsql()
+	if err != nil {
+		log.Printf("%v", err)
+		return 500, utils.ErrInternalServer
+	}
+
+	result, err := service.DB.Exec(query, params...)
+	if err != nil {
+		switch err.(*pq.Error).Constraint {
+		case database.FK_ACCOUNTING_JOURNAL_ID:
+			return 400, ErrUnableToDeleteCurrentlyUsedJournal
 		}
 
 		log.Printf("%v", err)

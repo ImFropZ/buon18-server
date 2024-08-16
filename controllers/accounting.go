@@ -342,6 +342,18 @@ func (handler *AccountingHandler) UpdateJournal(c *gin.Context) {
 	c.JSON(statusCode, utils.NewResponse(statusCode, "journal updated successfully", nil))
 }
 
+func (handler *AccountingHandler) DeleteJournal(c *gin.Context) {
+	id := c.Param("id")
+
+	statusCode, err := handler.ServiceFacade.AccountingJournalService.DeleteJournal(id)
+	if err != nil {
+		c.JSON(statusCode, utils.NewErrorResponse(statusCode, err.Error()))
+		return
+	}
+
+	c.JSON(statusCode, utils.NewResponse(statusCode, "journal deleted successfully", nil))
+}
+
 func (handler *AccountingHandler) JournalEntries(c *gin.Context) {
 	qp := utils.NewQueryParams().
 		PrepareFilters(c, accounting.AccountingJournalEntryAllowFilterFieldsAndOps, `"accounting.journal_entry"`).
