@@ -3,6 +3,7 @@ package controllers
 import (
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"server/models/setting"
 	"server/services"
@@ -10,6 +11,10 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
+)
+
+var (
+	ErrUnableToDeleteSystemRole = errors.New("unable to delete the system role")
 )
 
 type SettingHandler struct {
@@ -382,4 +387,21 @@ func (handler *SettingHandler) UpdateRole(c *gin.Context) {
 	}
 
 	c.JSON(statusCode, utils.NewResponse(statusCode, "role updated successfully", nil))
+}
+
+func (handler *SettingHandler) DeleteRole(c *gin.Context) {
+	id := c.Param("id")
+
+	if id == "1" {
+		c.JSON(403, utils.NewErrorResponse(403, ErrUnableToDeleteSystemRole.Error()))
+		return
+	}
+
+	statusCode, err := handler.ServiceFacade.SettingRoleService.DeleteRole(id)
+	if err != nil {
+		c.JSON(statusCode, utils.NewErrorResponse(statusCode, err.Error()))
+		return
+	}
+
+	c.JSON(statusCode, utils.NewResponse(statusCode, "role deleted successfully", nil))
 }

@@ -4,16 +4,19 @@ import (
 	"database/sql"
 	"errors"
 	"log"
+	"server/database"
 	"server/models"
 	"server/models/setting"
 	"server/utils"
 
+	"github.com/lib/pq"
 	"github.com/nullism/bqb"
 )
 
 var (
-	ErrRoleNotFound                 = errors.New("role not found")
-	ErrCreateRoleWithFullPermission = errors.New("unable to create role with full permission")
+	ErrRoleNotFound                    = errors.New("role not found")
+	ErrCreateRoleWithFullPermission    = errors.New("unable to create role with full permission")
+	ErrUnableToDeleteCurrentlyUsedRole = errors.New("unable to delete currently used role")
 )
 
 type SettingRoleService struct {
@@ -348,6 +351,63 @@ func (service *SettingRoleService) UpdateRole(ctx *utils.CtxW, id string, role *
 	if err != nil {
 		tx.Rollback()
 		log.Printf("%s\n", err)
+		return 500, utils.ErrInternalServer
+	}
+
+	return 200, nil
+}
+
+func (service *SettingRoleService) DeleteRole(id string) (int, error) {
+	tx, err := service.DB.Begin()
+	if err != nil {
+		log.Printf("%v\n", err)
+		return 500, utils.ErrInternalServer
+	}
+
+	bqbQuery := bqb.New(`DELETE FROM "setting.role_permission" WHERE setting_role_id = ?`, id)
+	query, params, err := bqbQuery.ToPgsql()
+	if err != nil {
+		tx.Rollback()
+		log.Printf("%v\n", err)
+		return 500, utils.ErrInternalServer
+	}
+
+	_, err = tx.Exec(query, params...)
+	if err != nil {
+		tx.Rollback()
+		log.Printf("%v\n", err)
+		return 500, utils.ErrInternalServer
+	}
+
+	bqbQuery = bqb.New(`DELETE FROM "setting.role" WHERE id = ?`, id)
+	query, params, err = bqbQuery.ToPgsql()
+	if err != nil {
+		tx.Rollback()
+		log.Printf("%v\n", err)
+		return 500, utils.ErrInternalServer
+	}
+
+	result, err := tx.Exec(query, params...)
+	if err != nil {
+		tx.Rollback()
+
+		switch err.(*pq.Error).Constraint {
+		case database.FK_SETTING_ROLE_ID:
+			return 409, ErrUnableToDeleteCurrentlyUsedRole
+		}
+
+		log.Printf("%v\n", err)
+		return 500, utils.ErrInternalServer
+	}
+
+	if rowsAffected, _ := result.RowsAffected(); rowsAffected == 0 {
+		tx.Rollback()
+		return 404, ErrRoleNotFound
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		log.Printf("%v\n", err)
 		return 500, utils.ErrInternalServer
 	}
 
