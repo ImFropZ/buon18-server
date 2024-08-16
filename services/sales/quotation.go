@@ -16,10 +16,10 @@ import (
 )
 
 var (
-	ErrQuotationNotFound   = errors.New("quotation not found")
-	ErrQuotationNameExists = errors.New("quotation name already exists")
-	ErrCustomerNotFound    = errors.New("customer not found")
-	ErrNotAllowToBeDeleted = errors.New("this quotation is not allowed to be deleted")
+	ErrQuotationNotFound            = errors.New("quotation not found")
+	ErrQuotationNameExists          = errors.New("quotation name already exists")
+	ErrCustomerNotFound             = errors.New("customer not found")
+	ErrQuotationNotAllowToBeDeleted = errors.New("quotations in sales order or cancelled status are not allowed to be deleted")
 )
 
 type SalesQuotationService struct {
@@ -517,7 +517,7 @@ func (service *SalesQuotationService) DeleteQuotation(id string) (int, error) {
 
 	if status == models.SalesQuotationStatusSalesOrder || status == models.SalesQuotationStatusSalesCancelled {
 		tx.Rollback()
-		return 400, ErrNotAllowToBeDeleted
+		return 400, ErrQuotationNotAllowToBeDeleted
 	}
 
 	bqbQuery = bqb.New(`DELETE FROM "sales.order_item" WHERE sales_quotation_id = ?`, id)

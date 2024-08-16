@@ -18,6 +18,7 @@ var (
 	ErrJournalEntryNotFound             = errors.New("journal entry not found")
 	ErrAccountingJournalEntryNameExists = errors.New("accounting journal entry name already exists")
 	ErrBothDebitAndCreditZero           = errors.New("amount debit and credit cannot be zero")
+	ErrJournalEntryNotAllowToBeDeleted  = errors.New("journal entries in posted or cancelled status are not allow to be deleted")
 )
 
 type AccountingJournalEntryService struct {
@@ -510,6 +511,78 @@ func (service *AccountingJournalEntryService) UpdateJournalEntry(ctx *utils.CtxW
 			return 400, ErrAccountNotFound
 		}
 
+		return 500, utils.ErrInternalServer
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		log.Printf("%v", err)
+		return 500, utils.ErrInternalServer
+	}
+
+	return 200, nil
+}
+
+func (service *AccountingJournalEntryService) DeleteJournalEntry(id string) (int, error) {
+	tx, err := service.DB.Begin()
+	if err != nil {
+		log.Printf("%v", err)
+		return 500, utils.ErrInternalServer
+	}
+
+	bqbQuery := bqb.New(`SELECT status FROM "accounting.journal_entry" WHERE id = ?`, id)
+	query, params, err := bqbQuery.ToPgsql()
+	if err != nil {
+		tx.Rollback()
+		log.Printf("%v", err)
+		return 500, utils.ErrInternalServer
+	}
+
+	var status string
+	err = tx.QueryRow(query, params...).Scan(&status)
+	if err != nil {
+		tx.Rollback()
+
+		if err == sql.ErrNoRows {
+			return 404, ErrJournalEntryNotFound
+		}
+
+		log.Printf("%v", err)
+		return 500, utils.ErrInternalServer
+	}
+
+	if status == models.AccountingJournalEntryStatusPosted || status == models.AccountingJournalEntryStatusCancelled {
+		tx.Rollback()
+		return 400, ErrJournalEntryNotAllowToBeDeleted
+	}
+
+	bqbQuery = bqb.New(`DELETE FROM "accounting.journal_entry_line" WHERE accounting_journal_entry_id = ?`, id)
+	query, params, err = bqbQuery.ToPgsql()
+	if err != nil {
+		tx.Rollback()
+		log.Printf("%v", err)
+		return 500, utils.ErrInternalServer
+	}
+
+	_, err = tx.Exec(query, params...)
+	if err != nil {
+		tx.Rollback()
+		log.Printf("%v", err)
+		return 500, utils.ErrInternalServer
+	}
+
+	bqbQuery = bqb.New(`DELETE FROM "accounting.journal_entry" WHERE id = ?`, id)
+	query, params, err = bqbQuery.ToPgsql()
+	if err != nil {
+		tx.Rollback()
+		log.Printf("%v", err)
+		return 500, utils.ErrInternalServer
+	}
+
+	_, err = tx.Exec(query, params...)
+	if err != nil {
+		tx.Rollback()
+		log.Printf("%v", err)
 		return 500, utils.ErrInternalServer
 	}
 

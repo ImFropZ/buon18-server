@@ -458,3 +458,15 @@ func (handler *AccountingHandler) UpdateJournalEntry(c *gin.Context) {
 
 	c.JSON(statusCode, utils.NewResponse(statusCode, "journal entry updated successfully", nil))
 }
+
+func (handler *AccountingHandler) DeleteJournalEntry(c *gin.Context) {
+	id := c.Param("id")
+
+	statusCode, err := handler.ServiceFacade.AccountingJournalEntryService.DeleteJournalEntry(id)
+	if err != nil {
+		c.JSON(statusCode, utils.NewErrorResponse(statusCode, err.Error()))
+		return
+	}
+
+	c.JSON(statusCode, utils.NewResponse(statusCode, "journal entry deleted successfully", nil))
+}
