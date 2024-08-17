@@ -22,20 +22,26 @@ services:
       - ./valkey/valkey.conf:/etc/valkey/valkey.conf
     command: ["valkey-server", "/etc/valkey/valkey.conf"]
   server:
-    image: buon18/system-server:2.0.0-a.4
+    image: buon18/system-server:2.0.0-a.5
     container_name: buon18-system-server
     restart: unless-stopped
     depends_on:
       - db
+      - valkey
     ports:
       - "8080:80"
       - "8081:443"
     environment:
+      - PORT=80
       - DB_CONNECTION_STRING=postgres://postgres:postgres@db:5432/postgres?sslmode=disable
       - TOKEN_KEY=my_secret_key
       - REFRESH_TOKEN_KEY=my_secret_refresh_key
       - TOKEN_DURATION_SEC=600 # 10 mins
       - REFRESH_TOKEN_SEC=86400 # 1 day
+      - VALKEY_ADDRESSES=valkey:6379
+      - VALKEY_PWD=valkey
+      - CACHE_DURATION_SEC=600
+      - LOGGING_DIR=/logs
       - GIN_MODE=release
       - ALLOW_ORIGINS=*
       - ALLOW_METHODS=GET,POST,PATCH,DELETE,OPTIONS
@@ -46,3 +52,4 @@ services:
       - KEY_FILE=
     volumes:
       - ./certs:/certs
+      - ./logs:/logs

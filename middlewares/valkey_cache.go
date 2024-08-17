@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"server/config"
 	"server/database"
 	"server/utils"
 	"time"
@@ -38,41 +39,44 @@ func ValkeyCache[T interface{}](connection *database.Connection, fieldName strin
 
 			c.Next()
 
-			if c.Request.URL.Path == c.Request.RequestURI {
-				if value, ok := c.Get("response"); ok {
-					result := value.([]byte)
-					resultStr := string(result)
-					err := (*valkeyClient).Do(
-						ctx,
-						(*valkeyClient).
-							B().
-							Set().
-							Key(c.Request.RequestURI).
-							Value(resultStr).
-							ExatTimestamp(time.Now().AddDate(0, 0, 1).Unix()).
-							Build(),
-					).Error()
-					if err != nil {
-						log.Printf("ValkeyCache: %v\n", err)
+			go func() {
+				if c.Request.URL.Path == c.Request.RequestURI {
+					config := config.GetConfigInstance()
+					if value, ok := c.Get("response"); ok {
+						result := value.([]byte)
+						resultStr := string(result)
+						err := (*valkeyClient).Do(
+							ctx,
+							(*valkeyClient).
+								B().
+								Set().
+								Key(c.Request.RequestURI).
+								Value(resultStr).
+								ExatTimestamp(time.Now().Add(time.Duration(config.CACHE_DURATION_SEC)*time.Second).Unix()).
+								Build(),
+						).Error()
+						if err != nil {
+							log.Printf("ValkeyCache: %v\n", err)
+						}
+					}
+					if value, ok := c.Get("total"); ok {
+						result := utils.IntToStr(value.(int))
+						err := (*valkeyClient).Do(
+							ctx,
+							(*valkeyClient).
+								B().
+								Set().
+								Key(fmt.Sprintf("total_%s", c.Request.RequestURI)).
+								Value(result).
+								ExatTimestamp(time.Now().Add(time.Duration(config.CACHE_DURATION_SEC)*time.Second).Unix()).
+								Build(),
+						).Error()
+						if err != nil {
+							log.Printf("ValkeyCache: %v\n", err)
+						}
 					}
 				}
-				if value, ok := c.Get("total"); ok {
-					result := utils.IntToStr(value.(int))
-					err := (*valkeyClient).Do(
-						ctx,
-						(*valkeyClient).
-							B().
-							Set().
-							Key(fmt.Sprintf("total_%s", c.Request.RequestURI)).
-							Value(result).
-							ExatTimestamp(time.Now().AddDate(0, 0, 1).Unix()).
-							Build(),
-					).Error()
-					if err != nil {
-						log.Printf("ValkeyCache: %v\n", err)
-					}
-				}
-			}
+			}()
 		}
 	}
 }

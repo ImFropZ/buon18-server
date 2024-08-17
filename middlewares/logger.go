@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"path/filepath"
 	"server/config"
 	"server/utils"
 	"strconv"
@@ -22,7 +23,9 @@ func Logger() gin.HandlerFunc {
 		ctx, _ := utils.Ctx(c)
 		config := config.GetConfigInstance()
 
-		file, err := os.OpenFile(fmt.Sprintf("%s%s.log", config.LOGGIN_DIR, timeStart.Format("2006-01-02")), os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
+		path := filepath.Join(config.LOGGIN_DIR, fmt.Sprintf("%s.log", timeStart.Format("2006-01-02")))
+
+		file, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
 		defer func() {
 			if err := file.Close(); err != nil {
 				log.Printf("Error closing file: %v", err)

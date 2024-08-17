@@ -23,8 +23,9 @@ type Config struct {
 	LOGGIN_DIR string
 
 	// -- Valkey
-	VALKEY_ADDRESSES []string
-	VALKEY_PWD       string
+	VALKEY_ADDRESSES   []string
+	VALKEY_PWD         string
+	CACHE_DURATION_SEC int
 
 	// -- Trusted Proxies
 	TRUSTED_PROXIES []string
@@ -53,6 +54,12 @@ func GetConfigInstance() *Config {
 		if err != nil {
 			fmt.Println("Error parsing PORT")
 			port = 80
+		}
+
+		// -- Cache Duration
+		cacheDuration, err := strconv.Atoi(Env("CACHE_DURATION_SEC"))
+		if err != nil {
+			fmt.Println("Error parsing CACHE_DURATION_SEC")
 		}
 
 		// -- Token Duration
@@ -119,14 +126,15 @@ func GetConfigInstance() *Config {
 			PORT: port,
 
 			// -- Logging
-			LOGGIN_DIR: Env("LOGGIN_DIR"),
+			LOGGIN_DIR: Env("LOGGING_DIR"),
 
 			// -- Database
 			DB_CONNECTION_STRING: validateEnvString("DB_CONNECTION_STRING"),
 
 			// -- Valkey
-			VALKEY_ADDRESSES: strings.Split(Env("VALKEY_ADDRESSES"), ","),
-			VALKEY_PWD:       Env("VALKEY_PWD"),
+			VALKEY_ADDRESSES:   strings.Split(Env("VALKEY_ADDRESSES"), ","),
+			VALKEY_PWD:         Env("VALKEY_PWD"),
+			CACHE_DURATION_SEC: cacheDuration,
 
 			// -- Auth
 			TOKEN_KEY:          validateEnvString("TOKEN_KEY"),
