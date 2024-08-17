@@ -11,6 +11,7 @@ type ServiceFacade struct {
 	SettingCustomerService        *setting.SettingCustomerService
 	SettingRoleService            *setting.SettingRoleService
 	SettingUserService            *setting.SettingUserService
+	SettingPermissionService      *setting.SettingPermissionService
 	SalesOrderService             *sales.SalesOrderService
 	SalesQuotationService         *sales.SalesQuotationService
 	AccountingAccountService      *accounting.AccountingAccountService

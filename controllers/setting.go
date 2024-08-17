@@ -405,3 +405,26 @@ func (handler *SettingHandler) DeleteRole(c *gin.Context) {
 
 	c.JSON(statusCode, utils.NewResponse(statusCode, "role deleted successfully", nil))
 }
+
+func (handler *SettingHandler) Permissions(c *gin.Context) {
+	qp := utils.NewQueryParams().
+		PrepareFilters(c, setting.SettingPermissionAllowFilterFieldsAndOps, `"setting.permission"`).
+		PrepareSorts(c, setting.SettingPermissionAllowSortFields, `"limited_permissions"`).
+		PreparePagination(c)
+
+	permissions, total, statusCode, err := handler.ServiceFacade.SettingPermissionService.Permissions(qp)
+	if err != nil {
+		c.JSON(statusCode, utils.NewErrorResponse(statusCode, err.Error()))
+		return
+	}
+
+	c.Header("X-Total-Count", fmt.Sprintf("%d", total))
+	c.JSON(statusCode, utils.NewResponse(statusCode, "", gin.H{
+		"permissions": permissions,
+	}))
+
+	c.Set("total", total)
+	if permissionsByte, err := json.Marshal(permissions); err == nil {
+		c.Set("response", permissionsByte)
+	}
+}

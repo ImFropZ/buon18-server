@@ -16,9 +16,10 @@ func Setting(e *gin.Engine, connection *database.Connection) {
 	handler := controllers.SettingHandler{
 		DB: connection.DB,
 		ServiceFacade: &services.ServiceFacade{
-			SettingCustomerService: &settingServices.SettingCustomerService{DB: connection.DB},
-			SettingRoleService:     &settingServices.SettingRoleService{DB: connection.DB},
-			SettingUserService:     &settingServices.SettingUserService{DB: connection.DB},
+			SettingCustomerService:   &settingServices.SettingCustomerService{DB: connection.DB},
+			SettingRoleService:       &settingServices.SettingRoleService{DB: connection.DB},
+			SettingUserService:       &settingServices.SettingUserService{DB: connection.DB},
+			SettingPermissionService: &settingServices.SettingPermissionService{DB: connection.DB},
 		},
 	}
 
@@ -94,5 +95,9 @@ func Setting(e *gin.Engine, connection *database.Connection) {
 		"/api/setting/roles/:id",
 		middlewares.Authorize([]string{utils.PREDEFINED_PERMISSIONS.FULL_SETTING, utils.PREDEFINED_PERMISSIONS.SETTING_ROLES.DELETE}),
 		handler.DeleteRole,
+	)
+	e.GET(
+		"/api/setting/permissions",
+		handler.Permissions,
 	)
 }

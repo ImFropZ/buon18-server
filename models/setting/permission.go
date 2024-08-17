@@ -2,6 +2,9 @@ package setting
 
 import "server/models"
 
+var SettingPermissionAllowFilterFieldsAndOps = []string{"name:like"}
+var SettingPermissionAllowSortFields = []string{"name"}
+
 type SettingPermission struct {
 	*models.CommonModel
 	Id   uint
