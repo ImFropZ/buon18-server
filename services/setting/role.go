@@ -4,10 +4,11 @@ import (
 	"database/sql"
 	"errors"
 	"log"
-	"server/database"
-	"server/models"
-	"server/models/setting"
-	"server/utils"
+
+	"system.buon18.com/m/database"
+	"system.buon18.com/m/models"
+	"system.buon18.com/m/models/setting"
+	"system.buon18.com/m/utils"
 
 	"github.com/lib/pq"
 	"github.com/nullism/bqb"

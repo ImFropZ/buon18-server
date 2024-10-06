@@ -4,11 +4,12 @@ import (
 	"database/sql"
 	"errors"
 	"log"
-	"server/database"
-	"server/models"
-	"server/models/accounting"
-	"server/utils"
 	"sync"
+
+	"system.buon18.com/m/database"
+	"system.buon18.com/m/models"
+	"system.buon18.com/m/models/accounting"
+	"system.buon18.com/m/utils"
 
 	"github.com/lib/pq"
 	"github.com/nullism/bqb"

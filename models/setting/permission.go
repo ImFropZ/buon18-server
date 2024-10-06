@@ -1,6 +1,8 @@
 package setting
 
-import "server/models"
+import (
+	"system.buon18.com/m/models"
+)
 
 var SettingPermissionAllowFilterFieldsAndOps = []string{"name:like"}
 var SettingPermissionAllowSortFields = []string{"name"}

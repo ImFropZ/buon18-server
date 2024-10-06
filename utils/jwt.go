@@ -2,8 +2,9 @@ package utils
 
 import (
 	"fmt"
-	"server/config"
 	"time"
+
+	"system.buon18.com/m/config"
 
 	"github.com/golang-jwt/jwt/v5"
 )

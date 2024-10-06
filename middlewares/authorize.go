@@ -2,9 +2,10 @@ package middlewares
 
 import (
 	"log"
-	"server/models/setting"
-	"server/utils"
 	"strings"
+
+	"system.buon18.com/m/models/setting"
+	"system.buon18.com/m/utils"
 
 	"github.com/gin-gonic/gin"
 )

@@ -3,7 +3,8 @@ package utils
 import (
 	"errors"
 	"log"
-	"server/models/setting"
+
+	"system.buon18.com/m/models/setting"
 
 	"github.com/gin-gonic/gin"
 )

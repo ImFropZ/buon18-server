@@ -4,8 +4,9 @@ import (
 	"database/sql"
 	"errors"
 	"log"
-	"server/models/setting"
-	"server/utils"
+
+	"system.buon18.com/m/models/setting"
+	"system.buon18.com/m/utils"
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"

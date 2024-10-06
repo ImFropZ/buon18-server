@@ -1,13 +1,13 @@
 package routes
 
 import (
-	"server/controllers"
-	"server/database"
-	"server/middlewares"
-	"server/models/accounting"
-	"server/services"
-	accountingServices "server/services/accounting"
-	"server/utils"
+	"system.buon18.com/m/controllers"
+	"system.buon18.com/m/database"
+	"system.buon18.com/m/middlewares"
+	"system.buon18.com/m/models/accounting"
+	"system.buon18.com/m/services"
+	accountingServices "system.buon18.com/m/services/accounting"
+	"system.buon18.com/m/utils"
 
 	"github.com/gin-gonic/gin"
 )

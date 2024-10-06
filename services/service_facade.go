@@ -1,9 +1,9 @@
 package services
 
 import (
-	"server/services/accounting"
-	"server/services/sales"
-	"server/services/setting"
+	"system.buon18.com/m/services/accounting"
+	"system.buon18.com/m/services/sales"
+	"system.buon18.com/m/services/setting"
 )
 
 type ServiceFacade struct {

@@ -45,8 +45,8 @@ services:
       - GIN_MODE=release
       - ALLOW_ORIGINS=*
       - ALLOW_METHODS=GET,POST,PATCH,DELETE,OPTIONS
-      - ALLOW_HEADERS=*
-      - EXPOSE_HEADERS=Content-Length
+      - ALLOW_HEADERS=Content-Type,Authorization
+      - EXPOSE_HEADERS=Content-Length,X-Total-Count,X-Cache
       - MAX_AGE=120
       - CERT_FILE=
       - KEY_FILE=

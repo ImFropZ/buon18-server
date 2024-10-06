@@ -2,8 +2,9 @@ package controllers
 
 import (
 	"database/sql"
-	"server/services"
-	"server/utils"
+
+	"system.buon18.com/m/services"
+	"system.buon18.com/m/utils"
 
 	"github.com/gin-gonic/gin"
 )

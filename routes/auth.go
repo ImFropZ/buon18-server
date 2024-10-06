@@ -2,10 +2,11 @@ package routes
 
 import (
 	"database/sql"
-	"server/controllers"
-	"server/middlewares"
-	"server/services"
-	"server/utils"
+
+	"system.buon18.com/m/controllers"
+	"system.buon18.com/m/middlewares"
+	"system.buon18.com/m/services"
+	"system.buon18.com/m/utils"
 
 	"github.com/gin-gonic/gin"
 )

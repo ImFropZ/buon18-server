@@ -1,10 +1,11 @@
 package sales
 
 import (
-	"server/models"
-	"server/models/accounting"
 	"strings"
 	"time"
+
+	"system.buon18.com/m/models"
+	"system.buon18.com/m/models/accounting"
 
 	"github.com/nullism/bqb"
 )

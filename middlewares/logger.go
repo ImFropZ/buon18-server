@@ -6,10 +6,11 @@ import (
 	"log"
 	"os"
 	"path/filepath"
-	"server/config"
-	"server/utils"
 	"strconv"
 	"time"
+
+	"system.buon18.com/m/config"
+	"system.buon18.com/m/utils"
 
 	"github.com/gin-gonic/gin"
 )

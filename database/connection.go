@@ -25,6 +25,8 @@ func InitSQL(connectionString string) *sql.DB {
 		log.Println("Database connected")
 	}
 
+	db.SetMaxOpenConns(10)
+
 	return db
 }
 

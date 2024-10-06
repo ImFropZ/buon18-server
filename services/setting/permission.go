@@ -3,8 +3,9 @@ package setting
 import (
 	"database/sql"
 	"log"
-	"server/models/setting"
-	"server/utils"
+
+	"system.buon18.com/m/models/setting"
+	"system.buon18.com/m/utils"
 
 	"github.com/nullism/bqb"
 )

@@ -5,10 +5,11 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"server/config"
-	"server/database"
-	"server/middlewares"
-	"server/routes"
+
+	"system.buon18.com/m/config"
+	"system.buon18.com/m/database"
+	"system.buon18.com/m/middlewares"
+	"system.buon18.com/m/routes"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"

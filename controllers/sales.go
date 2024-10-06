@@ -5,10 +5,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
-	"server/models/sales"
-	"server/services"
-	"server/utils"
 	"strings"
+
+	"system.buon18.com/m/models/sales"
+	"system.buon18.com/m/services"
+	"system.buon18.com/m/utils"
 
 	"github.com/gin-gonic/gin"
 )
