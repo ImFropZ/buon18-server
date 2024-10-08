@@ -13,6 +13,7 @@ func Authorize(next http.Handler, allowPermissions []string) http.Handler {
 		userCtx := r.Context().Value(utils.CtxKey{}).(*utils.CtxValue)
 
 		if userCtx == nil {
+			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusUnauthorized)
 			json.NewEncoder(w).Encode(utils.NewErrorResponse(http.StatusUnauthorized, "missing 'Authorization' header or 'Authorization' header's value doesn't start with 'Bearer '", "Unauthorized", nil))
 			return
@@ -33,6 +34,7 @@ func Authorize(next http.Handler, allowPermissions []string) http.Handler {
 		}
 
 		if !allow {
+			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusForbidden)
 			json.NewEncoder(w).Encode(utils.NewErrorResponse(http.StatusForbidden, "", "Forbidden", nil))
 			return

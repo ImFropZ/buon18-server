@@ -44,14 +44,14 @@ func LoggerHandler(next http.Handler) http.Handler {
 
 		config := config.GetConfigInstance()
 
-		if config.LOGGIN_DIR == "" {
+		if config.LOGGING_DIR == "" {
 			return
 		}
 
-		path := filepath.Join(config.LOGGIN_DIR, fmt.Sprintf("%s.log", timeStart.Format("2006-01-02")))
+		path := filepath.Join(config.LOGGING_DIR, fmt.Sprintf("%s.log", timeStart.Format("2006-01-02")))
 
 		if _, err := os.Stat(path); os.IsNotExist(err) {
-			err := os.MkdirAll(config.LOGGIN_DIR, os.ModePerm)
+			err := os.MkdirAll(config.LOGGING_DIR, os.ModePerm)
 			if err != nil {
 				slog.Error(fmt.Sprintf("Error creating directory: %v", err))
 				return

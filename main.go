@@ -47,12 +47,13 @@ func main() {
 	routes.AuthRoutes(apiRoute.PathPrefix("/auth").Subrouter(), &connection)
 
 	// Auth Routes
-	apiRoute.Use(func(next http.Handler) http.Handler {
+	authRoute := apiRoute.NewRoute().Subrouter()
+	authRoute.Use(func(next http.Handler) http.Handler {
 		return middlewares.Authenticate(next, DB)
 	})
-	routes.SettingRoutes(apiRoute.PathPrefix("/setting").Subrouter(), &connection)
-	routes.SalesRoutes(apiRoute.PathPrefix("/sales").Subrouter(), &connection)
-	routes.AccountingRoutes(apiRoute.PathPrefix("/accounting").Subrouter(), &connection)
+	routes.SettingRoutes(authRoute.PathPrefix("/setting").Subrouter(), &connection)
+	routes.SalesRoutes(authRoute.PathPrefix("/sales").Subrouter(), &connection)
+	routes.AccountingRoutes(authRoute.PathPrefix("/accounting").Subrouter(), &connection)
 
 	r.Walk(func(route *mux.Route, router *mux.Router, ancestors []*mux.Route) error {
 		t, err := route.GetPathTemplate()
