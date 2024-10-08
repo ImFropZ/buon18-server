@@ -6,7 +6,6 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"time"
 )
 
 var lock = &sync.Mutex{}
@@ -31,11 +30,12 @@ type Config struct {
 	TRUSTED_PROXIES []string
 
 	// -- CORS
-	ALLOW_ORIGINS  []string
-	ALLOW_METHODS  []string
-	ALLOW_HEADERS  []string
-	EXPOSE_HEADERS []string
-	MAX_AGE        time.Duration
+	ACCESS_CONTROL_ALLOW_ORIGIN      string
+	ACCESS_CONTROL_ALLOW_CREDENTIALS string
+	ACCESS_CONTROL_ALLOW_HEADERS     string
+	ACCESS_CONTROL_ALLOW_METHODS     string
+	ACCESS_CONTROL_EXPOSE_HEADERS    string
+	ACCESS_CONTROL_MAX_AGE           string
 
 	// -- TLS
 	CERT_FILE string
@@ -80,48 +80,6 @@ func GetConfigInstance() *Config {
 			trustedProxies = append(trustedProxies, proxies)
 		}
 
-		// -- CORS
-		aOrigins := Env("ALLOW_ORIGINS")
-		allowOrigins := []string{}
-		if aOrigins == "" {
-			allowOrigins = append(allowOrigins, "*")
-		} else {
-			allowOrigins = append(allowOrigins, strings.Split(aOrigins, ",")...)
-		}
-
-		aMethods := Env("ALLOW_METHODS")
-		allowMethods := []string{}
-		if aMethods == "" {
-			allowMethods = append(allowMethods, "GET", "POST", "PATCH", "DELETE", "OPTIONS")
-		} else {
-			allowMethods = append(allowMethods, strings.Split(aMethods, ",")...)
-		}
-
-		aHeaders := Env("ALLOW_HEADERS")
-		allowHeaders := []string{}
-		if aHeaders == "" {
-			allowHeaders = append(allowHeaders, "*")
-		} else {
-			allowHeaders = append(allowHeaders, strings.Split(aHeaders, ",")...)
-		}
-
-		eHeaders := Env("EXPOSE_HEADERS")
-		exposeHeaders := []string{}
-		if eHeaders == "" {
-			exposeHeaders = append(exposeHeaders, "Content-Length")
-		} else {
-			exposeHeaders = append(exposeHeaders, strings.Split(eHeaders, ",")...)
-		}
-
-		mAge := Env("MAX_AGE")
-		maxAge := 120
-		if mAge != "" {
-			maxAge, err = strconv.Atoi(mAge)
-			if err != nil {
-				fmt.Println("Error parsing MAX_AGE")
-			}
-		}
-
 		configInstance = &Config{
 			PORT: port,
 
@@ -146,11 +104,12 @@ func GetConfigInstance() *Config {
 			TRUSTED_PROXIES: trustedProxies,
 
 			// -- CORS
-			ALLOW_ORIGINS:  allowOrigins,
-			ALLOW_METHODS:  allowMethods,
-			ALLOW_HEADERS:  allowHeaders,
-			EXPOSE_HEADERS: exposeHeaders,
-			MAX_AGE:        time.Duration(maxAge) * time.Second,
+			ACCESS_CONTROL_ALLOW_ORIGIN:      Env("ACCESS_CONTROL_ALLOW_ORIGIN"),
+			ACCESS_CONTROL_ALLOW_CREDENTIALS: Env("ACCESS_CONTROL_ALLOW_CREDENTIALS"),
+			ACCESS_CONTROL_ALLOW_HEADERS:     Env("ACCESS_CONTROL_ALLOW_HEADERS"),
+			ACCESS_CONTROL_ALLOW_METHODS:     Env("ACCESS_CONTROL_ALLOW_METHODS"),
+			ACCESS_CONTROL_EXPOSE_HEADERS:    Env("ACCESS_CONTROL_EXPOSE_HEADERS"),
+			ACCESS_CONTROL_MAX_AGE:           Env("ACCESS_CONTROL_MAX_AGE"),
 
 			// -- TLS
 			CERT_FILE: Env("CERT_FILE"),

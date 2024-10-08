@@ -2,22 +2,15 @@ package accounting
 
 import (
 	"database/sql"
-	"errors"
 	"log"
+	"net/http"
 
+	"github.com/lib/pq"
+	"github.com/nullism/bqb"
 	"system.buon18.com/m/database"
 	"system.buon18.com/m/models"
 	"system.buon18.com/m/models/accounting"
 	"system.buon18.com/m/utils"
-
-	"github.com/lib/pq"
-	"github.com/nullism/bqb"
-)
-
-var (
-	ErrJournalNotFound                    = errors.New("journal not found")
-	ErrAccountingJournalCodeExists        = errors.New("accounting journal code already exists")
-	ErrUnableToDeleteCurrentlyUsedJournal = errors.New("unable to delete currently used journal")
 )
 
 type AccountingJournalService struct {
@@ -27,11 +20,7 @@ type AccountingJournalService struct {
 func (service *AccountingJournalService) Journals(qp *utils.QueryParams) ([]accounting.AccountingJournalResponse, int, int, error) {
 	bqbQuery := bqb.New(`WITH "limited_journals" AS (
 		SELECT
-			"accounting.journal".id,
-			"accounting.journal".code,
-			"accounting.journal".name,
-			"accounting.journal".typ,
-			"accounting.journal".accounting_account_id
+			*
 		FROM
 			"accounting.journal"`)
 
@@ -57,13 +46,13 @@ func (service *AccountingJournalService) Journals(qp *utils.QueryParams) ([]acco
 	query, params, err := bqbQuery.ToPgsql()
 	if err != nil {
 		log.Printf("%v", err)
-		return nil, 0, 500, utils.ErrInternalServer
+		return nil, 0, http.StatusInternalServerError, utils.ErrInternalServer
 	}
 
 	rows, err := service.DB.Query(query, params...)
 	if err != nil {
 		log.Printf("%v", err)
-		return nil, 0, 500, utils.ErrInternalServer
+		return nil, 0, http.StatusInternalServerError, utils.ErrInternalServer
 	}
 
 	var journals []accounting.AccountingJournalResponse
@@ -73,7 +62,7 @@ func (service *AccountingJournalService) Journals(qp *utils.QueryParams) ([]acco
 		err := rows.Scan(&journal.Id, &journal.Code, &journal.Name, &journal.Typ, &account.Id, &account.Code, &account.Name, &account.Typ)
 		if err != nil {
 			log.Printf("%v", err)
-			return nil, 0, 500, utils.ErrInternalServer
+			return nil, 0, http.StatusInternalServerError, utils.ErrInternalServer
 		}
 
 		accountResponse := accounting.AccountingAccountToResponse(account)
@@ -86,27 +75,23 @@ func (service *AccountingJournalService) Journals(qp *utils.QueryParams) ([]acco
 	query, params, err = bqbQuery.ToPgsql()
 	if err != nil {
 		log.Printf("%v", err)
-		return nil, 0, 500, utils.ErrInternalServer
+		return nil, 0, http.StatusInternalServerError, utils.ErrInternalServer
 	}
 
 	var total int
 	err = service.DB.QueryRow(query, params...).Scan(&total)
 	if err != nil {
 		log.Printf("%v", err)
-		return nil, 0, 500, utils.ErrInternalServer
+		return nil, 0, http.StatusInternalServerError, utils.ErrInternalServer
 	}
 
-	return journals, total, 200, nil
+	return journals, total, http.StatusOK, nil
 }
 
 func (service *AccountingJournalService) Journal(id string) (accounting.AccountingJournalResponse, int, error) {
 	bqbQuery := bqb.New(`WITH "limited_journals" AS (
 		SELECT
-			"accounting.journal".id,
-			"accounting.journal".code,
-			"accounting.journal".name,
-			"accounting.journal".typ,
-			"accounting.journal".accounting_account_id
+			*
 		FROM
 			"accounting.journal"
 		WHERE
@@ -128,31 +113,29 @@ func (service *AccountingJournalService) Journal(id string) (accounting.Accounti
 	query, params, err := bqbQuery.ToPgsql()
 	if err != nil {
 		log.Printf("%v", err)
-		return accounting.AccountingJournalResponse{}, 500, utils.ErrInternalServer
+		return accounting.AccountingJournalResponse{}, http.StatusInternalServerError, utils.ErrInternalServer
 	}
 
 	var journal accounting.AccountingJournal
 	var account accounting.AccountingAccount
-	err = service.DB.QueryRow(query, params...).Scan(&journal.Id, &journal.Code, &journal.Name, &journal.Typ, &account.Id, &account.Code, &account.Name, &account.Typ)
-	if err != nil {
+	if err := service.DB.QueryRow(query, params...).Scan(&journal.Id, &journal.Code, &journal.Name, &journal.Typ, &account.Id, &account.Code, &account.Name, &account.Typ); err != nil {
 		if err == sql.ErrNoRows {
-			return accounting.AccountingJournalResponse{}, 404, ErrJournalNotFound
+			return accounting.AccountingJournalResponse{}, http.StatusNotFound, utils.ErrJournalNotFound
 		}
 
 		log.Printf("%v", err)
-		return accounting.AccountingJournalResponse{}, 500, utils.ErrInternalServer
+		return accounting.AccountingJournalResponse{}, http.StatusInternalServerError, utils.ErrInternalServer
 	}
 
 	if journal.Id == 0 {
-		return accounting.AccountingJournalResponse{}, 404, ErrJournalNotFound
+		return accounting.AccountingJournalResponse{}, http.StatusNotFound, utils.ErrJournalNotFound
 	}
 
 	accountResponse := accounting.AccountingAccountToResponse(account)
-
-	return accounting.AccountingJournalToResponse(journal, &accountResponse), 200, nil
+	return accounting.AccountingJournalToResponse(journal, &accountResponse), http.StatusOK, nil
 }
 
-func (service *AccountingJournalService) CreateJournal(ctx *utils.CtxW, journal *accounting.AccountingJournalCreateRequest) (int, error) {
+func (service *AccountingJournalService) CreateJournal(ctx *utils.CtxValue, journal *accounting.AccountingJournalCreateRequest) (int, error) {
 	commonModel := models.CommonModel{}
 	commonModel.PrepareForCreate(ctx.User.Id, ctx.User.Id)
 
@@ -164,26 +147,25 @@ func (service *AccountingJournalService) CreateJournal(ctx *utils.CtxW, journal 
 	query, params, err := bqbQuery.ToPgsql()
 	if err != nil {
 		log.Printf("%v", err)
-		return 500, utils.ErrInternalServer
+		return http.StatusInternalServerError, utils.ErrInternalServer
 	}
 
-	_, err = service.DB.Exec(query, params...)
-	if err != nil {
+	if _, err = service.DB.Exec(query, params...); err != nil {
 		switch err.(*pq.Error).Constraint {
 		case database.FK_ACCOUNTING_ACCOUNT_ID:
-			return 400, ErrAccountNotFound
+			return http.StatusNotFound, utils.ErrAccountNotFound
 		case database.KEY_ACCOUNTING_JOURNAL_CODE:
-			return 409, ErrAccountingJournalCodeExists
+			return http.StatusConflict, utils.ErrJournalCodeExists
 		}
 
 		log.Printf("%v", err)
-		return 500, utils.ErrInternalServer
+		return http.StatusInternalServerError, utils.ErrInternalServer
 	}
 
-	return 201, nil
+	return http.StatusCreated, nil
 }
 
-func (service *AccountingJournalService) UpdateJournal(ctx *utils.CtxW, id string, journal *accounting.AccountingJournalUpdateRequest) (int, error) {
+func (service *AccountingJournalService) UpdateJournal(ctx *utils.CtxValue, id string, journal *accounting.AccountingJournalUpdateRequest) (int, error) {
 	commonModel := models.CommonModel{}
 	commonModel.PrepareForUpdate(ctx.User.Id)
 
@@ -194,27 +176,27 @@ func (service *AccountingJournalService) UpdateJournal(ctx *utils.CtxW, id strin
 	query, params, err := bqbQuery.ToPgsql()
 	if err != nil {
 		log.Printf("%v", err)
-		return 500, utils.ErrInternalServer
+		return http.StatusInternalServerError, utils.ErrInternalServer
 	}
 
 	result, err := service.DB.Exec(query, params...)
 	if err != nil {
 		switch err.(*pq.Error).Constraint {
 		case database.FK_ACCOUNTING_ACCOUNT_ID:
-			return 400, ErrAccountNotFound
+			return http.StatusNotFound, utils.ErrAccountNotFound
 		case database.KEY_ACCOUNTING_JOURNAL_CODE:
-			return 409, ErrAccountingJournalCodeExists
+			return http.StatusConflict, utils.ErrJournalCodeExists
 		}
 
 		log.Printf("%v", err)
-		return 500, utils.ErrInternalServer
+		return http.StatusInternalServerError, utils.ErrInternalServer
 	}
 
 	if n, _ := result.RowsAffected(); n == 0 {
-		return 404, ErrJournalNotFound
+		return http.StatusNotFound, utils.ErrJournalNotFound
 	}
 
-	return 200, nil
+	return http.StatusOK, nil
 }
 
 func (service *AccountingJournalService) DeleteJournal(id string) (int, error) {
@@ -222,23 +204,23 @@ func (service *AccountingJournalService) DeleteJournal(id string) (int, error) {
 	query, params, err := bqbQuery.ToPgsql()
 	if err != nil {
 		log.Printf("%v", err)
-		return 500, utils.ErrInternalServer
+		return http.StatusInternalServerError, utils.ErrInternalServer
 	}
 
 	result, err := service.DB.Exec(query, params...)
 	if err != nil {
 		switch err.(*pq.Error).Constraint {
 		case database.FK_ACCOUNTING_JOURNAL_ID:
-			return 400, ErrUnableToDeleteCurrentlyUsedJournal
+			return http.StatusForbidden, utils.ErrResourceInUsed
 		}
 
 		log.Printf("%v", err)
-		return 500, utils.ErrInternalServer
+		return http.StatusInternalServerError, utils.ErrInternalServer
 	}
 
 	if n, _ := result.RowsAffected(); n == 0 {
-		return 404, ErrJournalNotFound
+		return http.StatusNotFound, utils.ErrJournalNotFound
 	}
 
-	return 200, nil
+	return http.StatusOK, nil
 }

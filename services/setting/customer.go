@@ -2,8 +2,9 @@ package setting
 
 import (
 	"database/sql"
-	"errors"
-	"log"
+	"fmt"
+	"log/slog"
+	"net/http"
 
 	"system.buon18.com/m/database"
 	"system.buon18.com/m/models"
@@ -12,12 +13,6 @@ import (
 
 	"github.com/lib/pq"
 	"github.com/nullism/bqb"
-)
-
-var (
-	ErrCustomerNotFound       = errors.New("customer not found")
-	ErrCustomerEmailExists    = errors.New("customer email already exists")
-	ErrUnableToDeleteCustomer = errors.New("unable to delete customer")
 )
 
 type SettingCustomerService struct {
@@ -41,14 +36,14 @@ func (service *SettingCustomerService) Customers(qp *utils.QueryParams) ([]setti
 
 	query, params, err := bqbQuery.ToPgsql()
 	if err != nil {
-		log.Printf("%s", err)
-		return nil, 0, 500, utils.ErrInternalServer
+		slog.Error(fmt.Sprintf("%s", err))
+		return nil, 0, http.StatusInternalServerError, utils.ErrInternalServer
 	}
 
 	rows, err := service.DB.Query(query, params...)
 	if err != nil {
-		log.Printf("%s", err)
-		return nil, 0, 500, utils.ErrInternalServer
+		slog.Error(fmt.Sprintf("%s", err))
+		return nil, 0, http.StatusInternalServerError, utils.ErrInternalServer
 	}
 
 	customersResponse := make([]setting.SettingCustomerResponse, 0)
@@ -56,8 +51,8 @@ func (service *SettingCustomerService) Customers(qp *utils.QueryParams) ([]setti
 		tmpCustomer := setting.SettingCustomer{}
 		err := rows.Scan(&tmpCustomer.Id, &tmpCustomer.FullName, &tmpCustomer.Gender, &tmpCustomer.Email, &tmpCustomer.Phone, &tmpCustomer.AdditionalInformation)
 		if err != nil {
-			log.Printf("%s", err)
-			return nil, 0, 500, utils.ErrInternalServer
+			slog.Error(fmt.Sprintf("%s", err))
+			return nil, 0, http.StatusInternalServerError, utils.ErrInternalServer
 		}
 
 		customersResponse = append(customersResponse, setting.SettingCustomerToResponse(tmpCustomer))
@@ -68,18 +63,18 @@ func (service *SettingCustomerService) Customers(qp *utils.QueryParams) ([]setti
 
 	query, params, err = bqbQuery.ToPgsql()
 	if err != nil {
-		log.Printf("%s", err)
-		return nil, 0, 500, utils.ErrInternalServer
+		slog.Error(fmt.Sprintf("%s", err))
+		return nil, 0, http.StatusInternalServerError, utils.ErrInternalServer
 	}
 
 	var total int
 	err = service.DB.QueryRow(query, params...).Scan(&total)
 	if err != nil {
-		log.Printf("%s", err)
-		return nil, 0, 500, utils.ErrInternalServer
+		slog.Error(fmt.Sprintf("%s", err))
+		return nil, 0, http.StatusInternalServerError, utils.ErrInternalServer
 	}
 
-	return customersResponse, total, 200, nil
+	return customersResponse, total, http.StatusOK, nil
 }
 
 func (service *SettingCustomerService) Customer(id string) (setting.SettingCustomerResponse, int, error) {
@@ -95,33 +90,33 @@ func (service *SettingCustomerService) Customer(id string) (setting.SettingCusto
 
 	query, params, err := bqbQuery.ToPgsql()
 	if err != nil {
-		log.Printf("%s", err)
-		return setting.SettingCustomerResponse{}, 500, utils.ErrInternalServer
+		slog.Error(fmt.Sprintf("%s", err))
+		return setting.SettingCustomerResponse{}, http.StatusInternalServerError, utils.ErrInternalServer
 	}
 
 	rows, err := service.DB.Query(query, params...)
 	if err != nil {
-		log.Printf("%s", err)
-		return setting.SettingCustomerResponse{}, 500, utils.ErrInternalServer
+		slog.Error(fmt.Sprintf("%s", err))
+		return setting.SettingCustomerResponse{}, http.StatusInternalServerError, utils.ErrInternalServer
 	}
 
 	var customer setting.SettingCustomer
 	for rows.Next() {
 		err := rows.Scan(&customer.Id, &customer.FullName, &customer.Gender, &customer.Email, &customer.Phone, &customer.AdditionalInformation)
 		if err != nil {
-			log.Printf("%s", err)
-			return setting.SettingCustomerResponse{}, 500, utils.ErrInternalServer
+			slog.Error(fmt.Sprintf("%s", err))
+			return setting.SettingCustomerResponse{}, http.StatusInternalServerError, utils.ErrInternalServer
 		}
 	}
 
 	if customer.Id == 0 {
-		return setting.SettingCustomerResponse{}, 404, ErrCustomerNotFound
+		return setting.SettingCustomerResponse{}, http.StatusNotFound, utils.ErrCustomerNotFound
 	}
 
-	return setting.SettingCustomerToResponse(customer), 200, nil
+	return setting.SettingCustomerToResponse(customer), http.StatusOK, nil
 }
 
-func (service *SettingCustomerService) CreateCustomer(ctx *utils.CtxW, customer *setting.SettingCustomerCreateRequest) (int, error) {
+func (service *SettingCustomerService) CreateCustomer(ctx *utils.CtxValue, customer *setting.SettingCustomerCreateRequest) (int, error) {
 	commonModel := models.CommonModel{}
 	commonModel.PrepareForCreate(ctx.User.Id, ctx.User.Id)
 
@@ -139,25 +134,25 @@ func (service *SettingCustomerService) CreateCustomer(ctx *utils.CtxW, customer 
 
 	query, params, err := bqbQuery.ToPgsql()
 	if err != nil {
-		log.Printf("%s", err)
-		return 500, utils.ErrInternalServer
+		slog.Error(fmt.Sprintf("%s", err))
+		return http.StatusInternalServerError, utils.ErrInternalServer
 	}
 
 	_, err = service.DB.Exec(query, params...)
 	if err != nil {
 		switch err.(*pq.Error).Constraint {
 		case database.KEY_SETTING_CUSTOMER_EMAIL:
-			return 409, ErrCustomerEmailExists
+			return http.StatusConflict, utils.ErrCustomerEmailExists
 		}
 
-		log.Printf("%s", err)
-		return 500, utils.ErrInternalServer
+		slog.Error(fmt.Sprintf("%s", err))
+		return http.StatusInternalServerError, utils.ErrInternalServer
 	}
 
-	return 201, nil
+	return http.StatusCreated, nil
 }
 
-func (service *SettingCustomerService) UpdateCustomer(ctx *utils.CtxW, id string, customer *setting.SettingCustomerUpdateRequest) (int, error) {
+func (service *SettingCustomerService) UpdateCustomer(ctx *utils.CtxValue, id string, customer *setting.SettingCustomerUpdateRequest) (int, error) {
 	commonModel := models.CommonModel{}
 	commonModel.PrepareForUpdate(ctx.User.Id)
 
@@ -167,25 +162,25 @@ func (service *SettingCustomerService) UpdateCustomer(ctx *utils.CtxW, id string
 
 	query, params, err := bqbQuery.ToPgsql()
 	if err != nil {
-		log.Printf("%v", err)
-		return 500, utils.ErrInternalServer
+		slog.Error(fmt.Sprintf("%v", err))
+		return http.StatusInternalServerError, utils.ErrInternalServer
 	}
 
 	result, err := service.DB.Exec(query, params...)
 	if err != nil {
-		log.Printf("%v", err)
-		return 500, utils.ErrInternalServer
+		slog.Error(fmt.Sprintf("%v", err))
+		return http.StatusInternalServerError, utils.ErrInternalServer
 	}
 
 	if n, err := result.RowsAffected(); err != nil || n == 0 {
 		if n == 0 {
-			return 404, ErrCustomerNotFound
+			return http.StatusNotFound, utils.ErrCustomerNotFound
 		}
-		log.Printf("%v", err)
-		return 500, utils.ErrInternalServer
+		slog.Error(fmt.Sprintf("%v", err))
+		return http.StatusInternalServerError, utils.ErrInternalServer
 	}
 
-	return 200, nil
+	return http.StatusOK, nil
 }
 
 func (service *SettingCustomerService) DeleteCustomer(id string) (int, error) {
@@ -193,26 +188,26 @@ func (service *SettingCustomerService) DeleteCustomer(id string) (int, error) {
 
 	query, params, err := bqbQuery.ToPgsql()
 	if err != nil {
-		log.Printf("%v", err)
-		return 500, utils.ErrInternalServer
+		slog.Error(fmt.Sprintf("%v", err))
+		return http.StatusInternalServerError, utils.ErrInternalServer
 	}
 
 	result, err := service.DB.Exec(query, params...)
 	if err != nil {
 		switch err.(*pq.Error).Constraint {
 		case database.FK_SETTING_CUSTOMER_ID:
-			return 409, ErrUnableToDeleteCustomer
+			return http.StatusConflict, utils.ErrUnableToDeleteCustomer
 		}
-		return 500, utils.ErrInternalServer
+		return http.StatusInternalServerError, utils.ErrInternalServer
 	}
 
 	if n, err := result.RowsAffected(); err != nil || n == 0 {
 		if n == 0 {
-			return 404, ErrCustomerNotFound
+			return http.StatusNotFound, utils.ErrCustomerNotFound
 		}
-		log.Printf("%v", err)
-		return 500, utils.ErrInternalServer
+		slog.Error(fmt.Sprintf("%v", err))
+		return http.StatusInternalServerError, utils.ErrInternalServer
 	}
 
-	return 204, nil
+	return http.StatusOK, nil
 }

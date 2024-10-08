@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
+	"log/slog"
 	"net/http"
 
 	"system.buon18.com/m/config"
@@ -11,8 +12,7 @@ import (
 	"system.buon18.com/m/middlewares"
 	"system.buon18.com/m/routes"
 
-	"github.com/gin-contrib/cors"
-	"github.com/gin-gonic/gin"
+	"github.com/gorilla/mux"
 )
 
 var DB *sql.DB
@@ -34,36 +34,44 @@ func main() {
 		Valkey: valkeyClient,
 	}
 
-	router := gin.Default()
-	router.SetTrustedProxies(config.TRUSTED_PROXIES)
+	r := mux.NewRouter()
 
-	router.Use(cors.New(cors.Config{
-		AllowOrigins:  config.ALLOW_ORIGINS,
-		AllowMethods:  config.ALLOW_METHODS,
-		AllowHeaders:  config.ALLOW_HEADERS,
-		ExposeHeaders: config.EXPOSE_HEADERS,
-		MaxAge:        config.MAX_AGE,
-	}))
+	r.Use(
+		middlewares.CORSHandler,
+		middlewares.LoggerHandler,
+		middlewares.ErrorHandler,
+	)
 
-	router.Use(middlewares.Logger())
+	apiRoute := r.PathPrefix("/api").Subrouter()
 
-	// -- Routes
-	// -- Public
-	routes.Auth(router, DB)
+	routes.AuthRoutes(apiRoute.PathPrefix("/auth").Subrouter(), &connection)
 
-	// -- Private
-	router.Use(middlewares.Authenticate(DB))
-	routes.Setting(router, &connection)
-	routes.Sales(router, &connection)
-	routes.Accounting(router, &connection)
+	// Auth Routes
+	apiRoute.Use(func(next http.Handler) http.Handler {
+		return middlewares.Authenticate(next, DB)
+	})
+	routes.SettingRoutes(apiRoute.PathPrefix("/setting").Subrouter(), &connection)
+	routes.SalesRoutes(apiRoute.PathPrefix("/sales").Subrouter(), &connection)
+	routes.AccountingRoutes(apiRoute.PathPrefix("/accounting").Subrouter(), &connection)
 
-	router.Routes()
+	r.Walk(func(route *mux.Route, router *mux.Router, ancestors []*mux.Route) error {
+		t, err := route.GetPathTemplate()
+		if err != nil {
+			return err
+		}
+		methods, err := route.GetMethods()
+		if err != nil {
+			return nil
+		}
+		slog.Info(fmt.Sprintf("%s\t%s\n", methods, t))
+		return nil
+	})
 
 	// -- Start HTTP Server
 	if config.CERT_FILE == "" || config.KEY_FILE == "" {
 		server := &http.Server{
 			Addr:    fmt.Sprintf(":%d", config.PORT),
-			Handler: router,
+			Handler: r,
 		}
 
 		log.Printf("Server started at port %s\n", server.Addr)
@@ -74,7 +82,7 @@ func main() {
 	} else {
 		server := &http.Server{
 			Addr:    ":443",
-			Handler: router,
+			Handler: r,
 		}
 
 		log.Printf("Server started at port %s\n", server.Addr)

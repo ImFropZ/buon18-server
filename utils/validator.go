@@ -7,17 +7,36 @@ import (
 	"regexp"
 	"strings"
 
-	"system.buon18.com/m/models"
-
 	"github.com/go-playground/validator/v10"
+	"system.buon18.com/m/models"
 )
 
-func ValidateStruct(v interface{}) (validationErrors []string, ok bool) {
+func ValidateAtLeastOneField(sl validator.StructLevel) bool {
+	value := sl.Current().Interface()
+	v := reflect.ValueOf(value)
+	for i := 0; i < v.NumField(); i++ {
+		field := v.Type().Field(i)
+		if field.Name == "ID" {
+			continue
+		}
+		if !v.Field(i).IsZero() {
+			return true
+		}
+	}
+	return false
+}
+
+func ValidateStruct(v interface{}, isPatch bool) (validationErrors []string, ok bool) {
 	validate := validator.New()
 
-	validate.RegisterTagNameFunc(func(fld reflect.StructField) string {
-		return fld.Tag.Get("json")
-	})
+	if isPatch {
+		validate.RegisterStructValidation(func(sl validator.StructLevel) {
+			ms := sl.Current().Interface()
+			if !ValidateAtLeastOneField(sl) {
+				sl.ReportError(ms, "", "", "atleastone", "")
+			}
+		}, v)
+	}
 
 	validate.RegisterValidation("json", func(fl validator.FieldLevel) bool {
 		if err := json.Unmarshal([]byte(fl.Field().String()), &map[string]interface{}{}); err != nil {
@@ -103,6 +122,8 @@ func ValidateStruct(v interface{}) (validationErrors []string, ok bool) {
 				validationErrors = append(validationErrors, fmt.Sprintf("%s must be less than or equal to %s", jsonFieldName(e.Namespace()), e.Param()))
 			case "min":
 				validationErrors = append(validationErrors, fmt.Sprintf("%s must be greater than or equal to %s", jsonFieldName(e.Namespace()), e.Param()))
+			case "atleastone":
+				validationErrors = append(validationErrors, "Need at least one field to perform update beside 'id' field")
 			case "gender":
 				validationErrors = append(validationErrors, fmt.Sprintf("%s must be one of %s", jsonFieldName(e.Namespace()), models.VALID_GENDER_TYPES))
 			case "sales_quotation_status":

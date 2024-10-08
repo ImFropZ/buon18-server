@@ -3,24 +3,18 @@ package sales
 import (
 	"database/sql"
 	"errors"
-	"log"
+	"fmt"
+	"log/slog"
+	"net/http"
 	"sync"
 
+	"github.com/lib/pq"
+	"github.com/nullism/bqb"
 	"system.buon18.com/m/database"
 	"system.buon18.com/m/models"
 	"system.buon18.com/m/models/sales"
 	"system.buon18.com/m/models/setting"
 	"system.buon18.com/m/utils"
-
-	"github.com/lib/pq"
-	"github.com/nullism/bqb"
-)
-
-var (
-	ErrQuotationNotFound            = errors.New("quotation not found")
-	ErrQuotationNameExists          = errors.New("quotation name already exists")
-	ErrCustomerNotFound             = errors.New("customer not found")
-	ErrQuotationNotAllowToBeDeleted = errors.New("quotations in sales order or cancelled status are not allowed to be deleted")
 )
 
 type SalesQuotationService struct {
@@ -74,14 +68,14 @@ func (service *SalesQuotationService) Quotations(qp *utils.QueryParams) ([]sales
 
 	query, params, err := bqbQuery.ToPgsql()
 	if err != nil {
-		log.Printf("%v", err)
-		return []sales.SalesQuotationResponse{}, 0, 500, utils.ErrInternalServer
+		slog.Error(fmt.Sprintf("%v", err))
+		return []sales.SalesQuotationResponse{}, 0, http.StatusInternalServerError, utils.ErrInternalServer
 	}
 
 	rows, err := service.DB.Query(query, params...)
 	if err != nil {
-		log.Printf("%v", err)
-		return []sales.SalesQuotationResponse{}, 0, 500, utils.ErrInternalServer
+		slog.Error(fmt.Sprintf("%v", err))
+		return []sales.SalesQuotationResponse{}, 0, http.StatusInternalServerError, utils.ErrInternalServer
 	}
 
 	quotationsResponse := make([]sales.SalesQuotationResponse, 0)
@@ -95,8 +89,8 @@ func (service *SalesQuotationService) Quotations(qp *utils.QueryParams) ([]sales
 
 		err = rows.Scan(&tmpQuotation.Id, &tmpQuotation.Name, &tmpQuotation.CreationDate, &tmpQuotation.ValidityDate, &tmpQuotation.Discount, &tmpQuotation.AmountDelivery, &tmpQuotation.Status, &tmpCustomer.Id, &tmpCustomer.FullName, &tmpCustomer.Gender, &tmpCustomer.Email, &tmpCustomer.Phone, &tmpCustomer.AdditionalInformation, &tmpOrderItem.Id, &tmpOrderItem.Name, &tmpOrderItem.Description, &tmpOrderItem.Price, &tmpOrderItem.Discount)
 		if err != nil {
-			log.Printf("%v", err)
-			return []sales.SalesQuotationResponse{}, 0, 500, utils.ErrInternalServer
+			slog.Error(fmt.Sprintf("%v", err))
+			return []sales.SalesQuotationResponse{}, 0, http.StatusInternalServerError, utils.ErrInternalServer
 		}
 
 		if lastQuotation.Id != tmpQuotation.Id && lastQuotation.Id != 0 {
@@ -138,18 +132,18 @@ func (service *SalesQuotationService) Quotations(qp *utils.QueryParams) ([]sales
 
 	query, params, err = bqbQuery.ToPgsql()
 	if err != nil {
-		log.Printf("%v", err)
-		return []sales.SalesQuotationResponse{}, 0, 500, utils.ErrInternalServer
+		slog.Error(fmt.Sprintf("%v", err))
+		return []sales.SalesQuotationResponse{}, 0, http.StatusInternalServerError, utils.ErrInternalServer
 	}
 
 	var total int
 	err = service.DB.QueryRow(query, params...).Scan(&total)
 	if err != nil {
-		log.Printf("%v", err)
-		return []sales.SalesQuotationResponse{}, 0, 500, utils.ErrInternalServer
+		slog.Error(fmt.Sprintf("%v", err))
+		return []sales.SalesQuotationResponse{}, 0, http.StatusInternalServerError, utils.ErrInternalServer
 	}
 
-	return quotationsResponse, total, 200, nil
+	return quotationsResponse, total, http.StatusOK, nil
 }
 
 func (service *SalesQuotationService) Quotation(id string) (sales.SalesQuotationResponse, int, error) {
@@ -194,14 +188,14 @@ func (service *SalesQuotationService) Quotation(id string) (sales.SalesQuotation
 
 	query, params, err := bqbQuery.ToPgsql()
 	if err != nil {
-		log.Printf("%v", err)
-		return sales.SalesQuotationResponse{}, 500, utils.ErrInternalServer
+		slog.Error(fmt.Sprintf("%v", err))
+		return sales.SalesQuotationResponse{}, http.StatusInternalServerError, utils.ErrInternalServer
 	}
 
 	rows, err := service.DB.Query(query, params...)
 	if err != nil {
-		log.Printf("%v", err)
-		return sales.SalesQuotationResponse{}, 500, utils.ErrInternalServer
+		slog.Error(fmt.Sprintf("%v", err))
+		return sales.SalesQuotationResponse{}, http.StatusInternalServerError, utils.ErrInternalServer
 	}
 
 	quotation := sales.SalesQuotation{}
@@ -211,15 +205,15 @@ func (service *SalesQuotationService) Quotation(id string) (sales.SalesQuotation
 		var tmpOrderItem sales.SalesOrderItem
 		err = rows.Scan(&quotation.Id, &quotation.Name, &quotation.CreationDate, &quotation.ValidityDate, &quotation.Discount, &quotation.AmountDelivery, &quotation.Status, &customer.Id, &customer.FullName, &customer.Gender, &customer.Email, &customer.Phone, &customer.AdditionalInformation, &tmpOrderItem.Id, &tmpOrderItem.Name, &tmpOrderItem.Description, &tmpOrderItem.Price, &tmpOrderItem.Discount)
 		if err != nil {
-			log.Printf("%v", err)
-			return sales.SalesQuotationResponse{}, 500, utils.ErrInternalServer
+			slog.Error(fmt.Sprintf("%v", err))
+			return sales.SalesQuotationResponse{}, http.StatusInternalServerError, utils.ErrInternalServer
 		}
 
 		orderItems = append(orderItems, tmpOrderItem)
 	}
 
 	if quotation.Id == 0 {
-		return sales.SalesQuotationResponse{}, 404, ErrQuotationNotFound
+		return sales.SalesQuotationResponse{}, http.StatusNotFound, utils.ErrQuotationNotFound
 	}
 
 	customerResponse := setting.SettingCustomerToResponse(customer)
@@ -228,29 +222,29 @@ func (service *SalesQuotationService) Quotation(id string) (sales.SalesQuotation
 		orderItemsResponse = append(orderItemsResponse, sales.SalesOrderItemToResponse(item))
 	}
 
-	return sales.SalesQuotationToResponse(quotation, customerResponse, orderItemsResponse), 200, nil
+	return sales.SalesQuotationToResponse(quotation, customerResponse, orderItemsResponse), http.StatusOK, nil
 }
 
-func (service *SalesQuotationService) CreateQuotation(ctx *utils.CtxW, quotation *sales.SalesQuotationCreateRequest) (int, error) {
+func (service *SalesQuotationService) CreateQuotation(ctx *utils.CtxValue, quotation *sales.SalesQuotationCreateRequest) (int, error) {
 	commonModel := models.CommonModel{}
 	commonModel.PrepareForCreate(ctx.User.Id, ctx.User.Id)
 
 	tx, err := service.DB.Begin()
 	if err != nil {
-		log.Printf("%v", err)
-		return 500, utils.ErrInternalServer
+		slog.Error(fmt.Sprintf("%v", err))
+		return http.StatusInternalServerError, utils.ErrInternalServer
 	}
+	defer tx.Rollback()
 
-	bqbQuery := bqb.New(`INSERT INTO "sales.quotation" 
+	bqbQuery := bqb.New(`INSERT INTO "sales.quotation"
 	(name, creation_date, validity_date, discount, status, setting_customer_id, cid, ctime, mid, mtime)
 	VALUES
 	(?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`, quotation.Name, quotation.CreationDate, quotation.ValidityDate, quotation.Discount, quotation.Status, quotation.CustomerId, commonModel.CId, commonModel.CTime, commonModel.MId, commonModel.MTime)
 
 	query, params, err := bqbQuery.ToPgsql()
 	if err != nil {
-		log.Printf("%v", err)
-		tx.Rollback()
-		return 500, utils.ErrInternalServer
+		slog.Error(fmt.Sprintf("%v", err))
+		return http.StatusInternalServerError, utils.ErrInternalServer
 	}
 
 	var id int
@@ -258,14 +252,13 @@ func (service *SalesQuotationService) CreateQuotation(ctx *utils.CtxW, quotation
 	if err != nil {
 		switch err.(*pq.Error).Constraint {
 		case database.KEY_SALES_QUOTATION_NAME:
-			return 409, ErrQuotationNameExists
-		case database.FK_SALES_QUOTATION_CUSTOMER_ID:
-			return 400, ErrCustomerNotFound
+			return http.StatusConflict, utils.ErrQuotationNameExists
+		case database.FK_SETTING_CUSTOMER_ID:
+			return http.StatusBadRequest, utils.ErrCustomerNotFound
 		}
 
-		log.Printf("%v", err)
-		tx.Rollback()
-		return 500, utils.ErrInternalServer
+		slog.Error(fmt.Sprintf("%v", err))
+		return http.StatusInternalServerError, utils.ErrInternalServer
 	}
 
 	bqbQuery = bqb.New(`INSERT INTO "sales.order_item" (name, description, price, discount, sales_quotation_id, cid, ctime, mid, mtime) VALUES`)
@@ -279,62 +272,61 @@ func (service *SalesQuotationService) CreateQuotation(ctx *utils.CtxW, quotation
 
 	query, params, err = bqbQuery.ToPgsql()
 	if err != nil {
-		log.Printf("%v", err)
-		tx.Rollback()
-		return 500, utils.ErrInternalServer
+		slog.Error(fmt.Sprintf("%v", err))
+		return http.StatusInternalServerError, utils.ErrInternalServer
 	}
 
-	_, err = tx.Exec(query, params...)
-	if err != nil {
-		log.Printf("%v", err)
-		tx.Rollback()
-		return 500, utils.ErrInternalServer
+	if _, err = tx.Exec(query, params...); err != nil {
+		switch err.(*pq.Error).Constraint {
+		case database.FK_SETTING_CUSTOMER_ID:
+			return http.StatusBadRequest, utils.ErrCustomerNotFound
+		}
+
+		slog.Error(fmt.Sprintf("%v", err))
+		return http.StatusInternalServerError, utils.ErrInternalServer
 	}
 
 	err = tx.Commit()
 	if err != nil {
-		log.Printf("%v", err)
-		return 500, utils.ErrInternalServer
+		slog.Error(fmt.Sprintf("%v", err))
+		return http.StatusInternalServerError, utils.ErrInternalServer
 	}
 
-	return 201, nil
+	return http.StatusCreated, nil
 }
 
-func (service *SalesQuotationService) UpdateQuotation(ctx *utils.CtxW, id string, quotation *sales.SalesQuotationUpdateRequest) (int, error) {
+func (service *SalesQuotationService) UpdateQuotation(ctx *utils.CtxValue, id string, quotation *sales.SalesQuotationUpdateRequest) (int, error) {
 	commonModel := models.CommonModel{}
 	commonModel.PrepareForCreate(ctx.User.Id, ctx.User.Id)
 
 	tx, err := service.DB.Begin()
 	if err != nil {
-		log.Printf("%v", err)
-		return 500, utils.ErrInternalServer
+		slog.Error(fmt.Sprintf("%v", err))
+		return http.StatusInternalServerError, utils.ErrInternalServer
 	}
+	defer tx.Rollback()
 
 	bqbQuery := bqb.New(`SELECT status FROM "sales.quotation" WHERE id = ?`, id)
 
 	query, params, err := bqbQuery.ToPgsql()
 	if err != nil {
-		log.Printf("%v", err)
-		tx.Rollback()
-		return 500, utils.ErrInternalServer
+		slog.Error(fmt.Sprintf("%v", err))
+		return http.StatusInternalServerError, utils.ErrInternalServer
 	}
 
 	var status string
 	err = tx.QueryRow(query, params...).Scan(&status)
 	if err != nil {
-		tx.Rollback()
-
 		if err == sql.ErrNoRows {
-			return 404, ErrQuotationNotFound
+			return http.StatusNotFound, utils.ErrQuotationNotFound
 		}
 
-		log.Printf("%v", err)
-		return 500, utils.ErrInternalServer
+		slog.Error(fmt.Sprintf("%v", err))
+		return http.StatusInternalServerError, utils.ErrInternalServer
 	}
 
 	if status == models.SalesQuotationStatusSalesOrder || status == models.SalesQuotationStatusSalesCancelled {
-		tx.Rollback()
-		return 400, errors.New("this quotation is not allowed to be updated")
+		return http.StatusBadRequest, errors.New("this quotation is not allowed to be updated")
 	}
 
 	bqbQuery = bqb.New(`UPDATE "sales.quotation" SET mid = ?, mtime = ?`, commonModel.MId, commonModel.MTime)
@@ -343,28 +335,25 @@ func (service *SalesQuotationService) UpdateQuotation(ctx *utils.CtxW, id string
 
 	query, params, err = bqbQuery.ToPgsql()
 	if err != nil {
-		log.Printf("%v", err)
-		tx.Rollback()
-		return 500, utils.ErrInternalServer
+		slog.Error(fmt.Sprintf("%v", err))
+		return http.StatusInternalServerError, utils.ErrInternalServer
 	}
 
 	result, err := tx.Exec(query, params...)
 	if err != nil {
 		switch err.(*pq.Error).Constraint {
 		case database.KEY_SALES_QUOTATION_NAME:
-			return 409, ErrQuotationNameExists
-		case database.FK_SALES_QUOTATION_CUSTOMER_ID:
-			return 400, ErrCustomerNotFound
+			return http.StatusConflict, utils.ErrQuotationNameExists
+		case database.FK_SETTING_CUSTOMER_ID:
+			return http.StatusBadRequest, utils.ErrCustomerNotFound
 		}
 
-		log.Printf("%v", err)
-		tx.Rollback()
-		return 500, utils.ErrInternalServer
+		slog.Error(fmt.Sprintf("%v", err))
+		return http.StatusInternalServerError, utils.ErrInternalServer
 	}
 
 	if n, _ := result.RowsAffected(); n == 0 {
-		tx.Rollback()
-		return 404, ErrQuotationNotFound
+		return http.StatusNotFound, utils.ErrQuotationNotFound
 	}
 
 	errorChan := make(chan error)
@@ -383,12 +372,12 @@ func (service *SalesQuotationService) UpdateQuotation(ctx *utils.CtxW, id string
 
 			query, params, err := bqbQuery.ToPgsql()
 			if err != nil {
-				log.Printf("%v", err)
+				slog.Error(fmt.Sprintf("%v", err))
 			}
 
 			result, err = tx.Exec(query, params...)
 			if err != nil {
-				log.Printf("%v", err)
+				slog.Error(fmt.Sprintf("%v", err))
 				errorChan <- err
 			}
 
@@ -406,12 +395,12 @@ func (service *SalesQuotationService) UpdateQuotation(ctx *utils.CtxW, id string
 
 				query, params, err := bqbQuery.ToPgsql()
 				if err != nil {
-					log.Printf("%v", err)
+					slog.Error(fmt.Sprintf("%v", err))
 				}
 
 				_, err = tx.Exec(query, params...)
 				if err != nil {
-					log.Printf("%v", err)
+					slog.Error(fmt.Sprintf("%v", err))
 					errorChan <- err
 				}
 
@@ -434,12 +423,12 @@ func (service *SalesQuotationService) UpdateQuotation(ctx *utils.CtxW, id string
 
 			query, params, err := bqbQuery.ToPgsql()
 			if err != nil {
-				log.Printf("%v", err)
+				slog.Error(fmt.Sprintf("%v", err))
 			}
 
 			_, err = tx.Exec(query, params...)
 			if err != nil {
-				log.Printf("%v", err)
+				slog.Error(fmt.Sprintf("%v", err))
 				errorChan <- err
 			}
 
@@ -453,13 +442,12 @@ func (service *SalesQuotationService) UpdateQuotation(ctx *utils.CtxW, id string
 		for err := range errorChan {
 			switch err.(*pq.Error).Constraint {
 			case database.KEY_SALES_QUOTATION_NAME:
-				errorMessage = ErrQuotationNameExists
-			case database.FK_SALES_QUOTATION_CUSTOMER_ID:
-				errorMessage = ErrCustomerNotFound
+				errorMessage = utils.ErrQuotationNameExists
+			case database.FK_SETTING_CUSTOMER_ID:
+				errorMessage = utils.ErrCustomerNotFound
 			}
 			if !hasError {
 				hasError = true
-				tx.Rollback()
 			}
 		}
 	}()
@@ -469,98 +457,89 @@ func (service *SalesQuotationService) UpdateQuotation(ctx *utils.CtxW, id string
 
 	if hasError {
 		switch errorMessage {
-		case ErrQuotationNameExists:
-			return 409, errorMessage
-		case ErrCustomerNotFound:
-			return 400, errorMessage
+		case utils.ErrQuotationNameExists:
+			return http.StatusConflict, errorMessage
+		case utils.ErrCustomerNotFound:
+			return http.StatusBadRequest, errorMessage
 		}
 
-		log.Printf("%v", errorMessage)
-		return 500, errorMessage
+		slog.Error(fmt.Sprintf("%v", errorMessage))
+		return http.StatusInternalServerError, errorMessage
 	}
 
 	err = tx.Commit()
 	if err != nil {
-		log.Printf("%v", err)
-		return 500, utils.ErrInternalServer
+		slog.Error(fmt.Sprintf("%v", err))
+		return http.StatusInternalServerError, utils.ErrInternalServer
 	}
 
-	return 200, nil
+	return http.StatusOK, nil
 }
 
 func (service *SalesQuotationService) DeleteQuotation(id string) (int, error) {
 	tx, err := service.DB.Begin()
 	if err != nil {
-		log.Printf("%v", err)
-		return 500, utils.ErrInternalServer
+		slog.Error(fmt.Sprintf("%v", err))
+		return http.StatusInternalServerError, utils.ErrInternalServer
 	}
+	defer tx.Rollback()
 
 	bqbQuery := bqb.New(`SELECT status FROM "sales.quotation" WHERE id = ?`, id)
 	query, params, err := bqbQuery.ToPgsql()
 	if err != nil {
-		log.Printf("%v", err)
-		tx.Rollback()
-		return 500, utils.ErrInternalServer
+		slog.Error(fmt.Sprintf("%v", err))
+		return http.StatusInternalServerError, utils.ErrInternalServer
 	}
 
 	var status string
 	err = tx.QueryRow(query, params...).Scan(&status)
 	if err != nil {
-		tx.Rollback()
-
 		if err == sql.ErrNoRows {
-			return 404, ErrQuotationNotFound
+			return http.StatusNotFound, utils.ErrQuotationNotFound
 		}
 
-		log.Printf("%v", err)
-		return 500, utils.ErrInternalServer
+		slog.Error(fmt.Sprintf("%v", err))
+		return http.StatusInternalServerError, utils.ErrInternalServer
 	}
 
 	if status == models.SalesQuotationStatusSalesOrder || status == models.SalesQuotationStatusSalesCancelled {
-		tx.Rollback()
-		return 400, ErrQuotationNotAllowToBeDeleted
+		return http.StatusForbidden, utils.ErrUnableToDeleteQuotation
 	}
 
 	bqbQuery = bqb.New(`DELETE FROM "sales.order_item" WHERE sales_quotation_id = ?`, id)
 	query, params, err = bqbQuery.ToPgsql()
 	if err != nil {
-		log.Printf("%v", err)
-		tx.Rollback()
-		return 500, utils.ErrInternalServer
+		slog.Error(fmt.Sprintf("%v", err))
+		return http.StatusInternalServerError, utils.ErrInternalServer
 	}
 
-	_, err = tx.Exec(query, params...)
-	if err != nil {
-		log.Printf("%v", err)
-		tx.Rollback()
-		return 500, utils.ErrInternalServer
+	if _, err := tx.Exec(query, params...); err != nil {
+		slog.Error(fmt.Sprintf("%v", err))
+		return http.StatusInternalServerError, utils.ErrInternalServer
 	}
 
 	bqbQuery = bqb.New(`DELETE FROM "sales.quotation" WHERE id = ?`, id)
 	query, params, err = bqbQuery.ToPgsql()
 	if err != nil {
-		log.Printf("%v", err)
-		tx.Rollback()
-		return 500, utils.ErrInternalServer
+		slog.Error(fmt.Sprintf("%v", err))
+		return http.StatusInternalServerError, utils.ErrInternalServer
 	}
 
 	result, err := tx.Exec(query, params...)
 	if err != nil {
-		log.Printf("%v", err)
-		tx.Rollback()
-		return 500, utils.ErrInternalServer
+		slog.Error(fmt.Sprintf("%v", err))
+		return http.StatusInternalServerError, utils.ErrInternalServer
 	}
 
 	if n, _ := result.RowsAffected(); n == 0 {
-		tx.Rollback()
-		return 404, ErrQuotationNotFound
+		return http.StatusNotFound, utils.ErrQuotationNotFound
 	}
 
 	err = tx.Commit()
 	if err != nil {
-		log.Printf("%v", err)
-		return 500, utils.ErrInternalServer
+		slog.Error(fmt.Sprintf("%v", err))
+		return http.StatusInternalServerError, utils.ErrInternalServer
 	}
 
-	return 200, nil
+	return http.StatusOK, nil
 }

@@ -1,39 +1,33 @@
 package middlewares
 
 import (
+	"context"
 	"database/sql"
-	"errors"
+	"encoding/json"
 	"log"
+	"net/http"
+	"strings"
 
 	"system.buon18.com/m/models/setting"
 	"system.buon18.com/m/utils"
 
-	"github.com/gin-gonic/gin"
-	"github.com/golang-jwt/jwt/v5"
 	"github.com/nullism/bqb"
 )
 
-func Authenticate(DB *sql.DB) gin.HandlerFunc {
-	return func(c *gin.Context) {
+func Authenticate(next http.Handler, DB *sql.DB) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// -- Get token
-		token, err := utils.RemoveBearer(c.GetHeader("Authorization"))
-		if err != nil {
-			c.JSON(401, utils.NewErrorResponse(401, "token is required"))
-			c.Abort()
+		token, ok := strings.CutPrefix(r.Header.Get("Authorization"), "Bearer ")
+		if !ok {
+			w.WriteHeader(http.StatusUnauthorized)
+			json.NewEncoder(w).Encode(utils.NewErrorResponse(http.StatusUnauthorized, "missing 'Authorization' header or 'Authorization' header's value doesn't start with 'Bearer '", "Unauthorized", nil))
 			return
 		}
 
-		// -- Validate token
 		claims, err := utils.ValidateWebToken(token)
 		if err != nil {
-			if errors.Is(err, jwt.ErrTokenExpired) {
-				c.JSON(401, utils.NewErrorResponse(401, "token expired"))
-				c.Abort()
-				return
-			}
-
-			c.JSON(401, utils.NewErrorResponse(401, "invalid token"))
-			c.Abort()
+			w.WriteHeader(http.StatusUnauthorized)
+			json.NewEncoder(w).Encode(utils.NewErrorResponse(http.StatusUnauthorized, "invalid token", "Unauthorized", nil))
 			return
 		}
 
@@ -57,8 +51,8 @@ func Authenticate(DB *sql.DB) gin.HandlerFunc {
 		WHERE "setting.user".email = ?
 		ORDER BY "setting.user".email, "setting.role".id, "setting.permission".id`, claims.Email).ToPgsql()
 		if err != nil {
-			c.JSON(500, utils.NewErrorResponse(500, utils.ErrInternalServer.Error()))
-			c.Abort()
+			w.WriteHeader(http.StatusUnauthorized)
+			json.NewEncoder(w).Encode(utils.NewErrorResponse(http.StatusUnauthorized, "internal server error", "Unauthorized", nil))
 			return
 		}
 
@@ -66,8 +60,8 @@ func Authenticate(DB *sql.DB) gin.HandlerFunc {
 		rows, err := DB.Query(query, params...)
 		if err != nil {
 			log.Printf("Error querying user: %v\n", err)
-			c.JSON(500, utils.NewErrorResponse(500, utils.ErrInternalServer.Error()))
-			c.Abort()
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(utils.NewErrorResponse(http.StatusInternalServerError, "internal server error", "Internal Server Error", nil))
 			return
 		}
 
@@ -79,19 +73,27 @@ func Authenticate(DB *sql.DB) gin.HandlerFunc {
 			err = rows.Scan(&user.Id, &user.Name, &user.Email, &user.Typ, &role.Id, &role.Name, &role.Description, &permission.Id, &permission.Name)
 			if err != nil {
 				log.Printf("Error scanning user: %v\n", err)
-				c.JSON(500, utils.NewErrorResponse(500, utils.ErrInternalServer.Error()))
-				c.Abort()
+				w.WriteHeader(http.StatusInternalServerError)
+				json.NewEncoder(w).Encode(utils.NewErrorResponse(http.StatusInternalServerError, "internal server error", "Internal Server Error", nil))
 				return
 			}
 
 			permissions = append(permissions, permission)
 		}
 
-		// -- Set user info
-		c.Set("user", user)
-		c.Set("role", role)
-		c.Set("permissions", permissions)
+		if user.Id == 0 {
+			w.WriteHeader(http.StatusUnauthorized)
+			json.NewEncoder(w).Encode(utils.NewErrorResponse(http.StatusUnauthorized, "user not found", "Unauthorized", nil))
+			return
+		}
 
-		c.Next()
-	}
+		userCtx := utils.CtxValue{
+			User:        &user,
+			Role:        &role,
+			Permissions: &permissions,
+		}
+
+		r = r.WithContext(context.WithValue(r.Context(), utils.CtxKey{}, &userCtx))
+		next.ServeHTTP(w, r)
+	})
 }

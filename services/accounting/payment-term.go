@@ -2,23 +2,17 @@ package accounting
 
 import (
 	"database/sql"
-	"errors"
-	"log"
+	"fmt"
+	"log/slog"
+	"net/http"
 	"sync"
 
+	"github.com/lib/pq"
+	"github.com/nullism/bqb"
 	"system.buon18.com/m/database"
 	"system.buon18.com/m/models"
 	"system.buon18.com/m/models/accounting"
 	"system.buon18.com/m/utils"
-
-	"github.com/lib/pq"
-	"github.com/nullism/bqb"
-)
-
-var (
-	ErrPaymentTermNotFound                    = errors.New("payment term not found")
-	ErrAccountingPaymentTermNameExists        = errors.New("accounting payment term name already exists")
-	ErrUnableToDeleteCurrentlyUsedPaymentTerm = errors.New("unable to delete currently used payment term")
 )
 
 type AccountingPaymentTermService struct {
@@ -38,7 +32,7 @@ func (service *AccountingPaymentTermService) PaymentTerms(qp *utils.QueryParams)
 	qp.PaginationIntoBqb(bqbQuery)
 
 	bqbQuery.Space(`)
-	SELECT 
+	SELECT
 		"limited_payment_terms".id,
 		"limited_payment_terms".name,
 		"limited_payment_terms".description,
@@ -54,14 +48,14 @@ func (service *AccountingPaymentTermService) PaymentTerms(qp *utils.QueryParams)
 
 	query, params, err := bqbQuery.ToPgsql()
 	if err != nil {
-		log.Printf("%v", err)
-		return nil, 0, 500, utils.ErrInternalServer
+		slog.Error(fmt.Sprintf("%v", err))
+		return nil, 0, http.StatusInternalServerError, utils.ErrInternalServer
 	}
 
 	rows, err := service.DB.Query(query, params...)
 	if err != nil {
-		log.Printf("%v", err)
-		return nil, 0, 500, utils.ErrInternalServer
+		slog.Error(fmt.Sprintf("%v", err))
+		return nil, 0, http.StatusInternalServerError, utils.ErrInternalServer
 	}
 
 	paymentTermsResponse := make([]accounting.AccountingPaymentTermResponse, 0)
@@ -80,8 +74,8 @@ func (service *AccountingPaymentTermService) PaymentTerms(qp *utils.QueryParams)
 			&tmpPaymentTermLine.NumberOfDays,
 		)
 		if err != nil {
-			log.Printf("%v", err)
-			return nil, 0, 500, utils.ErrInternalServer
+			slog.Error(fmt.Sprintf("%v", err))
+			return nil, 0, http.StatusInternalServerError, utils.ErrInternalServer
 		}
 
 		if lastPaymentTerm.Id != tmpPaymentTerm.Id && lastPaymentTerm.Id != 0 {
@@ -116,18 +110,18 @@ func (service *AccountingPaymentTermService) PaymentTerms(qp *utils.QueryParams)
 
 	query, params, err = bqbQuery.ToPgsql()
 	if err != nil {
-		log.Printf("%v", err)
-		return nil, 0, 500, utils.ErrInternalServer
+		slog.Error(fmt.Sprintf("%v", err))
+		return nil, 0, http.StatusInternalServerError, utils.ErrInternalServer
 	}
 
 	var total int
 	err = service.DB.QueryRow(query, params...).Scan(&total)
 	if err != nil {
-		log.Printf("%v", err)
-		return nil, 0, 500, utils.ErrInternalServer
+		slog.Error(fmt.Sprintf("%v", err))
+		return nil, 0, http.StatusInternalServerError, utils.ErrInternalServer
 	}
 
-	return paymentTermsResponse, total, 200, nil
+	return paymentTermsResponse, total, http.StatusOK, nil
 }
 
 func (service *AccountingPaymentTermService) PaymentTerm(id string) (accounting.AccountingPaymentTermResponse, int, error) {
@@ -140,7 +134,7 @@ func (service *AccountingPaymentTermService) PaymentTerm(id string) (accounting.
 		FROM
 			"accounting.payment_term"
 		WHERE id = ?)
-	SELECT 
+	SELECT
 		"limited_payment_terms".id,
 		"limited_payment_terms".name,
 		"limited_payment_terms".description,
@@ -155,14 +149,14 @@ func (service *AccountingPaymentTermService) PaymentTerm(id string) (accounting.
 
 	query, params, err := bqbQuery.ToPgsql()
 	if err != nil {
-		log.Printf("%v", err)
-		return accounting.AccountingPaymentTermResponse{}, 500, utils.ErrInternalServer
+		slog.Error(fmt.Sprintf("%v", err))
+		return accounting.AccountingPaymentTermResponse{}, http.StatusInternalServerError, utils.ErrInternalServer
 	}
 
 	rows, err := service.DB.Query(query, params...)
 	if err != nil {
-		log.Printf("%v", err)
-		return accounting.AccountingPaymentTermResponse{}, 500, utils.ErrInternalServer
+		slog.Error(fmt.Sprintf("%v", err))
+		return accounting.AccountingPaymentTermResponse{}, http.StatusInternalServerError, utils.ErrInternalServer
 	}
 
 	paymentTerm := accounting.AccountingPaymentTerm{}
@@ -179,15 +173,15 @@ func (service *AccountingPaymentTermService) PaymentTerm(id string) (accounting.
 			&tmpPaymentTermLine.NumberOfDays,
 		)
 		if err != nil {
-			log.Printf("%v", err)
-			return accounting.AccountingPaymentTermResponse{}, 500, utils.ErrInternalServer
+			slog.Error(fmt.Sprintf("%v", err))
+			return accounting.AccountingPaymentTermResponse{}, http.StatusInternalServerError, utils.ErrInternalServer
 		}
 
 		paymentTermLines = append(paymentTermLines, tmpPaymentTermLine)
 	}
 
 	if paymentTerm.Id == 0 {
-		return accounting.AccountingPaymentTermResponse{}, 404, ErrPaymentTermNotFound
+		return accounting.AccountingPaymentTermResponse{}, http.StatusNotFound, utils.ErrPaymentTermNotFound
 	}
 
 	paymentTermLinesResponse := make([]accounting.AccountingPaymentTermLineResponse, 0)
@@ -195,42 +189,41 @@ func (service *AccountingPaymentTermService) PaymentTerm(id string) (accounting.
 		paymentTermLinesResponse = append(paymentTermLinesResponse, accounting.AccountingPaymentTermLineToResponse(paymentTermLine))
 	}
 
-	return accounting.AccountingPaymentTermToResponse(paymentTerm, paymentTermLinesResponse), 200, nil
+	return accounting.AccountingPaymentTermToResponse(paymentTerm, paymentTermLinesResponse), http.StatusOK, nil
 }
 
-func (service *AccountingPaymentTermService) CreatePaymentTerm(ctx *utils.CtxW, paymentTerm *accounting.AccountingPaymentTermCreateRequest) (int, error) {
+func (service *AccountingPaymentTermService) CreatePaymentTerm(ctx *utils.CtxValue, paymentTerm *accounting.AccountingPaymentTermCreateRequest) (int, error) {
 	commonModel := models.CommonModel{}
 	commonModel.PrepareForCreate(ctx.User.Id, ctx.User.Id)
 
 	tx, err := service.DB.Begin()
 	if err != nil {
-		log.Printf("%v", err)
-		return 500, utils.ErrInternalServer
+		slog.Error(fmt.Sprintf("%v", err))
+		return http.StatusInternalServerError, utils.ErrInternalServer
 	}
+	defer tx.Rollback()
 
-	bqbQuery := bqb.New(`INSERT INTO "accounting.payment_term" 
-	(name, description, cid, ctime, mid, mtime) 
-	VALUES 
+	bqbQuery := bqb.New(`INSERT INTO "accounting.payment_term"
+	(name, description, cid, ctime, mid, mtime)
+	VALUES
 	(?, ?, ?, ?, ?, ?) RETURNING id`, paymentTerm.Name, paymentTerm.Description, commonModel.CId, commonModel.CTime, commonModel.MId, commonModel.MTime)
 
 	query, params, err := bqbQuery.ToPgsql()
 	if err != nil {
-		log.Printf("%v", err)
-		tx.Rollback()
-		return 500, utils.ErrInternalServer
+		slog.Error(fmt.Sprintf("%v", err))
+		return http.StatusInternalServerError, utils.ErrInternalServer
 	}
 
 	var paymentTermId int
 	err = tx.QueryRow(query, params...).Scan(&paymentTermId)
 	if err != nil {
-		tx.Rollback()
 		switch err.(*pq.Error).Constraint {
 		case database.KEY_ACCOUNTING_PAYMENT_TERM_NAME:
-			return 409, ErrAccountingPaymentTermNameExists
+			return http.StatusConflict, utils.ErrPaymentTermNameExists
 		}
 
-		log.Printf("%v", err)
-		return 500, utils.ErrInternalServer
+		slog.Error(fmt.Sprintf("%v", err))
+		return http.StatusInternalServerError, utils.ErrInternalServer
 	}
 
 	bqbQuery = bqb.New(`INSERT INTO "accounting.payment_term_line"
@@ -245,36 +238,35 @@ func (service *AccountingPaymentTermService) CreatePaymentTerm(ctx *utils.CtxW, 
 
 	query, params, err = bqbQuery.ToPgsql()
 	if err != nil {
-		log.Printf("%v", err)
-		tx.Rollback()
-		return 500, utils.ErrInternalServer
+		slog.Error(fmt.Sprintf("%v", err))
+		return http.StatusInternalServerError, utils.ErrInternalServer
 	}
 
 	_, err = tx.Exec(query, params...)
 	if err != nil {
-		tx.Rollback()
-		log.Printf("%v", err)
-		return 500, utils.ErrInternalServer
+		slog.Error(fmt.Sprintf("%v", err))
+		return http.StatusInternalServerError, utils.ErrInternalServer
 	}
 
 	err = tx.Commit()
 	if err != nil {
-		log.Printf("%v", err)
-		return 500, utils.ErrInternalServer
+		slog.Error(fmt.Sprintf("%v", err))
+		return http.StatusInternalServerError, utils.ErrInternalServer
 	}
 
-	return 201, nil
+	return http.StatusCreated, nil
 }
 
-func (service *AccountingPaymentTermService) UpdatePaymentTerm(ctx *utils.CtxW, id string, paymentTerm *accounting.AccountingPaymentTermUpdateRequest) (int, error) {
+func (service *AccountingPaymentTermService) UpdatePaymentTerm(ctx *utils.CtxValue, id string, paymentTerm *accounting.AccountingPaymentTermUpdateRequest) (int, error) {
 	commonModel := models.CommonModel{}
 	commonModel.PrepareForCreate(ctx.User.Id, ctx.User.Id)
 
 	tx, err := service.DB.Begin()
 	if err != nil {
-		log.Printf("%v", err)
-		return 500, utils.ErrInternalServer
+		slog.Error(fmt.Sprintf("%v", err))
+		return http.StatusInternalServerError, utils.ErrInternalServer
 	}
+	defer tx.Rollback()
 
 	bqbQuery := bqb.New(`UPDATE "accounting.payment_term" SET mid = ?, mtime = ?`, commonModel.MId, commonModel.MTime)
 	utils.PrepareUpdateBqbQuery(bqbQuery, paymentTerm)
@@ -282,27 +274,23 @@ func (service *AccountingPaymentTermService) UpdatePaymentTerm(ctx *utils.CtxW, 
 
 	query, params, err := bqbQuery.ToPgsql()
 	if err != nil {
-		log.Printf("%v", err)
-		tx.Rollback()
-		return 500, utils.ErrInternalServer
+		slog.Error(fmt.Sprintf("%v", err))
+		return http.StatusInternalServerError, utils.ErrInternalServer
 	}
 
 	result, err := tx.Exec(query, params...)
 	if err != nil {
-		tx.Rollback()
-
 		switch err.(*pq.Error).Constraint {
 		case database.KEY_ACCOUNTING_PAYMENT_TERM_NAME:
-			return 409, ErrAccountingPaymentTermNameExists
+			return http.StatusConflict, utils.ErrPaymentTermNameExists
 		}
 
-		log.Printf("%v", err)
-		return 500, utils.ErrInternalServer
+		slog.Error(fmt.Sprintf("%v", err))
+		return http.StatusInternalServerError, utils.ErrInternalServer
 	}
 
 	if rowsAffected, _ := result.RowsAffected(); rowsAffected == 0 {
-		tx.Rollback()
-		return 404, ErrPaymentTermNotFound
+		return http.StatusNotFound, utils.ErrPaymentTermNotFound
 	}
 
 	errorChan := make(chan error)
@@ -398,11 +386,10 @@ func (service *AccountingPaymentTermService) UpdatePaymentTerm(ctx *utils.CtxW, 
 		for err := range errorChan {
 			switch err.(*pq.Error).Constraint {
 			case database.KEY_ACCOUNTING_PAYMENT_TERM_NAME:
-				errorMessage = ErrAccountingPaymentTermNameExists
+				errorMessage = utils.ErrPaymentTermNameExists
 			}
 			if !hasError {
 				hasError = true
-				tx.Rollback()
 			}
 		}
 	}()
@@ -412,76 +399,70 @@ func (service *AccountingPaymentTermService) UpdatePaymentTerm(ctx *utils.CtxW, 
 
 	if hasError {
 		switch errorMessage {
-		case ErrAccountingPaymentTermNameExists:
-			return 409, ErrAccountingPaymentTermNameExists
+		case utils.ErrPaymentTermNameExists:
+			return http.StatusConflict, utils.ErrPaymentTermNameExists
 		}
 
-		log.Printf("%v", errorMessage)
-		return 500, utils.ErrInternalServer
+		slog.Error(fmt.Sprintf("%v", errorMessage))
+		return http.StatusInternalServerError, utils.ErrInternalServer
 	}
 
 	err = tx.Commit()
 	if err != nil {
-		log.Printf("%v", err)
-		return 500, utils.ErrInternalServer
+		slog.Error(fmt.Sprintf("%v", err))
+		return http.StatusInternalServerError, utils.ErrInternalServer
 	}
 
-	return 200, nil
+	return http.StatusOK, nil
 }
 
 func (service *AccountingPaymentTermService) DeletePaymentTerm(id string) (int, error) {
 	tx, err := service.DB.Begin()
 	if err != nil {
-		log.Printf("%v", err)
-		return 500, utils.ErrInternalServer
+		slog.Error(fmt.Sprintf("%v", err))
+		return http.StatusInternalServerError, utils.ErrInternalServer
 	}
+	defer tx.Rollback()
 
 	bqbQuery := bqb.New(`DELETE FROM "accounting.payment_term_line" WHERE accounting_payment_term_id = ?`, id)
 	query, params, err := bqbQuery.ToPgsql()
 	if err != nil {
-		log.Printf("%v", err)
-		tx.Rollback()
-		return 500, utils.ErrInternalServer
+		slog.Error(fmt.Sprintf("%v", err))
+		return http.StatusInternalServerError, utils.ErrInternalServer
 	}
 
-	_, err = tx.Exec(query, params...)
-	if err != nil {
-		log.Printf("%v", err)
-		tx.Rollback()
-		return 500, utils.ErrInternalServer
+	if _, err = tx.Exec(query, params...); err != nil {
+		slog.Error(fmt.Sprintf("%v", err))
+		return http.StatusInternalServerError, utils.ErrInternalServer
 	}
 
 	bqbQuery = bqb.New(`DELETE FROM "accounting.payment_term" WHERE id = ?`, id)
 	query, params, err = bqbQuery.ToPgsql()
 	if err != nil {
-		log.Printf("%v", err)
-		tx.Rollback()
-		return 500, utils.ErrInternalServer
+		slog.Error(fmt.Sprintf("%v", err))
+		return http.StatusInternalServerError, utils.ErrInternalServer
 	}
 
 	result, err := tx.Exec(query, params...)
 	if err != nil {
-		tx.Rollback()
-
 		switch err.(*pq.Error).Constraint {
 		case database.FK_ACCOUNTING_PAYMENT_TERM_ID:
-			return 409, ErrUnableToDeleteCurrentlyUsedPaymentTerm
+			return http.StatusForbidden, utils.ErrResourceInUsed
 		}
 
-		log.Printf("%v", err)
-		return 500, utils.ErrInternalServer
+		slog.Error(fmt.Sprintf("%v", err))
+		return http.StatusInternalServerError, utils.ErrInternalServer
 	}
 
 	if rowsAffected, _ := result.RowsAffected(); rowsAffected == 0 {
-		tx.Rollback()
-		return 404, ErrPaymentTermNotFound
+		return http.StatusNotFound, utils.ErrPaymentTermNotFound
 	}
 
 	err = tx.Commit()
 	if err != nil {
-		log.Printf("%v", err)
-		return 500, utils.ErrInternalServer
+		slog.Error(fmt.Sprintf("%v", err))
+		return http.StatusInternalServerError, utils.ErrInternalServer
 	}
 
-	return 200, nil
+	return http.StatusOK, nil
 }

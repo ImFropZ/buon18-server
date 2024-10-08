@@ -3,24 +3,19 @@ package sales
 import (
 	"database/sql"
 	"errors"
-	"log"
+	"fmt"
+	"log/slog"
+	"net/http"
 	"strings"
 
+	"github.com/lib/pq"
+	"github.com/nullism/bqb"
 	"system.buon18.com/m/database"
 	"system.buon18.com/m/models"
 	"system.buon18.com/m/models/accounting"
 	"system.buon18.com/m/models/sales"
 	"system.buon18.com/m/models/setting"
 	"system.buon18.com/m/utils"
-
-	"github.com/lib/pq"
-	"github.com/nullism/bqb"
-)
-
-var (
-	ErrOrderNotFound       = errors.New("order not found")
-	ErrOrderNameExists     = errors.New("order name already exists")
-	ErrPaymentTermNotFound = errors.New("payment term not found")
 )
 
 type SalesOrderService struct {
@@ -73,7 +68,7 @@ func (service *SalesOrderService) Orders(qp *utils.QueryParams) ([]sales.SalesOr
 		"accounting.payment_term_line".sequence,
 		"accounting.payment_term_line".value_amount_percent,
 		"accounting.payment_term_line".number_of_days
-	FROM 
+	FROM
 		"limited_orders"
 	INNER JOIN "sales.quotation" ON "sales.quotation".id = "limited_orders".sales_quotation_id
 	INNER JOIN "setting.customer" ON "setting.customer".id = "sales.quotation".setting_customer_id
@@ -85,14 +80,14 @@ func (service *SalesOrderService) Orders(qp *utils.QueryParams) ([]sales.SalesOr
 
 	query, params, err := bqbQuery.ToPgsql()
 	if err != nil {
-		log.Printf("%v", err)
-		return nil, 0, 500, utils.ErrInternalServer
+		slog.Error(fmt.Sprintf("%v", err))
+		return nil, 0, http.StatusInternalServerError, utils.ErrInternalServer
 	}
 
 	rows, err := service.DB.Query(query, params...)
 	if err != nil {
-		log.Printf("%v", err)
-		return nil, 0, 500, utils.ErrInternalServer
+		slog.Error(fmt.Sprintf("%v", err))
+		return nil, 0, http.StatusInternalServerError, utils.ErrInternalServer
 	}
 
 	ordersResponse := make([]sales.SalesOrderResponse, 0)
@@ -141,8 +136,8 @@ func (service *SalesOrderService) Orders(qp *utils.QueryParams) ([]sales.SalesOr
 			&tmpPaymentTermLine.NumberOfDays,
 		)
 		if err != nil {
-			log.Printf("%v", err)
-			return nil, 0, 500, utils.ErrInternalServer
+			slog.Error(fmt.Sprintf("%v", err))
+			return nil, 0, http.StatusInternalServerError, utils.ErrInternalServer
 		}
 
 		if (lastQuotation.Id != tmpQuotation.Id && lastQuotation.Id != 0) && (lastPaymentTerm.Id != tmpPaymentTerm.Id && lastPaymentTerm.Id != 0) {
@@ -218,18 +213,17 @@ func (service *SalesOrderService) Orders(qp *utils.QueryParams) ([]sales.SalesOr
 
 	query, params, err = bqbQuery.ToPgsql()
 	if err != nil {
-		log.Printf("%v", err)
-		return nil, 0, 500, utils.ErrInternalServer
+		slog.Error(fmt.Sprintf("%v", err))
+		return nil, 0, http.StatusInternalServerError, utils.ErrInternalServer
 	}
 
 	var total int
-	err = service.DB.QueryRow(query, params...).Scan(&total)
-	if err != nil {
-		log.Printf("%v", err)
-		return nil, 0, 500, utils.ErrInternalServer
+	if err = service.DB.QueryRow(query, params...).Scan(&total); err != nil {
+		slog.Error(fmt.Sprintf("%v", err))
+		return nil, 0, http.StatusInternalServerError, utils.ErrInternalServer
 	}
 
-	return ordersResponse, total, 200, nil
+	return ordersResponse, total, http.StatusOK, nil
 }
 
 func (service *SalesOrderService) Order(id string) (sales.SalesOrderResponse, int, error) {
@@ -276,7 +270,7 @@ func (service *SalesOrderService) Order(id string) (sales.SalesOrderResponse, in
 		"accounting.payment_term_line".sequence,
 		"accounting.payment_term_line".value_amount_percent,
 		"accounting.payment_term_line".number_of_days
-	FROM 
+	FROM
 		"limited_orders"
 	INNER JOIN "sales.quotation" ON "sales.quotation".id = "limited_orders".sales_quotation_id
 	INNER JOIN "setting.customer" ON "setting.customer".id = "sales.quotation".setting_customer_id
@@ -287,14 +281,14 @@ func (service *SalesOrderService) Order(id string) (sales.SalesOrderResponse, in
 
 	query, params, err := bqbQuery.ToPgsql()
 	if err != nil {
-		log.Printf("%v", err)
-		return sales.SalesOrderResponse{}, 500, utils.ErrInternalServer
+		slog.Error(fmt.Sprintf("%v", err))
+		return sales.SalesOrderResponse{}, http.StatusInternalServerError, utils.ErrInternalServer
 	}
 
 	rows, err := service.DB.Query(query, params...)
 	if err != nil {
-		log.Printf("%v", err)
-		return sales.SalesOrderResponse{}, 500, utils.ErrInternalServer
+		slog.Error(fmt.Sprintf("%v", err))
+		return sales.SalesOrderResponse{}, http.StatusInternalServerError, utils.ErrInternalServer
 	}
 
 	order := sales.SalesOrder{}
@@ -338,8 +332,8 @@ func (service *SalesOrderService) Order(id string) (sales.SalesOrderResponse, in
 			&tmpPaymentTermLine.NumberOfDays,
 		)
 		if err != nil {
-			log.Printf("%v", err)
-			return sales.SalesOrderResponse{}, 500, utils.ErrInternalServer
+			slog.Error(fmt.Sprintf("%v", err))
+			return sales.SalesOrderResponse{}, http.StatusInternalServerError, utils.ErrInternalServer
 		}
 
 		if tmpOrderItem.Id != 0 {
@@ -363,7 +357,7 @@ func (service *SalesOrderService) Order(id string) (sales.SalesOrderResponse, in
 		}
 	}
 	if order.Id == 0 {
-		return sales.SalesOrderResponse{}, 404, ErrOrderNotFound
+		return sales.SalesOrderResponse{}, http.StatusNotFound, utils.ErrOrderNotFound
 	}
 
 	orderItemsResponse := make([]sales.SalesOrderItemResponse, 0)
@@ -378,10 +372,10 @@ func (service *SalesOrderService) Order(id string) (sales.SalesOrderResponse, in
 	}
 	paymentTermResponse := accounting.AccountingPaymentTermToResponse(paymentTerm, paymentTermLinesResponse)
 
-	return sales.SalesOrderToResponse(order, quotationResponse, paymentTermResponse), 200, nil
+	return sales.SalesOrderToResponse(order, quotationResponse, paymentTermResponse), http.StatusOK, nil
 }
 
-func (service *SalesOrderService) CreateOrder(ctx *utils.CtxW, order *sales.SalesOrderCreateRequest) (int, error) {
+func (service *SalesOrderService) CreateOrder(ctx *utils.CtxValue, order *sales.SalesOrderCreateRequest) (int, error) {
 	commonModel := models.CommonModel{}
 	commonModel.PrepareForCreate(ctx.User.Id, ctx.User.Id)
 
@@ -389,39 +383,40 @@ func (service *SalesOrderService) CreateOrder(ctx *utils.CtxW, order *sales.Sale
 
 	query, params, err := bqbQuery.ToPgsql()
 	if err != nil {
-		log.Printf("%v", err)
-		return 500, utils.ErrInternalServer
+		slog.Error(fmt.Sprintf("%v", err))
+		return http.StatusInternalServerError, utils.ErrInternalServer
 	}
 
 	_, err = service.DB.Exec(query, params...)
 	if err != nil {
 		if message := err.(*pq.Error).Message; strings.HasPrefix(message, "custom_error:") {
-			return 400, errors.New(strings.TrimPrefix(message, "custom_error:"))
+			return http.StatusBadRequest, errors.New(strings.TrimPrefix(message, "custom_error:"))
 		}
 
 		switch err.(*pq.Error).Constraint {
 		case database.KEY_SALES_ORDER_NAME:
-			return 409, ErrOrderNameExists
+			return http.StatusConflict, utils.ErrOrderNameExists
 		case database.FK_ACCOUNTING_PAYMENT_TERM_ID:
-			return 400, ErrPaymentTermNotFound
+			return http.StatusBadRequest, utils.ErrPaymentTermNotFound
 		}
 
-		log.Printf("%v", err)
-		return 500, utils.ErrInternalServer
+		slog.Error(fmt.Sprintf("%v", err))
+		return http.StatusInternalServerError, utils.ErrInternalServer
 	}
 
-	return 201, nil
+	return http.StatusCreated, nil
 }
 
-func (service *SalesOrderService) UpdateOrder(ctx *utils.CtxW, id string, order *sales.SalesOrderUpdateRequest) (int, error) {
+func (service *SalesOrderService) UpdateOrder(ctx *utils.CtxValue, id string, order *sales.SalesOrderUpdateRequest) (int, error) {
 	commonModel := models.CommonModel{}
 	commonModel.PrepareForUpdate(ctx.User.Id)
 
 	tx, err := service.DB.Begin()
 	if err != nil {
-		log.Printf("%v", err)
-		return 500, utils.ErrInternalServer
+		slog.Error(fmt.Sprintf("%v", err))
+		return http.StatusInternalServerError, utils.ErrInternalServer
 	}
+	defer tx.Rollback()
 
 	bqbQuery := bqb.New(`UPDATE "sales.order" SET mid = ?, mtime = ?`, commonModel.MId, commonModel.MTime)
 	utils.PrepareUpdateBqbQuery(bqbQuery, order)
@@ -429,35 +424,32 @@ func (service *SalesOrderService) UpdateOrder(ctx *utils.CtxW, id string, order 
 
 	query, params, err := bqbQuery.ToPgsql()
 	if err != nil {
-		log.Printf("%v", err)
-		return 500, utils.ErrInternalServer
+		slog.Error(fmt.Sprintf("%v", err))
+		return http.StatusInternalServerError, utils.ErrInternalServer
 	}
 
 	result, err := tx.Exec(query, params...)
 	if err != nil {
-		tx.Rollback()
-
 		switch err.(*pq.Error).Constraint {
 		case database.KEY_SALES_ORDER_NAME:
-			return 409, ErrOrderNameExists
+			return http.StatusConflict, utils.ErrOrderNameExists
 		case database.FK_ACCOUNTING_PAYMENT_TERM_ID:
-			return 400, ErrPaymentTermNotFound
+			return http.StatusBadRequest, utils.ErrPaymentTermNotFound
 		}
 
-		log.Printf("%v", err)
-		return 500, utils.ErrInternalServer
+		slog.Error(fmt.Sprintf("%v", err))
+		return http.StatusInternalServerError, utils.ErrInternalServer
 	}
 
 	if n, _ := result.RowsAffected(); n == 0 {
-		tx.Rollback()
-		return 404, ErrOrderNotFound
+		return http.StatusNotFound, utils.ErrOrderNotFound
 	}
 
 	err = tx.Commit()
 	if err != nil {
-		log.Printf("%v", err)
-		return 500, utils.ErrInternalServer
+		slog.Error(fmt.Sprintf("%v", err))
+		return http.StatusInternalServerError, utils.ErrInternalServer
 	}
 
-	return 200, nil
+	return http.StatusOK, nil
 }

@@ -1,103 +1,142 @@
 package routes
 
 import (
+	"net/http"
+
+	"github.com/gorilla/mux"
 	"system.buon18.com/m/controllers"
 	"system.buon18.com/m/database"
 	"system.buon18.com/m/middlewares"
-	"system.buon18.com/m/models/setting"
 	"system.buon18.com/m/services"
 	settingServices "system.buon18.com/m/services/setting"
 	"system.buon18.com/m/utils"
-
-	"github.com/gin-gonic/gin"
 )
 
-func Setting(e *gin.Engine, connection *database.Connection) {
-	handler := controllers.SettingHandler{
-		DB: connection.DB,
+func SettingRoutes(r *mux.Router, con *database.Connection) {
+	controller := controllers.SettingHandler{
+		DB: con.DB,
 		ServiceFacade: &services.ServiceFacade{
-			SettingCustomerService:   &settingServices.SettingCustomerService{DB: connection.DB},
-			SettingRoleService:       &settingServices.SettingRoleService{DB: connection.DB},
-			SettingUserService:       &settingServices.SettingUserService{DB: connection.DB},
-			SettingPermissionService: &settingServices.SettingPermissionService{DB: connection.DB},
+			SettingCustomerService:   &settingServices.SettingCustomerService{DB: con.DB},
+			SettingRoleService:       &settingServices.SettingRoleService{DB: con.DB},
+			SettingUserService:       &settingServices.SettingUserService{DB: con.DB},
+			SettingPermissionService: &settingServices.SettingPermissionService{DB: con.DB},
 		},
 	}
 
-	e.GET(
-		"/api/setting/users",
-		middlewares.Authorize([]string{utils.PREDEFINED_PERMISSIONS.FULL_SETTING, utils.PREDEFINED_PERMISSIONS.SETTING_USERS.VIEW}),
-		middlewares.ValkeyCache[[]setting.SettingUserResponse](connection, "users"),
-		handler.Users,
-	)
-	e.GET(
-		"/api/setting/users/:id",
-		middlewares.Authorize([]string{utils.PREDEFINED_PERMISSIONS.FULL_SETTING, utils.PREDEFINED_PERMISSIONS.SETTING_USERS.VIEW}),
-		handler.User,
-	)
-	e.POST(
-		"/api/setting/users",
-		middlewares.Authorize([]string{utils.PREDEFINED_PERMISSIONS.FULL_SETTING, utils.PREDEFINED_PERMISSIONS.SETTING_USERS.CREATE}),
-		handler.CreateUser,
-	)
-	e.PATCH(
-		"/api/setting/users/:id",
-		middlewares.Authorize([]string{utils.PREDEFINED_PERMISSIONS.FULL_SETTING, utils.PREDEFINED_PERMISSIONS.SETTING_USERS.UPDATE}),
-		handler.UpdateUser,
-	)
-	e.GET(
-		"/api/setting/customers",
-		middlewares.Authorize([]string{utils.PREDEFINED_PERMISSIONS.FULL_SETTING, utils.PREDEFINED_PERMISSIONS.SETTING_CUSTOMERS.VIEW}),
-		middlewares.ValkeyCache[[]setting.SettingCustomerResponse](connection, "customers"),
-		handler.Customers,
-	)
-	e.GET(
-		"/api/setting/customers/:id",
-		middlewares.Authorize([]string{utils.PREDEFINED_PERMISSIONS.FULL_SETTING, utils.PREDEFINED_PERMISSIONS.SETTING_CUSTOMERS.VIEW}),
-		handler.Customer,
-	)
-	e.POST(
-		"/api/setting/customers",
-		middlewares.Authorize([]string{utils.PREDEFINED_PERMISSIONS.FULL_SETTING, utils.PREDEFINED_PERMISSIONS.SETTING_CUSTOMERS.CREATE}),
-		handler.CreateCustomer,
-	)
-	e.PATCH(
-		"/api/setting/customers/:id",
-		middlewares.Authorize([]string{utils.PREDEFINED_PERMISSIONS.FULL_SETTING, utils.PREDEFINED_PERMISSIONS.SETTING_CUSTOMERS.UPDATE}),
-		handler.UpdateCustomer,
-	)
-	e.DELETE(
-		"/api/setting/customers/:id",
-		middlewares.Authorize([]string{utils.PREDEFINED_PERMISSIONS.FULL_SETTING, utils.PREDEFINED_PERMISSIONS.SETTING_CUSTOMERS.DELETE}),
-		handler.DeleteCustomer,
-	)
-	e.GET(
-		"/api/setting/roles",
-		middlewares.Authorize([]string{utils.PREDEFINED_PERMISSIONS.FULL_SETTING, utils.PREDEFINED_PERMISSIONS.SETTING_ROLES.VIEW}),
-		middlewares.ValkeyCache[[]setting.SettingRoleResponse](connection, "roles"),
-		handler.Roles,
-	)
-	e.GET(
-		"/api/setting/roles/:id",
-		middlewares.Authorize([]string{utils.PREDEFINED_PERMISSIONS.FULL_SETTING, utils.PREDEFINED_PERMISSIONS.SETTING_ROLES.VIEW}),
-		handler.Role,
-	)
-	e.POST(
-		"/api/setting/roles",
-		middlewares.Authorize([]string{utils.PREDEFINED_PERMISSIONS.FULL_SETTING, utils.PREDEFINED_PERMISSIONS.SETTING_ROLES.CREATE}),
-		handler.CreateRole,
-	)
-	e.PATCH(
-		"/api/setting/roles/:id",
-		middlewares.Authorize([]string{utils.PREDEFINED_PERMISSIONS.FULL_SETTING, utils.PREDEFINED_PERMISSIONS.SETTING_ROLES.UPDATE}),
-		handler.UpdateRole,
-	)
-	e.DELETE(
-		"/api/setting/roles/:id",
-		middlewares.Authorize([]string{utils.PREDEFINED_PERMISSIONS.FULL_SETTING, utils.PREDEFINED_PERMISSIONS.SETTING_ROLES.DELETE}),
-		handler.DeleteRole,
-	)
-	e.GET(
-		"/api/setting/permissions",
-		handler.Permissions,
-	)
+	r.Handle(
+		"/users",
+		middlewares.Authorize(
+			http.HandlerFunc(controller.Users),
+			[]string{utils.PREDEFINED_PERMISSIONS.FULL_SETTING, utils.PREDEFINED_PERMISSIONS.SETTING_USERS.VIEW},
+		),
+	).Methods("GET", "OPTIONS")
+
+	r.Handle(
+		"/users/{id:[0-9]+}",
+		middlewares.Authorize(
+			http.HandlerFunc(controller.User),
+			[]string{utils.PREDEFINED_PERMISSIONS.FULL_SETTING, utils.PREDEFINED_PERMISSIONS.SETTING_USERS.VIEW},
+		),
+	).Methods("GET", "OPTIONS")
+
+	r.Handle(
+		"/users",
+		middlewares.Authorize(
+			http.HandlerFunc(controller.CreateUser),
+			[]string{utils.PREDEFINED_PERMISSIONS.FULL_SETTING, utils.PREDEFINED_PERMISSIONS.SETTING_USERS.CREATE},
+		),
+	).Methods("POST", "OPTIONS")
+
+	r.Handle(
+		"/users/{id:[0-9]+}",
+		middlewares.Authorize(
+			http.HandlerFunc(controller.UpdateUser),
+			[]string{utils.PREDEFINED_PERMISSIONS.FULL_SETTING, utils.PREDEFINED_PERMISSIONS.SETTING_USERS.UPDATE},
+		),
+	).Methods("PATCH", "OPTIONS")
+
+	r.Handle(
+		"/customers",
+		middlewares.Authorize(
+			http.HandlerFunc(controller.Customers),
+			[]string{utils.PREDEFINED_PERMISSIONS.FULL_SETTING, utils.PREDEFINED_PERMISSIONS.SETTING_CUSTOMERS.VIEW},
+		),
+	).Methods("GET", "OPTIONS")
+
+	r.Handle(
+		"/customers/{id:[0-9]+}",
+		middlewares.Authorize(
+			http.HandlerFunc(controller.Customer),
+			[]string{utils.PREDEFINED_PERMISSIONS.FULL_SETTING, utils.PREDEFINED_PERMISSIONS.SETTING_CUSTOMERS.VIEW},
+		),
+	).Methods("GET", "OPTIONS")
+
+	r.Handle(
+		"/customers",
+		middlewares.Authorize(
+			http.HandlerFunc(controller.CreateCustomer),
+			[]string{utils.PREDEFINED_PERMISSIONS.FULL_SETTING, utils.PREDEFINED_PERMISSIONS.SETTING_CUSTOMERS.CREATE},
+		),
+	).Methods("POST", "OPTIONS")
+
+	r.Handle(
+		"/customers/{id:[0-9]+}",
+		middlewares.Authorize(
+			http.HandlerFunc(controller.UpdateCustomer),
+			[]string{utils.PREDEFINED_PERMISSIONS.FULL_SETTING, utils.PREDEFINED_PERMISSIONS.SETTING_CUSTOMERS.UPDATE},
+		),
+	).Methods("PATCH", "OPTIONS")
+
+	r.Handle(
+		"/customers/{id:[0-9]+}",
+		middlewares.Authorize(
+			http.HandlerFunc(controller.DeleteCustomer),
+			[]string{utils.PREDEFINED_PERMISSIONS.FULL_SETTING, utils.PREDEFINED_PERMISSIONS.SETTING_CUSTOMERS.DELETE},
+		),
+	).Methods("DELETE", "OPTIONS")
+
+	r.Handle(
+		"/roles",
+		middlewares.Authorize(
+			http.HandlerFunc(controller.Roles),
+			[]string{utils.PREDEFINED_PERMISSIONS.FULL_SETTING, utils.PREDEFINED_PERMISSIONS.SETTING_ROLES.VIEW},
+		),
+	).Methods("GET", "OPTIONS")
+
+	r.Handle(
+		"/roles/{id:[0-9]+}",
+		middlewares.Authorize(
+			http.HandlerFunc(controller.Role),
+			[]string{utils.PREDEFINED_PERMISSIONS.FULL_SETTING, utils.PREDEFINED_PERMISSIONS.SETTING_ROLES.VIEW},
+		),
+	).Methods("GET", "OPTIONS")
+
+	r.Handle(
+		"/roles",
+		middlewares.Authorize(
+			http.HandlerFunc(controller.CreateRole),
+			[]string{utils.PREDEFINED_PERMISSIONS.FULL_SETTING, utils.PREDEFINED_PERMISSIONS.SETTING_ROLES.CREATE},
+		),
+	).Methods("POST", "OPTIONS")
+
+	r.Handle(
+		"/roles/{id:[0-9]+}",
+		middlewares.Authorize(
+			http.HandlerFunc(controller.UpdateRole),
+			[]string{utils.PREDEFINED_PERMISSIONS.FULL_SETTING, utils.PREDEFINED_PERMISSIONS.SETTING_ROLES.UPDATE},
+		),
+	).Methods("PATCH", "OPTIONS")
+
+	r.Handle(
+		"/roles/{id:[0-9]+}",
+		middlewares.Authorize(
+			http.HandlerFunc(controller.DeleteRole),
+			[]string{utils.PREDEFINED_PERMISSIONS.FULL_SETTING, utils.PREDEFINED_PERMISSIONS.SETTING_ROLES.DELETE},
+		),
+	).Methods("DELETE", "OPTIONS")
+
+	r.Handle(
+		"/permissions",
+		http.HandlerFunc(controller.Permissions),
+	).Methods("GET", "OPTIONS")
 }

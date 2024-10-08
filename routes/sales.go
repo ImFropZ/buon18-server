@@ -1,71 +1,95 @@
 package routes
 
 import (
+	"net/http"
+
+	"github.com/gorilla/mux"
 	"system.buon18.com/m/controllers"
 	"system.buon18.com/m/database"
 	"system.buon18.com/m/middlewares"
-	"system.buon18.com/m/models/sales"
 	"system.buon18.com/m/services"
 	salesServices "system.buon18.com/m/services/sales"
 	"system.buon18.com/m/utils"
-
-	"github.com/gin-gonic/gin"
 )
 
-func Sales(e *gin.Engine, connection *database.Connection) {
-	handler := controllers.SalesHandler{
-		DB: connection.DB,
+func SalesRoutes(r *mux.Router, con *database.Connection) {
+	controller := controllers.SalesHandler{
+		DB: con.DB,
 		ServiceFacade: &services.ServiceFacade{
-			SalesOrderService:     &salesServices.SalesOrderService{DB: connection.DB},
-			SalesQuotationService: &salesServices.SalesQuotationService{DB: connection.DB},
+			SalesOrderService:     &salesServices.SalesOrderService{DB: con.DB},
+			SalesQuotationService: &salesServices.SalesQuotationService{DB: con.DB},
 		},
 	}
 
-	e.GET(
-		"/api/sales/quotations",
-		middlewares.Authorize([]string{utils.PREDEFINED_PERMISSIONS.FULL_SALES, utils.PREDEFINED_PERMISSIONS.SALES_QUOTATIONS.VIEW}),
-		middlewares.ValkeyCache[[]sales.SalesQuotationResponse](connection, "quotations"),
-		handler.Quotations,
-	)
-	e.GET(
-		"/api/sales/quotations/:id",
-		middlewares.Authorize([]string{utils.PREDEFINED_PERMISSIONS.FULL_SALES, utils.PREDEFINED_PERMISSIONS.SALES_QUOTATIONS.VIEW}),
-		handler.Quotation,
-	)
-	e.POST(
-		"/api/sales/quotations",
-		middlewares.Authorize([]string{utils.PREDEFINED_PERMISSIONS.FULL_SALES, utils.PREDEFINED_PERMISSIONS.SALES_QUOTATIONS.CREATE}),
-		handler.CreateQuotation,
-	)
-	e.PATCH(
-		"/api/sales/quotations/:id",
-		middlewares.Authorize([]string{utils.PREDEFINED_PERMISSIONS.FULL_SALES, utils.PREDEFINED_PERMISSIONS.SALES_QUOTATIONS.UPDATE}),
-		handler.UpdateQuotation,
-	)
-	e.DELETE(
-		"/api/sales/quotations/:id",
-		middlewares.Authorize([]string{utils.PREDEFINED_PERMISSIONS.FULL_SALES, utils.PREDEFINED_PERMISSIONS.SALES_QUOTATIONS.DELETE}),
-		handler.DeleteQuotation,
-	)
-	e.GET(
-		"/api/sales/orders",
-		middlewares.Authorize([]string{utils.PREDEFINED_PERMISSIONS.FULL_SALES, utils.PREDEFINED_PERMISSIONS.SALES_ORDERS.VIEW}),
-		middlewares.ValkeyCache[[]sales.SalesOrderResponse](connection, "orders"),
-		handler.Orders,
-	)
-	e.GET(
-		"/api/sales/orders/:id",
-		middlewares.Authorize([]string{utils.PREDEFINED_PERMISSIONS.FULL_SALES, utils.PREDEFINED_PERMISSIONS.SALES_ORDERS.VIEW}),
-		handler.Order,
-	)
-	e.POST(
-		"/api/sales/orders",
-		middlewares.Authorize([]string{utils.PREDEFINED_PERMISSIONS.FULL_SALES, utils.PREDEFINED_PERMISSIONS.SALES_ORDERS.CREATE}),
-		handler.CreateOrder,
-	)
-	e.PATCH(
-		"/api/sales/orders/:id",
-		middlewares.Authorize([]string{utils.PREDEFINED_PERMISSIONS.FULL_SALES, utils.PREDEFINED_PERMISSIONS.SALES_ORDERS.UPDATE}),
-		handler.UpdateOrder,
-	)
+	r.Handle(
+		"/quotations",
+		middlewares.Authorize(
+			http.HandlerFunc(controller.Quotations),
+			[]string{utils.PREDEFINED_PERMISSIONS.FULL_SALES, utils.PREDEFINED_PERMISSIONS.SALES_QUOTATIONS.VIEW},
+		),
+	).Methods("GET", "OPTIONS")
+
+	r.Handle(
+		"/quotations/{id:[0-9]+}",
+		middlewares.Authorize(
+			http.HandlerFunc(controller.Quotation),
+			[]string{utils.PREDEFINED_PERMISSIONS.FULL_SALES, utils.PREDEFINED_PERMISSIONS.SALES_QUOTATIONS.VIEW},
+		),
+	).Methods("GET", "OPTIONS")
+
+	r.Handle(
+		"/quotations",
+		middlewares.Authorize(
+			http.HandlerFunc(controller.CreateQuotation),
+			[]string{utils.PREDEFINED_PERMISSIONS.FULL_SALES, utils.PREDEFINED_PERMISSIONS.SALES_QUOTATIONS.CREATE},
+		),
+	).Methods("POST", "OPTIONS")
+
+	r.Handle(
+		"/quotations/{id:[0-9]+}",
+		middlewares.Authorize(
+			http.HandlerFunc(controller.UpdateQuotation),
+			[]string{utils.PREDEFINED_PERMISSIONS.FULL_SALES, utils.PREDEFINED_PERMISSIONS.SALES_QUOTATIONS.UPDATE},
+		),
+	).Methods("PATCH", "OPTIONS")
+
+	r.Handle(
+		"/quotations/{id:[0-9]+}",
+		middlewares.Authorize(
+			http.HandlerFunc(controller.DeleteQuotation),
+			[]string{utils.PREDEFINED_PERMISSIONS.FULL_SALES, utils.PREDEFINED_PERMISSIONS.SALES_QUOTATIONS.DELETE},
+		),
+	).Methods("DELETE", "OPTIONS")
+
+	r.Handle(
+		"/orders",
+		middlewares.Authorize(
+			http.HandlerFunc(controller.Orders),
+			[]string{utils.PREDEFINED_PERMISSIONS.FULL_SALES, utils.PREDEFINED_PERMISSIONS.SALES_ORDERS.VIEW},
+		),
+	).Methods("GET", "OPTIONS")
+
+	r.Handle(
+		"/orders/{id:[0-9]+}",
+		middlewares.Authorize(
+			http.HandlerFunc(controller.Order),
+			[]string{utils.PREDEFINED_PERMISSIONS.FULL_SALES, utils.PREDEFINED_PERMISSIONS.SALES_ORDERS.VIEW},
+		),
+	).Methods("GET", "OPTIONS")
+
+	r.Handle(
+		"/orders",
+		middlewares.Authorize(
+			http.HandlerFunc(controller.CreateOrder),
+			[]string{utils.PREDEFINED_PERMISSIONS.FULL_SALES, utils.PREDEFINED_PERMISSIONS.SALES_ORDERS.CREATE},
+		),
+	).Methods("POST", "OPTIONS")
+
+	r.Handle(
+		"/orders/{id:[0-9]+}",
+		middlewares.Authorize(
+			http.HandlerFunc(controller.UpdateOrder),
+			[]string{utils.PREDEFINED_PERMISSIONS.FULL_SALES, utils.PREDEFINED_PERMISSIONS.SALES_ORDERS.UPDATE},
+		),
+	).Methods("PATCH", "OPTIONS")
 }

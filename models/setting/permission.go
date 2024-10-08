@@ -13,6 +13,14 @@ type SettingPermission struct {
 	Name string
 }
 
+func (SettingPermission) AllowFilterFieldsAndOps() []string {
+	return []string{"name:like"}
+}
+
+func (SettingPermission) AllowSorts() []string {
+	return []string{"name"}
+}
+
 type SettingPermissionResponse struct {
 	Id   uint   `json:"id"`
 	Name string `json:"name"`

@@ -2,22 +2,16 @@ package accounting
 
 import (
 	"database/sql"
-	"errors"
-	"log"
+	"fmt"
+	"log/slog"
+	"net/http"
 
+	"github.com/lib/pq"
+	"github.com/nullism/bqb"
 	"system.buon18.com/m/database"
 	"system.buon18.com/m/models"
 	"system.buon18.com/m/models/accounting"
 	"system.buon18.com/m/utils"
-
-	"github.com/lib/pq"
-	"github.com/nullism/bqb"
-)
-
-var (
-	ErrAccountNotFound                    = errors.New("account not found")
-	ErrAccountingAccountCodeExists        = errors.New("accounting account code already exists")
-	ErrUnableToDeleteCurrentlyUsedAccount = errors.New("unable to delete currently used account")
 )
 
 type AccountingAccountService struct {
@@ -39,14 +33,14 @@ func (service *AccountingAccountService) Accounts(qp *utils.QueryParams) ([]acco
 
 	query, params, err := bqbQuery.ToPgsql()
 	if err != nil {
-		log.Printf("%v", err)
-		return nil, 0, 500, utils.ErrInternalServer
+		slog.Error(fmt.Sprintf("%v", err))
+		return nil, 0, http.StatusInternalServerError, utils.ErrInternalServer
 	}
 
 	rows, err := service.DB.Query(query, params...)
 	if err != nil {
-		log.Printf("%v", err)
-		return nil, 0, 500, utils.ErrInternalServer
+		slog.Error(fmt.Sprintf("%v", err))
+		return nil, 0, http.StatusInternalServerError, utils.ErrInternalServer
 	}
 
 	accounts := []accounting.AccountingAccountResponse{}
@@ -54,8 +48,8 @@ func (service *AccountingAccountService) Accounts(qp *utils.QueryParams) ([]acco
 		account := accounting.AccountingAccount{}
 		err := rows.Scan(&account.Id, &account.Code, &account.Name, &account.Typ)
 		if err != nil {
-			log.Printf("%v", err)
-			return nil, 0, 500, utils.ErrInternalServer
+			slog.Error(fmt.Sprintf("%v", err))
+			return nil, 0, http.StatusInternalServerError, utils.ErrInternalServer
 		}
 		accounts = append(accounts, accounting.AccountingAccountToResponse(account))
 	}
@@ -65,18 +59,18 @@ func (service *AccountingAccountService) Accounts(qp *utils.QueryParams) ([]acco
 
 	query, params, err = bqbQuery.ToPgsql()
 	if err != nil {
-		log.Printf("%v", err)
-		return nil, 0, 500, utils.ErrInternalServer
+		slog.Error(fmt.Sprintf("%v", err))
+		return nil, 0, http.StatusInternalServerError, utils.ErrInternalServer
 	}
 
 	var total int
 	err = service.DB.QueryRow(query, params...).Scan(&total)
 	if err != nil {
-		log.Printf("%v", err)
-		return nil, 0, 500, utils.ErrInternalServer
+		slog.Error(fmt.Sprintf("%v", err))
+		return nil, 0, http.StatusInternalServerError, utils.ErrInternalServer
 	}
 
-	return accounts, total, 200, nil
+	return accounts, total, http.StatusOK, nil
 }
 
 func (service *AccountingAccountService) Account(id string) (accounting.AccountingAccountResponse, int, error) {
@@ -92,50 +86,50 @@ func (service *AccountingAccountService) Account(id string) (accounting.Accounti
 
 	query, params, err := bqbQuery.ToPgsql()
 	if err != nil {
-		log.Printf("%v", err)
-		return accounting.AccountingAccountResponse{}, 500, utils.ErrInternalServer
+		slog.Error(fmt.Sprintf("%v", err))
+		return accounting.AccountingAccountResponse{}, http.StatusInternalServerError, utils.ErrInternalServer
 	}
 
 	account := accounting.AccountingAccount{}
 	err = service.DB.QueryRow(query, params...).Scan(&account.Id, &account.Code, &account.Name, &account.Typ)
 	if err != nil {
-		log.Printf("%v", err)
-		return accounting.AccountingAccountResponse{}, 404, ErrAccountNotFound
+		slog.Error(fmt.Sprintf("%v", err))
+		return accounting.AccountingAccountResponse{}, http.StatusNotFound, utils.ErrAccountNotFound
 	}
 
-	return accounting.AccountingAccountToResponse(account), 200, nil
+	return accounting.AccountingAccountToResponse(account), http.StatusOK, nil
 }
 
-func (service *AccountingAccountService) CreateAccount(ctx *utils.CtxW, account *accounting.AccountingAccountCreateRequest) (int, error) {
+func (service *AccountingAccountService) CreateAccount(ctx *utils.CtxValue, account *accounting.AccountingAccountCreateRequest) (int, error) {
 	commonModel := models.CommonModel{}
 	commonModel.PrepareForCreate(ctx.User.Id, ctx.User.Id)
 
-	bqbQuery := bqb.New(`INSERT INTO "accounting.account" 
-	(name, code, typ, cid, ctime, mid, mtime) 
+	bqbQuery := bqb.New(`INSERT INTO "accounting.account"
+	(name, code, typ, cid, ctime, mid, mtime)
 	VALUES
 	(?, ?, ?, ?, ?, ?, ?)`, account.Name, account.Code, account.Typ, commonModel.CId, commonModel.CTime, commonModel.MId, commonModel.MTime)
 
 	query, params, err := bqbQuery.ToPgsql()
 	if err != nil {
-		log.Printf("%v", err)
-		return 500, utils.ErrInternalServer
+		slog.Error(fmt.Sprintf("%v", err))
+		return http.StatusInternalServerError, utils.ErrInternalServer
 	}
 
 	_, err = service.DB.Exec(query, params...)
 	if err != nil {
 		switch err.(*pq.Error).Constraint {
 		case database.KEY_ACCOUNTING_ACCOUNT_CODE:
-			return 409, ErrAccountingAccountCodeExists
+			return http.StatusConflict, utils.ErrResourceInUsed
 		}
 
-		log.Printf("%v", err)
-		return 500, utils.ErrInternalServer
+		slog.Error(fmt.Sprintf("%v", err))
+		return http.StatusInternalServerError, utils.ErrInternalServer
 	}
 
-	return 201, nil
+	return http.StatusCreated, nil
 }
 
-func (service *AccountingAccountService) UpdateAccount(ctx *utils.CtxW, id string, account *accounting.AccountingAccountUpdateRequest) (int, error) {
+func (service *AccountingAccountService) UpdateAccount(ctx *utils.CtxValue, id string, account *accounting.AccountingAccountUpdateRequest) (int, error) {
 	commonModel := models.CommonModel{}
 	commonModel.PrepareForUpdate(ctx.User.Id)
 
@@ -145,50 +139,50 @@ func (service *AccountingAccountService) UpdateAccount(ctx *utils.CtxW, id strin
 
 	query, params, err := bqbQuery.ToPgsql()
 	if err != nil {
-		log.Printf("%v", err)
-		return 500, utils.ErrInternalServer
+		slog.Error(fmt.Sprintf("%v", err))
+		return http.StatusInternalServerError, utils.ErrInternalServer
 	}
 
 	result, err := service.DB.Exec(query, params...)
 	if err != nil {
 		switch err.(*pq.Error).Constraint {
 		case database.KEY_ACCOUNTING_ACCOUNT_CODE:
-			return 409, ErrAccountingAccountCodeExists
+			return http.StatusConflict, utils.ErrAccountCodeExists
 		}
 
-		log.Printf("%v", err)
-		return 500, utils.ErrInternalServer
+		slog.Error(fmt.Sprintf("%v", err))
+		return http.StatusInternalServerError, utils.ErrInternalServer
 	}
 
 	if n, _ := result.RowsAffected(); n == 0 {
-		return 404, ErrAccountNotFound
+		return http.StatusNotFound, utils.ErrAccountNotFound
 	}
 
-	return 200, nil
+	return http.StatusOK, nil
 }
 
 func (service *AccountingAccountService) DeleteAccount(id string) (int, error) {
 	bqbQuery := bqb.New(`DELETE FROM "accounting.account" WHERE id = ?`, id)
 	query, params, err := bqbQuery.ToPgsql()
 	if err != nil {
-		log.Printf("%v", err)
-		return 500, utils.ErrInternalServer
+		slog.Error(fmt.Sprintf("%v", err))
+		return http.StatusInternalServerError, utils.ErrInternalServer
 	}
 
 	result, err := service.DB.Exec(query, params...)
 	if err != nil {
 		switch err.(*pq.Error).Constraint {
 		case database.FK_ACCOUNTING_ACCOUNT_ID:
-			return 409, ErrUnableToDeleteCurrentlyUsedAccount
+			return http.StatusConflict, utils.ErrResourceInUsed
 		}
 
-		log.Printf("%v", err)
-		return 500, utils.ErrInternalServer
+		slog.Error(fmt.Sprintf("%v", err))
+		return http.StatusInternalServerError, utils.ErrInternalServer
 	}
 
 	if n, _ := result.RowsAffected(); n == 0 {
-		return 404, ErrAccountNotFound
+		return http.StatusNotFound, utils.ErrAccountNotFound
 	}
 
-	return 200, nil
+	return http.StatusOK, nil
 }

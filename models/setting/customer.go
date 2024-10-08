@@ -9,9 +9,6 @@ import (
 	"github.com/nullism/bqb"
 )
 
-var SettingCustomerAllowFilterFieldsAndOps = []string{"fullname:like", "gender:in", "email:like", "phone:like"}
-var SettingCustomerAllowSortFields = []string{"fullname", "gender", "email", "phone"}
-
 type SettingCustomer struct {
 	*models.CommonModel
 	Id                    int
@@ -20,6 +17,14 @@ type SettingCustomer struct {
 	Email                 string
 	Phone                 string
 	AdditionalInformation string
+}
+
+func (SettingCustomer) AllowFilterFieldsAndOps() []string {
+	return []string{"fullname:like", "gender:in", "email:like", "phone:like"}
+}
+
+func (SettingCustomer) AllowSorts() []string {
+	return []string{"fullname", "gender", "email", "phone"}
 }
 
 type SettingCustomerResponse struct {

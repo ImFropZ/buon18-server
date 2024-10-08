@@ -2,10 +2,12 @@ package utils
 
 import (
 	"fmt"
+	"net/http"
+	"strconv"
 	"strings"
 
-	"github.com/gin-gonic/gin"
 	"github.com/nullism/bqb"
+	"system.buon18.com/m/models"
 )
 
 var ALLOWED_FILTER_OPERATORS = []string{"eq", "ne", "gt", "lt", "gte", "lte", "like", "in", "nin"}
@@ -28,22 +30,19 @@ type FilterValue struct {
 	Value    string
 }
 
-type PaginationValue struct {
-	Offset int
-	Limit  int
-}
-
 type QueryParams struct {
-	Fitlers    []FilterValue
-	Pagination PaginationValue
-	OrderBy    []string
+	Fitlers []FilterValue
+	OrderBy []string
+	Offset  int
+	Limit   int
 }
 
 func NewQueryParams() *QueryParams {
 	return &QueryParams{
-		Fitlers:    []FilterValue{},
-		Pagination: PaginationValue{0, 10},
-		OrderBy:    []string{},
+		Fitlers: make([]FilterValue, 0),
+		OrderBy: make([]string, 0),
+		Offset:  0,
+		Limit:   10,
 	}
 }
 
@@ -66,29 +65,11 @@ func (qp *QueryParams) AddFilter(filter string) *QueryParams {
 		return qp
 	}
 
-	if operator == "like" {
+	if operator == "like" || operator == "ilike" {
 		value = "%" + value + "%"
 	}
 
 	qp.Fitlers = append(qp.Fitlers, FilterValue{field, operator, value})
-	return qp
-}
-
-func (qp *QueryParams) AddOffset(offset int) *QueryParams {
-	if offset < 0 {
-		return qp
-	}
-
-	qp.Pagination = PaginationValue{offset, qp.Pagination.Limit}
-	return qp
-}
-
-func (qp *QueryParams) AddLimit(limit int) *QueryParams {
-	if limit < 0 {
-		return qp
-	}
-
-	qp.Pagination = PaginationValue{qp.Pagination.Offset, limit}
 	return qp
 }
 
@@ -151,35 +132,39 @@ func (qp *QueryParams) OrderByIntoBqb(bqbQuery *bqb.Query, defaultOrderBy string
 }
 
 func (qp *QueryParams) PaginationIntoBqb(bqbQuery *bqb.Query) {
-	bqbQuery.Space(`OFFSET ? LIMIT ?`, qp.Pagination.Offset, qp.Pagination.Limit)
+	bqbQuery.Space(`OFFSET ? LIMIT ?`, qp.Offset, qp.Limit)
 }
 
-func (qp *QueryParams) PrepareFilters(c *gin.Context, allowFilterFieldsAndOps []string, prefix string) *QueryParams {
-	for _, filter := range allowFilterFieldsAndOps {
-		if validFilter, ok := c.GetQuery(filter); ok {
-			qp.AddFilter(fmt.Sprintf(`%s.%s=%s`, prefix, filter, validFilter))
+func (qp *QueryParams) PrepareFilters(model models.IFilter, r *http.Request, prefix string) *QueryParams {
+	c := r.URL.Query()
+	for _, filter := range model.AllowFilterFieldsAndOps() {
+		if q := c.Get(filter); q != "" {
+			qp.AddFilter(fmt.Sprintf(`%s.%s=%s`, prefix, filter, q))
 		}
 	}
 	return qp
 }
 
-func (qp *QueryParams) PrepareSorts(c *gin.Context, allowSortFields []string, prefix string) *QueryParams {
-	for _, sort := range allowSortFields {
-		if validSort, ok := c.GetQuery(fmt.Sprintf("sort:%s", sort)); ok {
-			qp.AddOrderBy(fmt.Sprintf(`LOWER(%s.%s) %s`, prefix, sort, validSort))
+func (qp *QueryParams) PrepareSorts(model models.ISort, r *http.Request, prefix string) *QueryParams {
+	c := r.URL.Query()
+	for _, sort := range model.AllowSorts() {
+		if q := c.Get(fmt.Sprintf("sort:%s", sort)); q != "" {
+			qp.AddOrderBy(fmt.Sprintf(`LOWER(%s.%s) %s`, prefix, sort, q))
 		}
 	}
 	return qp
 }
 
-func (qp *QueryParams) PreparePagination(c *gin.Context) *QueryParams {
-	for _, pagination := range []string{"offset", "limit"} {
-		if validPagination, ok := c.GetQuery(pagination); ok {
-			if pagination == "offset" {
-				qp.AddOffset(StrToInt(validPagination, 0))
-			} else {
-				qp.AddLimit(StrToInt(validPagination, 10))
-			}
+func (qp *QueryParams) PrepareLimitAndOffset(r *http.Request) *QueryParams {
+	c := r.URL.Query()
+	if q := c.Get("limit"); q != "" {
+		if n, err := strconv.Atoi(q); err == nil {
+			qp.Limit = n
+		}
+	}
+	if q := c.Get("offset"); q != "" {
+		if n, err := strconv.Atoi(q); err == nil {
+			qp.Offset = n
 		}
 	}
 	return qp
