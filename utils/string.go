@@ -21,17 +21,6 @@ func ContainsString(slice []string, s string) bool {
 	return false
 }
 
-func StrToInt(s string, defaultValue int) int {
-	if s == "" {
-		return defaultValue
-	}
-	result, err := strconv.Atoi(s)
-	if err != nil {
-		return defaultValue
-	}
-	return result
-}
-
 func IntToStr(i int) string {
 	return strconv.Itoa(i)
 }
