@@ -8,15 +8,20 @@ import (
 	"github.com/nullism/bqb"
 )
 
-var AccountingAccountAllowFilterFieldsAndOps = []string{"name:like", "code:like", "typ:eq"}
-var AccountingAccountAllowSortFields = []string{"name", "typ"}
-
 type AccountingAccount struct {
 	*models.CommonModel
 	Id   int
 	Name string
 	Code string
 	Typ  string
+}
+
+func (AccountingAccount) AllowFilterFieldsAndOps() []string {
+	return []string{"name:like", "code:like", "typ:eq"}
+}
+
+func (AccountingAccount) AllowSorts() []string {
+	return []string{"name", "typ"}
 }
 
 type AccountingAccountResponse struct {

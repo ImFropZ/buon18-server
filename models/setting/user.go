@@ -8,9 +8,6 @@ import (
 	"github.com/nullism/bqb"
 )
 
-var SettingUserAllowFilterFieldsAndOps = []string{"name:like", "email:like", "typ:in", "role_id:eq"}
-var SettingUserAllowSortFields = []string{"name", "email", "type"}
-
 type SettingUser struct {
 	*models.CommonModel
 	Id    uint
@@ -20,6 +17,14 @@ type SettingUser struct {
 	Typ   string
 	// -- Foreign keys
 	SettingRoleId uint
+}
+
+func (SettingUser) AllowFilterFieldsAndOps() []string {
+	return []string{"name:like", "email:like", "typ:in", "role_id:eq"}
+}
+
+func (SettingUser) AllowSorts() []string {
+	return []string{"name", "email", "typ"}
 }
 
 type SettingUserResponse struct {

@@ -2,22 +2,15 @@ package setting
 
 import (
 	"database/sql"
-	"errors"
 	"log"
+	"net/http"
 
+	"github.com/lib/pq"
+	"github.com/nullism/bqb"
 	"system.buon18.com/m/database"
 	"system.buon18.com/m/models"
 	"system.buon18.com/m/models/setting"
 	"system.buon18.com/m/utils"
-
-	"github.com/lib/pq"
-	"github.com/nullism/bqb"
-)
-
-var (
-	ErrRoleNotFound                    = errors.New("role not found")
-	ErrCreateRoleWithFullPermission    = errors.New("unable to create role with full permission")
-	ErrUnableToDeleteCurrentlyUsedRole = errors.New("unable to delete currently used role")
 )
 
 type SettingRoleService struct {
@@ -35,7 +28,7 @@ func (service *SettingRoleService) Roles(qp *utils.QueryParams) ([]setting.Setti
 	qp.PaginationIntoBqb(bqbQuery)
 
 	bqbQuery.Space(`)
-	SELECT 
+	SELECT
 		"limited_roles".id,
 		"limited_roles".name,
 		"limited_roles".description,
@@ -50,13 +43,13 @@ func (service *SettingRoleService) Roles(qp *utils.QueryParams) ([]setting.Setti
 	query, params, err := bqbQuery.ToPgsql()
 	if err != nil {
 		log.Printf("%s\n", err)
-		return nil, 0, 500, utils.ErrInternalServer
+		return nil, 0, http.StatusInternalServerError, utils.ErrInternalServer
 	}
 
 	rows, err := service.DB.Query(query, params...)
 	if err != nil {
 		log.Printf("%s\n", err)
-		return nil, 0, 500, utils.ErrInternalServer
+		return nil, 0, http.StatusInternalServerError, utils.ErrInternalServer
 	}
 
 	roles := make([]setting.SettingRoleResponse, 0)
@@ -68,7 +61,7 @@ func (service *SettingRoleService) Roles(qp *utils.QueryParams) ([]setting.Setti
 		err := rows.Scan(&tmpRole.Id, &tmpRole.Name, &tmpRole.Description, &tmpPermission.Id, &tmpPermission.Name)
 		if err != nil {
 			log.Printf("%s\n", err)
-			return nil, 0, 500, utils.ErrInternalServer
+			return nil, 0, http.StatusInternalServerError, utils.ErrInternalServer
 		}
 
 		if lastRole.Id != tmpRole.Id {
@@ -98,17 +91,17 @@ func (service *SettingRoleService) Roles(qp *utils.QueryParams) ([]setting.Setti
 	query, params, err = bqbQuery.ToPgsql()
 	if err != nil {
 		log.Printf("%s\n", err)
-		return nil, 0, 500, utils.ErrInternalServer
+		return nil, 0, http.StatusInternalServerError, utils.ErrInternalServer
 	}
 
 	var total int
 	err = service.DB.QueryRow(query, params...).Scan(&total)
 	if err != nil {
 		log.Printf("%s\n", err)
-		return nil, 0, 500, utils.ErrInternalServer
+		return nil, 0, http.StatusInternalServerError, utils.ErrInternalServer
 	}
 
-	return roles, total, 200, nil
+	return roles, total, http.StatusOK, nil
 }
 
 func (service *SettingRoleService) Role(id string) (setting.SettingRoleResponse, int, error) {
@@ -119,7 +112,7 @@ func (service *SettingRoleService) Role(id string) (setting.SettingRoleResponse,
 		FROM "setting.role"
 		WHERE id = ?
 	)
-	SELECT 
+	SELECT
 		"limited_roles".id,
 		"limited_roles".name,
 		"limited_roles".description,
@@ -133,13 +126,13 @@ func (service *SettingRoleService) Role(id string) (setting.SettingRoleResponse,
 	query, params, err := bqbQuery.ToPgsql()
 	if err != nil {
 		log.Printf("%s", err)
-		return setting.SettingRoleResponse{}, 500, utils.ErrInternalServer
+		return setting.SettingRoleResponse{}, http.StatusInternalServerError, utils.ErrInternalServer
 	}
 
 	rows, err := service.DB.Query(query, params...)
 	if err != nil {
 		log.Printf("%s\n", err)
-		return setting.SettingRoleResponse{}, 500, utils.ErrInternalServer
+		return setting.SettingRoleResponse{}, http.StatusInternalServerError, utils.ErrInternalServer
 	}
 
 	var role setting.SettingRole
@@ -149,14 +142,14 @@ func (service *SettingRoleService) Role(id string) (setting.SettingRoleResponse,
 		err := rows.Scan(&role.Id, &role.Name, &role.Description, &tmpPermission.Id, &tmpPermission.Name)
 		if err != nil {
 			log.Printf("%s\n", err)
-			return setting.SettingRoleResponse{}, 500, utils.ErrInternalServer
+			return setting.SettingRoleResponse{}, http.StatusInternalServerError, utils.ErrInternalServer
 		}
 
 		permissions = append(permissions, tmpPermission)
 	}
 
 	if role.Id == 0 {
-		return setting.SettingRoleResponse{}, 404, ErrRoleNotFound
+		return setting.SettingRoleResponse{}, http.StatusNotFound, utils.ErrRoleNotFound
 	}
 
 	permissionsResponse := make([]setting.SettingPermissionResponse, 0)
@@ -164,24 +157,25 @@ func (service *SettingRoleService) Role(id string) (setting.SettingRoleResponse,
 		permissionsResponse = append(permissionsResponse, setting.SettingPermissionToResponse(permission))
 	}
 
-	return setting.SettingRoleToResponse(role, permissionsResponse), 200, nil
+	return setting.SettingRoleToResponse(role, permissionsResponse), http.StatusOK, nil
 }
 
-func (service *SettingRoleService) CreateRole(ctx *utils.CtxW, role *setting.SettingRoleCreateRequest) (int, error) {
+func (service *SettingRoleService) CreateRole(ctx *utils.CtxValue, role *setting.SettingRoleCreateRequest) (int, error) {
 	commonModel := models.CommonModel{}
 	commonModel.PrepareForCreate(ctx.User.Id, ctx.User.Id)
 
 	tx, err := service.DB.Begin()
 	if err != nil {
 		log.Printf("%s\n", err)
-		return 500, utils.ErrInternalServer
+		return http.StatusInternalServerError, utils.ErrInternalServer
 	}
+	defer tx.Rollback()
 
 	bqbQuery := bqb.New(`SELECT COUNT(*) FROM "setting.permission" WHERE id in (`)
 	hasPermission := true
 	for index, permissionId := range role.PermissionIds {
 		if utils.ContainsString(utils.FULL_PERMISSION_IDS, utils.IntToStr(int(permissionId))) {
-			for _, permission := range ctx.Permissions {
+			for _, permission := range *ctx.Permissions {
 				if !utils.ContainsString([]string{utils.PREDEFINED_PERMISSIONS.FULL_ACCESS}, permission.Name) {
 					hasPermission = false
 				}
@@ -195,44 +189,38 @@ func (service *SettingRoleService) CreateRole(ctx *utils.CtxW, role *setting.Set
 	bqbQuery.Space(`)`)
 
 	if !hasPermission {
-		tx.Rollback()
-		return 403, ErrCreateRoleWithFullPermission
+		return http.StatusForbidden, utils.ErrCreateRoleWithFullPermission
 	}
 
 	query, params, err := bqbQuery.ToPgsql()
 	if err != nil {
-		tx.Rollback()
 		log.Printf("%s\n", err)
-		return 500, utils.ErrInternalServer
+		return http.StatusInternalServerError, utils.ErrInternalServer
 	}
 
 	var count int
 	err = tx.QueryRow(query, params...).Scan(&count)
 	if err != nil {
-		tx.Rollback()
 		log.Printf("%s\n", err)
-		return 500, utils.ErrInternalServer
+		return http.StatusInternalServerError, utils.ErrInternalServer
 	}
 
 	if count != len(role.PermissionIds) {
-		tx.Rollback()
-		return 400, errors.New("permission_ids is invalid")
+		return http.StatusBadRequest, utils.ErrPermissionNotFound
 	}
 
 	bqbQuery = bqb.New(`INSERT INTO "setting.role" (name, description, cid, ctime, mid, mtime) VALUES (?, ?, ?, ?, ?, ?) RETURNING id`, role.Name, role.Description, commonModel.CId, commonModel.CTime, commonModel.MId, commonModel.MTime)
 	query, params, err = bqbQuery.ToPgsql()
 	if err != nil {
-		tx.Rollback()
 		log.Printf("%s\n", err)
-		return 500, utils.ErrInternalServer
+		return http.StatusInternalServerError, utils.ErrInternalServer
 	}
 
 	var roleId uint
 	err = tx.QueryRow(query, params...).Scan(&roleId)
 	if err != nil {
-		tx.Rollback()
 		log.Printf("%s\n", err)
-		return 500, utils.ErrInternalServer
+		return http.StatusInternalServerError, utils.ErrInternalServer
 	}
 
 	bqbQuery = bqb.New(`INSERT INTO "setting.role_permission" (setting_role_id, setting_permission_id, cid, ctime, mid, mtime) VALUES`)
@@ -245,37 +233,35 @@ func (service *SettingRoleService) CreateRole(ctx *utils.CtxW, role *setting.Set
 
 	query, params, err = bqbQuery.ToPgsql()
 	if err != nil {
-		tx.Rollback()
 		log.Printf("%s\n", err)
-		return 500, utils.ErrInternalServer
+		return http.StatusInternalServerError, utils.ErrInternalServer
 	}
 
 	_, err = tx.Exec(query, params...)
 	if err != nil {
-		tx.Rollback()
 		log.Printf("%s\n", err)
-		return 500, utils.ErrInternalServer
+		return http.StatusInternalServerError, utils.ErrInternalServer
 	}
 
 	err = tx.Commit()
 	if err != nil {
-		tx.Rollback()
 		log.Printf("%s\n", err)
-		return 500, utils.ErrInternalServer
+		return http.StatusInternalServerError, utils.ErrInternalServer
 	}
 
-	return 201, nil
+	return http.StatusCreated, nil
 }
 
-func (service *SettingRoleService) UpdateRole(ctx *utils.CtxW, id string, role *setting.SettingRoleUpdateRequest) (int, error) {
+func (service *SettingRoleService) UpdateRole(ctx *utils.CtxValue, id string, role *setting.SettingRoleUpdateRequest) (int, error) {
 	commonModel := models.CommonModel{}
 	commonModel.PrepareForUpdate(ctx.User.Id)
 
 	tx, err := service.DB.Begin()
 	if err != nil {
 		log.Printf("%s\n", err)
-		return 500, utils.ErrInternalServer
+		return http.StatusInternalServerError, utils.ErrInternalServer
 	}
+	defer tx.Rollback()
 
 	bqbQuery := bqb.New(`UPDATE "setting.role" SET mid = ?, mtime = ?`, commonModel.MId, commonModel.MTime)
 	utils.PrepareUpdateBqbQuery(bqbQuery, role)
@@ -283,21 +269,18 @@ func (service *SettingRoleService) UpdateRole(ctx *utils.CtxW, id string, role *
 
 	query, params, err := bqbQuery.ToPgsql()
 	if err != nil {
-		tx.Rollback()
 		log.Printf("%s\n", err)
-		return 500, utils.ErrInternalServer
+		return http.StatusInternalServerError, utils.ErrInternalServer
 	}
 
 	result, err := tx.Exec(query, params...)
 	if err != nil {
-		tx.Rollback()
 		log.Printf("%s\n", err)
-		return 500, utils.ErrInternalServer
+		return http.StatusInternalServerError, utils.ErrInternalServer
 	}
 
 	if rowsAffected, _ := result.RowsAffected(); rowsAffected == 0 {
-		tx.Rollback()
-		return 404, ErrRoleNotFound
+		return http.StatusNotFound, utils.ErrRoleNotFound
 	}
 
 	if role.AddPermissionIds != nil {
@@ -311,16 +294,14 @@ func (service *SettingRoleService) UpdateRole(ctx *utils.CtxW, id string, role *
 
 		query, params, err := bqbQuery.ToPgsql()
 		if err != nil {
-			tx.Rollback()
 			log.Printf("%s\n", err)
-			return 500, utils.ErrInternalServer
+			return http.StatusInternalServerError, utils.ErrInternalServer
 		}
 
 		_, err = tx.Exec(query, params...)
 		if err != nil {
-			tx.Rollback()
 			log.Printf("%s\n", err)
-			return 500, utils.ErrInternalServer
+			return http.StatusInternalServerError, utils.ErrInternalServer
 		}
 	}
 
@@ -335,82 +316,74 @@ func (service *SettingRoleService) UpdateRole(ctx *utils.CtxW, id string, role *
 		bqbQuery.Space(`)`)
 		query, params, err := bqbQuery.ToPgsql()
 		if err != nil {
-			tx.Rollback()
 			log.Printf("%s\n", err)
-			return 500, utils.ErrInternalServer
+			return http.StatusInternalServerError, utils.ErrInternalServer
 		}
 
 		_, err = tx.Exec(query, params...)
 		if err != nil {
-			tx.Rollback()
 			log.Printf("%s\n", err)
-			return 500, utils.ErrInternalServer
+			return http.StatusInternalServerError, utils.ErrInternalServer
 		}
 	}
 
 	err = tx.Commit()
 	if err != nil {
-		tx.Rollback()
 		log.Printf("%s\n", err)
-		return 500, utils.ErrInternalServer
+		return http.StatusInternalServerError, utils.ErrInternalServer
 	}
 
-	return 200, nil
+	return http.StatusOK, nil
 }
 
 func (service *SettingRoleService) DeleteRole(id string) (int, error) {
 	tx, err := service.DB.Begin()
 	if err != nil {
 		log.Printf("%v\n", err)
-		return 500, utils.ErrInternalServer
+		return http.StatusInternalServerError, utils.ErrInternalServer
 	}
+	defer tx.Rollback()
 
 	bqbQuery := bqb.New(`DELETE FROM "setting.role_permission" WHERE setting_role_id = ?`, id)
 	query, params, err := bqbQuery.ToPgsql()
 	if err != nil {
-		tx.Rollback()
 		log.Printf("%v\n", err)
-		return 500, utils.ErrInternalServer
+		return http.StatusInternalServerError, utils.ErrInternalServer
 	}
 
 	_, err = tx.Exec(query, params...)
 	if err != nil {
-		tx.Rollback()
 		log.Printf("%v\n", err)
-		return 500, utils.ErrInternalServer
+		return http.StatusInternalServerError, utils.ErrInternalServer
 	}
 
 	bqbQuery = bqb.New(`DELETE FROM "setting.role" WHERE id = ?`, id)
 	query, params, err = bqbQuery.ToPgsql()
 	if err != nil {
-		tx.Rollback()
 		log.Printf("%v\n", err)
-		return 500, utils.ErrInternalServer
+		return http.StatusInternalServerError, utils.ErrInternalServer
 	}
 
 	result, err := tx.Exec(query, params...)
 	if err != nil {
-		tx.Rollback()
-
 		switch err.(*pq.Error).Constraint {
 		case database.FK_SETTING_ROLE_ID:
-			return 409, ErrUnableToDeleteCurrentlyUsedRole
+			return http.StatusConflict, utils.ErrResourceInUsed
 		}
 
 		log.Printf("%v\n", err)
-		return 500, utils.ErrInternalServer
+		return http.StatusInternalServerError, utils.ErrInternalServer
 	}
 
 	if rowsAffected, _ := result.RowsAffected(); rowsAffected == 0 {
-		tx.Rollback()
-		return 404, ErrRoleNotFound
+		return http.StatusNotFound, utils.ErrRoleNotFound
 	}
 
 	err = tx.Commit()
 	if err != nil {
 		log.Printf("%v\n", err)
-		return 500, utils.ErrInternalServer
+		return http.StatusInternalServerError, utils.ErrInternalServer
 	}
 
-	return 200, nil
+	return http.StatusOK, nil
 }

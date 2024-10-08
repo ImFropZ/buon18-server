@@ -4,14 +4,12 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"log"
-	"strings"
+	"net/http"
 
+	"github.com/gorilla/mux"
 	"system.buon18.com/m/models/sales"
 	"system.buon18.com/m/services"
 	"system.buon18.com/m/utils"
-
-	"github.com/gin-gonic/gin"
 )
 
 type SalesHandler struct {
@@ -19,232 +17,190 @@ type SalesHandler struct {
 	ServiceFacade *services.ServiceFacade
 }
 
-func (handler *SalesHandler) Quotations(c *gin.Context) {
+func (handler *SalesHandler) Quotations(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
 	qp := utils.NewQueryParams().
-		PrepareFilters(c, sales.SalesQuotationAllowFilterFieldsAndOps, `"sales.quotation"`).
-		PrepareSorts(c, sales.SalesQuotationAllowSortFields, `"limited_quotations"`).
-		PreparePagination(c)
+		PrepareFilters(sales.SalesQuotation{}, r, `"sales.quotation"`).
+		PrepareSorts(sales.SalesQuotation{}, r, `"limited_quotations"`).
+		PrepareLimitAndOffset(r)
 
 	quotations, total, statusCode, err := handler.ServiceFacade.SalesQuotationService.Quotations(qp)
 	if err != nil {
-		c.JSON(statusCode, utils.NewErrorResponse(statusCode, err.Error()))
+		msg, clientErr, code := utils.ServerToClientError(err)
+		w.WriteHeader(code)
+		json.NewEncoder(w).Encode(utils.NewErrorResponse(code, msg, clientErr, nil))
 		return
 	}
 
-	c.Header("X-Total-Count", fmt.Sprintf("%d", total))
-	c.JSON(statusCode, utils.NewResponse(statusCode, "", gin.H{
+	w.Header().Set("X-Total-Count", fmt.Sprintf("%d", total))
+	w.WriteHeader(statusCode)
+	json.NewEncoder(w).Encode(utils.NewResponse(statusCode, "", map[string]interface{}{
 		"quotations": quotations,
 	}))
-
-	c.Set("total", total)
-	if quotationsByte, err := json.Marshal(quotations); err == nil {
-		c.Set("response", quotationsByte)
-	}
 }
 
-func (handler *SalesHandler) Quotation(c *gin.Context) {
-	id := c.Param("id")
+func (handler *SalesHandler) Quotation(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
 
+	id := mux.Vars(r)["id"]
 	quotation, statusCode, err := handler.ServiceFacade.SalesQuotationService.Quotation(id)
 	if err != nil {
-		c.JSON(statusCode, utils.NewErrorResponse(statusCode, err.Error()))
+		msg, clientErr, code := utils.ServerToClientError(err)
+		w.WriteHeader(code)
+		json.NewEncoder(w).Encode(utils.NewErrorResponse(code, msg, clientErr, nil))
 		return
 	}
 
-	c.JSON(statusCode, utils.NewResponse(statusCode, "", gin.H{
+	w.WriteHeader(statusCode)
+	json.NewEncoder(w).Encode(utils.NewResponse(statusCode, "", map[string]interface{}{
 		"quotation": quotation,
 	}))
 }
 
-func (handler *SalesHandler) CreateQuotation(c *gin.Context) {
-	ctx, err := utils.Ctx(c)
+func (handler *SalesHandler) CreateQuotation(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context().Value(utils.CtxKey{}).(*utils.CtxValue)
+	w.Header().Set("Content-Type", "application/json")
+
+	// -- Parse request
+	req, ok := utils.ValidateRequest[sales.SalesQuotationCreateRequest](r, w, false)
+	if !ok {
+		return
+	}
+
+	statusCode, err := handler.ServiceFacade.SalesQuotationService.CreateQuotation(ctx, &req)
 	if err != nil {
-		c.JSON(500, utils.NewErrorResponse(500, utils.ErrInternalServer.Error()))
+		msg, clientErr, code := utils.ServerToClientError(err)
+		w.WriteHeader(code)
+		json.NewEncoder(w).Encode(utils.NewErrorResponse(code, msg, clientErr, nil))
 		return
 	}
 
-	var quotation sales.SalesQuotationCreateRequest
-	if err := c.ShouldBindJSON(&quotation); err != nil {
-		if strings.HasPrefix(err.Error(), "parsing time") {
-			c.JSON(400, utils.NewErrorResponse(400, "invalid date format"))
-			return
-		}
-
-		log.Printf("Error binding JSON: %s", err)
-		c.JSON(400, utils.NewErrorResponse(400, err.Error()))
-		return
-	}
-
-	if validationErrors, ok := utils.ValidateStruct(quotation); !ok {
-		c.JSON(400, utils.NewErrorResponse(400, strings.Join(validationErrors, ", ")))
-		return
-	}
-
-	statusCode, err := handler.ServiceFacade.SalesQuotationService.CreateQuotation(&ctx, &quotation)
-	if err != nil {
-		c.JSON(statusCode, utils.NewErrorResponse(statusCode, err.Error()))
-		return
-	}
-
-	c.JSON(statusCode, utils.NewResponse(statusCode, "quotation created successfully", nil))
+	w.WriteHeader(statusCode)
+	json.NewEncoder(w).Encode(utils.NewResponse(statusCode, "created", nil))
 }
 
-func (handler *SalesHandler) UpdateQuotation(c *gin.Context) {
-	ctx, err := utils.Ctx(c)
+func (handler *SalesHandler) UpdateQuotation(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context().Value(utils.CtxKey{}).(*utils.CtxValue)
+	w.Header().Set("Content-Type", "application/json")
+
+	// -- Parse request
+	req, ok := utils.ValidateRequest[sales.SalesQuotationUpdateRequest](r, w, true)
+	if !ok {
+		return
+	}
+
+	id := mux.Vars(r)["id"]
+	statusCode, err := handler.ServiceFacade.SalesQuotationService.UpdateQuotation(ctx, id, &req)
 	if err != nil {
-		c.JSON(500, utils.NewErrorResponse(500, utils.ErrInternalServer.Error()))
+		msg, clientErr, code := utils.ServerToClientError(err)
+		w.WriteHeader(code)
+		json.NewEncoder(w).Encode(utils.NewErrorResponse(code, msg, clientErr, nil))
 		return
 	}
 
-	id := c.Param("id")
-
-	var quotation sales.SalesQuotationUpdateRequest
-	if err := c.ShouldBindJSON(&quotation); err != nil {
-		if strings.HasPrefix(err.Error(), "parsing time") {
-			c.JSON(400, utils.NewErrorResponse(400, "invalid date format"))
-			return
-		}
-
-		log.Printf("Error binding JSON: %s", err)
-		c.JSON(400, utils.NewErrorResponse(400, err.Error()))
-		return
-	}
-
-	if utils.IsAllFieldsNil(&quotation) {
-		c.JSON(400, utils.NewErrorResponse(400, "no fields to update"))
-		return
-	}
-
-	if validationErrors, ok := utils.ValidateStruct(quotation); !ok {
-		c.JSON(400, utils.NewErrorResponse(400, strings.Join(validationErrors, ", ")))
-		return
-	}
-
-	statusCode, err := handler.ServiceFacade.SalesQuotationService.UpdateQuotation(&ctx, id, &quotation)
-	if err != nil {
-		c.JSON(statusCode, utils.NewErrorResponse(statusCode, err.Error()))
-		return
-	}
-
-	c.JSON(statusCode, utils.NewResponse(statusCode, "quotation updated successfully", nil))
+	w.WriteHeader(statusCode)
+	json.NewEncoder(w).Encode(utils.NewResponse(statusCode, "updated", nil))
 }
 
-func (handler *SalesHandler) DeleteQuotation(c *gin.Context) {
-	id := c.Param("id")
+func (handler *SalesHandler) DeleteQuotation(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
 
+	id := mux.Vars(r)["id"]
 	statusCode, err := handler.ServiceFacade.SalesQuotationService.DeleteQuotation(id)
 	if err != nil {
-		c.JSON(statusCode, utils.NewErrorResponse(statusCode, err.Error()))
+		msg, clientErr, code := utils.ServerToClientError(err)
+		w.WriteHeader(code)
+		json.NewEncoder(w).Encode(utils.NewErrorResponse(code, msg, clientErr, nil))
 		return
 	}
 
-	c.JSON(statusCode, utils.NewResponse(statusCode, "quotation deleted successfully", nil))
+	w.WriteHeader(statusCode)
+	json.NewEncoder(w).Encode(utils.NewResponse(statusCode, "deleted", nil))
 }
 
-func (handler *SalesHandler) Orders(c *gin.Context) {
+func (handler *SalesHandler) Orders(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
 	qp := utils.NewQueryParams().
-		PrepareFilters(c, sales.SalesOrderAllowFilterFieldsAndOps, `"sales.order"`).
-		PrepareSorts(c, sales.SalesOrderAllowSortFields, `"limited_orders"`).
-		PreparePagination(c)
+		PrepareFilters(sales.SalesOrder{}, r, `"sales.order"`).
+		PrepareSorts(sales.SalesOrder{}, r, `"limited_orders"`).
+		PrepareLimitAndOffset(r)
 
 	orders, total, statusCode, err := handler.ServiceFacade.SalesOrderService.Orders(qp)
 	if err != nil {
-		c.JSON(statusCode, utils.NewErrorResponse(statusCode, err.Error()))
+		msg, clientErr, code := utils.ServerToClientError(err)
+		w.WriteHeader(code)
+		json.NewEncoder(w).Encode(utils.NewErrorResponse(code, msg, clientErr, nil))
 		return
 	}
 
-	c.Header("X-Total-Count", fmt.Sprintf("%d", total))
-	c.JSON(statusCode, utils.NewResponse(statusCode, "", gin.H{
+	w.Header().Set("X-Total-Count", fmt.Sprintf("%d", total))
+	w.WriteHeader(statusCode)
+	json.NewEncoder(w).Encode(utils.NewResponse(statusCode, "", map[string]interface{}{
 		"orders": orders,
 	}))
-
-	c.Set("total", total)
-	if ordersByte, err := json.Marshal(orders); err == nil {
-		c.Set("response", ordersByte)
-	}
 }
 
-func (handler *SalesHandler) Order(c *gin.Context) {
-	id := c.Param("id")
+func (handler *SalesHandler) Order(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
 
+	id := mux.Vars(r)["id"]
 	order, statusCode, err := handler.ServiceFacade.SalesOrderService.Order(id)
 	if err != nil {
-		c.JSON(statusCode, utils.NewErrorResponse(statusCode, err.Error()))
+		msg, clientErr, code := utils.ServerToClientError(err)
+		w.WriteHeader(code)
+		json.NewEncoder(w).Encode(utils.NewErrorResponse(code, msg, clientErr, nil))
 		return
 	}
 
-	c.JSON(statusCode, utils.NewResponse(statusCode, "", gin.H{
+	w.WriteHeader(statusCode)
+	json.NewEncoder(w).Encode(utils.NewResponse(statusCode, "", map[string]interface{}{
 		"order": order,
 	}))
 }
 
-func (handler *SalesHandler) CreateOrder(c *gin.Context) {
-	ctx, err := utils.Ctx(c)
+func (handler *SalesHandler) CreateOrder(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context().Value(utils.CtxKey{}).(*utils.CtxValue)
+	w.Header().Set("Content-Type", "application/json")
+
+	// -- Parse request
+	req, ok := utils.ValidateRequest[sales.SalesOrderCreateRequest](r, w, false)
+	if !ok {
+		return
+	}
+
+	statusCode, err := handler.ServiceFacade.SalesOrderService.CreateOrder(ctx, &req)
 	if err != nil {
-		c.JSON(500, utils.NewErrorResponse(500, utils.ErrInternalServer.Error()))
+		msg, clientErr, code := utils.ServerToClientError(err)
+		w.WriteHeader(code)
+		json.NewEncoder(w).Encode(utils.NewErrorResponse(code, msg, clientErr, nil))
 		return
 	}
 
-	var order sales.SalesOrderCreateRequest
-	if err := c.ShouldBindJSON(&order); err != nil {
-		log.Printf("Error binding JSON: %s", err)
-		if strings.HasPrefix(err.Error(), "parsing time") {
-			c.JSON(400, utils.NewErrorResponse(400, "invalid date format"))
-			return
-		}
-		c.JSON(400, utils.NewErrorResponse(400, err.Error()))
-		return
-	}
-
-	if validationErrors, ok := utils.ValidateStruct(order); !ok {
-		c.JSON(400, utils.NewErrorResponse(400, strings.Join(validationErrors, ", ")))
-		return
-	}
-
-	statusCode, err := handler.ServiceFacade.SalesOrderService.CreateOrder(&ctx, &order)
-	if err != nil {
-		c.JSON(statusCode, utils.NewErrorResponse(statusCode, err.Error()))
-		return
-	}
-
-	c.JSON(statusCode, utils.NewResponse(statusCode, "order created successfully", nil))
+	w.WriteHeader(statusCode)
+	json.NewEncoder(w).Encode(utils.NewResponse(statusCode, "created", nil))
 }
 
-func (handler *SalesHandler) UpdateOrder(c *gin.Context) {
-	ctx, err := utils.Ctx(c)
+func (handler *SalesHandler) UpdateOrder(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context().Value(utils.CtxKey{}).(*utils.CtxValue)
+	w.Header().Set("Content-Type", "application/json")
+
+	// -- Parse request
+	req, ok := utils.ValidateRequest[sales.SalesOrderUpdateRequest](r, w, true)
+	if !ok {
+		return
+	}
+
+	id := mux.Vars(r)["id"]
+	statusCode, err := handler.ServiceFacade.SalesOrderService.UpdateOrder(ctx, id, &req)
 	if err != nil {
-		c.JSON(500, utils.NewErrorResponse(500, utils.ErrInternalServer.Error()))
+		msg, clientErr, code := utils.ServerToClientError(err)
+		w.WriteHeader(code)
+		json.NewEncoder(w).Encode(utils.NewErrorResponse(code, msg, clientErr, nil))
 		return
 	}
 
-	id := c.Param("id")
-
-	var order sales.SalesOrderUpdateRequest
-	if err := c.ShouldBindJSON(&order); err != nil {
-		log.Printf("Error binding JSON: %s", err)
-		if strings.HasPrefix(err.Error(), "parsing time") {
-			c.JSON(400, utils.NewErrorResponse(400, "invalid date format"))
-			return
-		}
-		c.JSON(400, utils.NewErrorResponse(400, err.Error()))
-		return
-	}
-
-	if utils.IsAllFieldsNil(&order) {
-		c.JSON(400, utils.NewErrorResponse(400, "no fields to update"))
-		return
-	}
-
-	if validationErrors, ok := utils.ValidateStruct(order); !ok {
-		c.JSON(400, utils.NewErrorResponse(400, strings.Join(validationErrors, ", ")))
-		return
-	}
-
-	statusCode, err := handler.ServiceFacade.SalesOrderService.UpdateOrder(&ctx, id, &order)
-	if err != nil {
-		c.JSON(statusCode, utils.NewErrorResponse(statusCode, err.Error()))
-		return
-	}
-
-	c.JSON(statusCode, utils.NewResponse(statusCode, "order updated successfully", nil))
+	w.WriteHeader(statusCode)
+	json.NewEncoder(w).Encode(utils.NewResponse(statusCode, "updated", nil))
 }

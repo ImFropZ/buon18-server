@@ -10,9 +10,6 @@ import (
 	"github.com/nullism/bqb"
 )
 
-var SalesQuotationAllowFilterFieldsAndOps = []string{"name:like", "status:eq", "creation_date:gte", "creation_date:lte", "validity_date:gte", "validity_date:lte"}
-var SalesQuotationAllowSortFields = []string{"name", "status"}
-
 type SalesQuotation struct {
 	*models.CommonModel
 	Id             int
@@ -24,6 +21,14 @@ type SalesQuotation struct {
 	Status         string
 	// -- Foreign keys
 	CustomerId int
+}
+
+func (SalesQuotation) AllowFilterFieldsAndOps() []string {
+	return []string{"name:like", "status:eq", "creation_date:gte", "creation_date:lte", "validity_date:gte", "validity_date:lte"}
+}
+
+func (SalesQuotation) AllowSorts() []string {
+	return []string{"name", "status"}
 }
 
 type SalesQuotationResponse struct {

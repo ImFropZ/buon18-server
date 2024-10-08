@@ -1,25 +1,20 @@
 package middlewares
 
 import (
-	"log"
+	"encoding/json"
+	"net/http"
 	"strings"
 
-	"system.buon18.com/m/models/setting"
 	"system.buon18.com/m/utils"
-
-	"github.com/gin-gonic/gin"
 )
 
-func Authorize(allowPermissions []string) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		// -- Get role
-		var ctxPermissions []setting.SettingPermission
-		if cPermissions, ok := c.Get("permissions"); ok {
-			ctxPermissions = cPermissions.([]setting.SettingPermission)
-		} else {
-			log.Printf("permission not found in context\n")
-			c.JSON(500, utils.NewErrorResponse(500, utils.ErrInternalServer.Error()))
-			c.Abort()
+func Authorize(next http.Handler, allowPermissions []string) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		userCtx := r.Context().Value(utils.CtxKey{}).(*utils.CtxValue)
+
+		if userCtx == nil {
+			w.WriteHeader(http.StatusUnauthorized)
+			json.NewEncoder(w).Encode(utils.NewErrorResponse(http.StatusUnauthorized, "missing 'Authorization' header or 'Authorization' header's value doesn't start with 'Bearer '", "Unauthorized", nil))
 			return
 		}
 
@@ -29,7 +24,7 @@ func Authorize(allowPermissions []string) gin.HandlerFunc {
 		allow := false
 		for _, permission := range allowPermissions {
 			// -- Check permission
-			for _, ctxPermission := range ctxPermissions {
+			for _, ctxPermission := range *userCtx.Permissions {
 				if strings.EqualFold(ctxPermission.Name, permission) {
 					allow = true
 					break
@@ -38,11 +33,11 @@ func Authorize(allowPermissions []string) gin.HandlerFunc {
 		}
 
 		if !allow {
-			c.JSON(403, utils.NewErrorResponse(403, utils.ErrForbidden.Error()))
-			c.Abort()
+			w.WriteHeader(http.StatusForbidden)
+			json.NewEncoder(w).Encode(utils.NewErrorResponse(http.StatusForbidden, "", "Forbidden", nil))
 			return
 		}
 
-		c.Next()
-	}
+		next.ServeHTTP(w, r)
+	})
 }

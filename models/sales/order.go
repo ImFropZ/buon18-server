@@ -10,9 +10,6 @@ import (
 	"github.com/nullism/bqb"
 )
 
-var SalesOrderAllowFilterFieldsAndOps = []string{"name:like", "commitment_date:eq", "commitment_date:gt", "commitment_date:gte", "commitment_date:lt", "commitment_date:lte", "sales_quotation_id:eq", "accounting_payment_term_id:eq"}
-var SalesOrderAllowSortFields = []string{"name", "commitment_date"}
-
 type SalesOrder struct {
 	*models.CommonModel
 	Id             int
@@ -22,6 +19,14 @@ type SalesOrder struct {
 	// -- Foreign keys
 	SalesQuotationId        int
 	AccountingPaymentTermId int
+}
+
+func (SalesOrder) AllowFilterFieldsAndOps() []string {
+	return []string{"name:like", "commitment_date:eq", "commitment_date:gt", "commitment_date:gte", "commitment_date:lt", "commitment_date:lte", "sales_quotation_id:eq", "accounting_payment_term_id:eq"}
+}
+
+func (SalesOrder) AllowSorts() []string {
+	return []string{"name", "commitment_date"}
 }
 
 type SalesOrderResponse struct {

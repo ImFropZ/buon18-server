@@ -7,6 +7,14 @@ import (
 	"github.com/nullism/bqb"
 )
 
+type IFilter interface {
+	AllowFilterFieldsAndOps() []string
+}
+
+type ISort interface {
+	AllowSorts() []string
+}
+
 var (
 	ErrInvalidUpdateField = errors.New("invalid update field")
 )

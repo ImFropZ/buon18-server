@@ -5,45 +5,43 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"net/http"
 	"time"
 
 	"system.buon18.com/m/config"
 	"system.buon18.com/m/database"
 	"system.buon18.com/m/utils"
-
-	"github.com/gin-gonic/gin"
 )
 
-func ValkeyCache[T interface{}](connection *database.Connection, fieldName string) gin.HandlerFunc {
-	return func(c *gin.Context) {
+func ValkeyCache[T interface{}](next http.Handler, connection *database.Connection, fieldName string) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ctx := context.Background()
 
 		if valkeyClient := connection.Valkey; valkeyClient == nil {
-			c.Next()
+			next.ServeHTTP(w, r)
 			return
 		} else {
-			if c.Request.URL.Path == c.Request.RequestURI {
-				if resourceStr, err := (*valkeyClient).Do(ctx, (*valkeyClient).B().Get().Key(c.Request.RequestURI).Build()).ToString(); err == nil {
-					if totalStr, err := (*valkeyClient).Do(ctx, (*valkeyClient).B().Get().Key(fmt.Sprintf("total_%s", c.Request.RequestURI)).Build()).ToString(); err == nil {
+			if r.URL.Path == r.RequestURI {
+				if resourceStr, err := (*valkeyClient).Do(ctx, (*valkeyClient).B().Get().Key(r.RequestURI).Build()).ToString(); err == nil {
+					if totalStr, err := (*valkeyClient).Do(ctx, (*valkeyClient).B().Get().Key(fmt.Sprintf("total_%s", r.RequestURI)).Build()).ToString(); err == nil {
 						var jsonResponse T
 						json.Unmarshal([]byte(resourceStr), &jsonResponse)
-						c.Header("X-Cache", "true")
-						c.Header("X-Total-Count", totalStr)
-						c.JSON(200, utils.NewResponse(200, "", gin.H{
+						w.Header().Add("X-Cache", "true")
+						w.Header().Add("X-Total-Count", totalStr)
+						json.NewEncoder(w).Encode(utils.NewResponse(200, "", map[string]interface{}{
 							fieldName: jsonResponse,
 						}))
-						c.Abort()
 						return
 					}
 				}
 			}
 
-			c.Next()
+			next.ServeHTTP(w, r)
 
 			go func() {
-				if c.Request.URL.Path == c.Request.RequestURI {
+				if r.URL.Path == r.RequestURI {
 					config := config.GetConfigInstance()
-					if value, ok := c.Get("response"); ok {
+					if value := r.Context().Value(""); value != nil {
 						result := value.([]byte)
 						resultStr := string(result)
 						err := (*valkeyClient).Do(
@@ -51,7 +49,7 @@ func ValkeyCache[T interface{}](connection *database.Connection, fieldName strin
 							(*valkeyClient).
 								B().
 								Set().
-								Key(c.Request.RequestURI).
+								Key(r.RequestURI).
 								Value(resultStr).
 								ExatTimestamp(time.Now().Add(time.Duration(config.CACHE_DURATION_SEC)*time.Second).Unix()).
 								Build(),
@@ -60,14 +58,14 @@ func ValkeyCache[T interface{}](connection *database.Connection, fieldName strin
 							log.Printf("ValkeyCache: %v\n", err)
 						}
 					}
-					if value, ok := c.Get("total"); ok {
+					if value := r.Context().Value(""); value != nil {
 						result := utils.IntToStr(value.(int))
 						err := (*valkeyClient).Do(
 							ctx,
 							(*valkeyClient).
 								B().
 								Set().
-								Key(fmt.Sprintf("total_%s", c.Request.RequestURI)).
+								Key(fmt.Sprintf("total_%s", r.RequestURI)).
 								Value(result).
 								ExatTimestamp(time.Now().Add(time.Duration(config.CACHE_DURATION_SEC)*time.Second).Unix()).
 								Build(),
@@ -79,5 +77,6 @@ func ValkeyCache[T interface{}](connection *database.Connection, fieldName strin
 				}
 			}()
 		}
-	}
+	},
+	)
 }

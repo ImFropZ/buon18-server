@@ -3,23 +3,17 @@ package accounting
 import (
 	"database/sql"
 	"errors"
-	"log"
+	"fmt"
+	"log/slog"
+	"net/http"
 	"sync"
 
+	"github.com/lib/pq"
+	"github.com/nullism/bqb"
 	"system.buon18.com/m/database"
 	"system.buon18.com/m/models"
 	"system.buon18.com/m/models/accounting"
 	"system.buon18.com/m/utils"
-
-	"github.com/lib/pq"
-	"github.com/nullism/bqb"
-)
-
-var (
-	ErrJournalEntryNotFound             = errors.New("journal entry not found")
-	ErrAccountingJournalEntryNameExists = errors.New("accounting journal entry name already exists")
-	ErrBothDebitAndCreditZero           = errors.New("amount debit and credit cannot be zero")
-	ErrJournalEntryNotAllowToBeDeleted  = errors.New("journal entries in posted or cancelled status are not allow to be deleted")
 )
 
 type AccountingJournalEntryService struct {
@@ -71,14 +65,14 @@ func (service *AccountingJournalEntryService) JournalEntries(qp *utils.QueryPara
 
 	query, params, err := bqbQuery.ToPgsql()
 	if err != nil {
-		log.Printf("%v", err)
-		return nil, 0, 500, utils.ErrInternalServer
+		slog.Error(fmt.Sprintf("%v", err))
+		return nil, 0, http.StatusInternalServerError, utils.ErrInternalServer
 	}
 
 	rows, err := service.DB.Query(query, params...)
 	if err != nil {
-		log.Printf("%v", err)
-		return nil, 0, 500, utils.ErrInternalServer
+		slog.Error(fmt.Sprintf("%v", err))
+		return nil, 0, http.StatusInternalServerError, utils.ErrInternalServer
 	}
 
 	journalEntriesResponse := make([]accounting.AccountingJournalEntryResponse, 0)
@@ -111,8 +105,8 @@ func (service *AccountingJournalEntryService) JournalEntries(qp *utils.QueryPara
 			&tmpJournal.Typ,
 		)
 		if err != nil {
-			log.Printf("%v", err)
-			return nil, 0, 500, utils.ErrInternalServer
+			slog.Error(fmt.Sprintf("%v", err))
+			return nil, 0, http.StatusInternalServerError, utils.ErrInternalServer
 		}
 
 		if lastJournal.Id != tmpJournal.Id {
@@ -148,18 +142,18 @@ func (service *AccountingJournalEntryService) JournalEntries(qp *utils.QueryPara
 
 	query, params, err = bqbQuery.ToPgsql()
 	if err != nil {
-		log.Printf("%v", err)
-		return nil, 0, 500, utils.ErrInternalServer
+		slog.Error(fmt.Sprintf("%v", err))
+		return nil, 0, http.StatusInternalServerError, utils.ErrInternalServer
 	}
 
 	var total int
 	err = service.DB.QueryRow(query, params...).Scan(&total)
 	if err != nil {
-		log.Printf("%v", err)
-		return nil, 0, 500, utils.ErrInternalServer
+		slog.Error(fmt.Sprintf("%v", err))
+		return nil, 0, http.StatusInternalServerError, utils.ErrInternalServer
 	}
 
-	return journalEntriesResponse, total, 200, nil
+	return journalEntriesResponse, total, http.StatusOK, nil
 }
 
 func (service *AccountingJournalEntryService) JournalEntry(id string) (accounting.AccountingJournalEntryResponse, int, error) {
@@ -204,14 +198,14 @@ func (service *AccountingJournalEntryService) JournalEntry(id string) (accountin
 
 	query, params, err := bqbQuery.ToPgsql()
 	if err != nil {
-		log.Printf("%v", err)
-		return accounting.AccountingJournalEntryResponse{}, 500, utils.ErrInternalServer
+		slog.Error(fmt.Sprintf("%v", err))
+		return accounting.AccountingJournalEntryResponse{}, http.StatusInternalServerError, utils.ErrInternalServer
 	}
 
 	rows, err := service.DB.Query(query, params...)
 	if err != nil {
-		log.Printf("%v", err)
-		return accounting.AccountingJournalEntryResponse{}, 500, utils.ErrInternalServer
+		slog.Error(fmt.Sprintf("%v", err))
+		return accounting.AccountingJournalEntryResponse{}, http.StatusInternalServerError, utils.ErrInternalServer
 	}
 
 	journalEntry := accounting.AccountingJournalEntry{}
@@ -241,8 +235,8 @@ func (service *AccountingJournalEntryService) JournalEntry(id string) (accountin
 			&journal.Typ,
 		)
 		if err != nil {
-			log.Printf("%v", err)
-			return accounting.AccountingJournalEntryResponse{}, 500, utils.ErrInternalServer
+			slog.Error(fmt.Sprintf("%v", err))
+			return accounting.AccountingJournalEntryResponse{}, http.StatusInternalServerError, utils.ErrInternalServer
 		}
 
 		accountResponse := accounting.AccountingAccountToResponse(tmpAccount)
@@ -250,30 +244,30 @@ func (service *AccountingJournalEntryService) JournalEntry(id string) (accountin
 	}
 
 	if journalEntry.Id == 0 {
-		return accounting.AccountingJournalEntryResponse{}, 404, ErrJournalEntryNotFound
+		return accounting.AccountingJournalEntryResponse{}, http.StatusNotFound, utils.ErrJournalEntryNotFound
 	}
 
 	journalResponse := accounting.AccountingJournalToResponse(journal, nil)
-
-	return accounting.AccountingJournalEntryToResponse(journalEntry, journalEntryLinesResponse, journalResponse), 200, nil
+	return accounting.AccountingJournalEntryToResponse(journalEntry, journalEntryLinesResponse, journalResponse), http.StatusOK, nil
 }
 
-func (service *AccountingJournalEntryService) CreateJournalEntry(ctx *utils.CtxW, journalEntry *accounting.AccountingJournalEntryCreateRequest) (int, error) {
+func (service *AccountingJournalEntryService) CreateJournalEntry(ctx *utils.CtxValue, journalEntry *accounting.AccountingJournalEntryCreateRequest) (int, error) {
 	commonModel := models.CommonModel{}
 	commonModel.PrepareForCreate(ctx.User.Id, ctx.User.Id)
 
 	// Check if lines are empty debit and credit
 	for _, line := range journalEntry.Lines {
 		if line.AmountDebit == 0 && line.AmountCredit == 0 {
-			return 400, ErrBothDebitAndCreditZero
+			return http.StatusBadRequest, utils.ErrBothDebitAndCreditZero
 		}
 	}
 
 	tx, err := service.DB.Begin()
 	if err != nil {
-		log.Printf("%v", err)
-		return 500, utils.ErrInternalServer
+		slog.Error(fmt.Sprintf("%v", err))
+		return http.StatusInternalServerError, utils.ErrInternalServer
 	}
+	defer tx.Rollback()
 
 	bqbQuery := bqb.New(`INSERT INTO "accounting.journal_entry"
 	(name, date, note, status, accounting_journal_id, cid, ctime, mid, mtime)
@@ -283,25 +277,22 @@ func (service *AccountingJournalEntryService) CreateJournalEntry(ctx *utils.CtxW
 
 	query, params, err := bqbQuery.ToPgsql()
 	if err != nil {
-		tx.Rollback()
-		log.Printf("%v", err)
-		return 500, utils.ErrInternalServer
+		slog.Error(fmt.Sprintf("%v", err))
+		return http.StatusInternalServerError, utils.ErrInternalServer
 	}
 
 	var journalEntryId int
 	err = tx.QueryRow(query, params...).Scan(&journalEntryId)
 	if err != nil {
-		tx.Rollback()
-
 		switch err.(*pq.Error).Constraint {
 		case database.KEY_ACCOUNTING_JOURNAL_ENTRY_NAME:
-			return 409, ErrAccountingJournalEntryNameExists
+			return http.StatusConflict, utils.ErrJournalEntryNameExists
 		case database.FK_ACCOUNTING_JOURNAL_ID:
-			return 400, ErrJournalNotFound
+			return http.StatusBadRequest, utils.ErrJournalNotFound
 		}
 
-		log.Printf("%v", err)
-		return 500, utils.ErrInternalServer
+		slog.Error(fmt.Sprintf("%v", err))
+		return http.StatusInternalServerError, utils.ErrInternalServer
 	}
 
 	bqbQuery = bqb.New(`INSERT INTO "accounting.journal_entry_line"
@@ -316,63 +307,57 @@ func (service *AccountingJournalEntryService) CreateJournalEntry(ctx *utils.CtxW
 
 	query, params, err = bqbQuery.ToPgsql()
 	if err != nil {
-		tx.Rollback()
-		log.Printf("%v", err)
-		return 500, utils.ErrInternalServer
+		slog.Error(fmt.Sprintf("%v", err))
+		return http.StatusInternalServerError, utils.ErrInternalServer
 	}
 
-	_, err = tx.Exec(query, params...)
-	if err != nil {
-		tx.Rollback()
-
+	if _, err = tx.Exec(query, params...); err != nil {
 		switch err.(*pq.Error).Constraint {
 		case database.FK_ACCOUNTING_ACCOUNT_ID:
-			return 404, ErrAccountNotFound
+			return http.StatusNotFound, utils.ErrAccountNotFound
 		}
 
-		log.Printf("%v", err)
-		return 500, utils.ErrInternalServer
+		slog.Error(fmt.Sprintf("%v", err))
+		return http.StatusInternalServerError, utils.ErrInternalServer
 	}
 
 	err = tx.Commit()
 	if err != nil {
-		log.Printf("%v", err)
-		return 500, utils.ErrInternalServer
+		slog.Error(fmt.Sprintf("%v", err))
+		return http.StatusInternalServerError, utils.ErrInternalServer
 	}
 
-	return 201, nil
+	return http.StatusCreated, nil
 }
 
-func (service *AccountingJournalEntryService) UpdateJournalEntry(ctx *utils.CtxW, id string, journalEntry *accounting.AccountingJournalEntryUpdateRequest) (int, error) {
+func (service *AccountingJournalEntryService) UpdateJournalEntry(ctx *utils.CtxValue, id string, journalEntry *accounting.AccountingJournalEntryUpdateRequest) (int, error) {
 	commonModel := models.CommonModel{}
 	commonModel.PrepareForCreate(ctx.User.Id, ctx.User.Id)
 
 	tx, err := service.DB.Begin()
 	if err != nil {
-		log.Printf("%v", err)
-		return 500, utils.ErrInternalServer
+		slog.Error(fmt.Sprintf("%v", err))
+		return http.StatusInternalServerError, utils.ErrInternalServer
 	}
+	defer tx.Rollback()
 
 	bqbQuery := bqb.New(`SELECT status FROM "accounting.journal_entry" WHERE id = ?`, id)
 
 	query, params, err := bqbQuery.ToPgsql()
 	if err != nil {
-		tx.Rollback()
-		log.Printf("%v", err)
-		return 500, utils.ErrInternalServer
+		slog.Error(fmt.Sprintf("%v", err))
+		return http.StatusInternalServerError, utils.ErrInternalServer
 	}
 
 	var status string
 	err = tx.QueryRow(query, params...).Scan(&status)
 	if err != nil {
-		tx.Rollback()
-		log.Printf("%v", err)
-		return 500, utils.ErrInternalServer
+		slog.Error(fmt.Sprintf("%v", err))
+		return http.StatusInternalServerError, utils.ErrInternalServer
 	}
 
 	if status == models.AccountingJournalEntryStatusPosted || status == models.AccountingJournalEntryStatusCancelled {
-		tx.Rollback()
-		return 400, errors.New("cannot update journal entry with status posted or cancelled")
+		return http.StatusBadRequest, errors.New("cannot update journal entry with status posted or cancelled")
 	}
 
 	bqbQuery = bqb.New(`UPDATE "accounting.journal_entry" SET mid = ?, mtime = ?`, commonModel.MId, commonModel.MTime)
@@ -381,24 +366,20 @@ func (service *AccountingJournalEntryService) UpdateJournalEntry(ctx *utils.CtxW
 
 	query, params, err = bqbQuery.ToPgsql()
 	if err != nil {
-		tx.Rollback()
-		log.Printf("%v", err)
-		return 500, utils.ErrInternalServer
+		slog.Error(fmt.Sprintf("%v", err))
+		return http.StatusInternalServerError, utils.ErrInternalServer
 	}
 
-	_, err = tx.Exec(query, params...)
-	if err != nil {
-		tx.Rollback()
-
+	if _, err = tx.Exec(query, params...); err != nil {
 		switch err.(*pq.Error).Constraint {
 		case database.KEY_ACCOUNTING_JOURNAL_ENTRY_NAME:
-			return 409, ErrAccountingJournalEntryNameExists
+			return http.StatusConflict, utils.ErrJournalEntryNameExists
 		case database.FK_ACCOUNTING_JOURNAL_ID:
-			return 400, ErrJournalNotFound
+			return http.StatusBadRequest, utils.ErrJournalNotFound
 		}
 
-		log.Printf("%v", err)
-		return 500, utils.ErrInternalServer
+		slog.Error(fmt.Sprintf("%v", err))
+		return http.StatusInternalServerError, utils.ErrInternalServer
 	}
 
 	errorChan := make(chan error)
@@ -424,8 +405,7 @@ func (service *AccountingJournalEntryService) UpdateJournalEntry(ctx *utils.CtxW
 				return
 			}
 
-			_, err = tx.Exec(query, params...)
-			if err != nil {
+			if _, err = tx.Exec(query, params...); err != nil {
 				errorChan <- err
 				return
 			}
@@ -447,8 +427,7 @@ func (service *AccountingJournalEntryService) UpdateJournalEntry(ctx *utils.CtxW
 					return
 				}
 
-				_, err = tx.Exec(query, params...)
-				if err != nil {
+				if _, err = tx.Exec(query, params...); err != nil {
 					errorChan <- err
 					return
 				}
@@ -476,8 +455,7 @@ func (service *AccountingJournalEntryService) UpdateJournalEntry(ctx *utils.CtxW
 				return
 			}
 
-			_, err = tx.Exec(query, params...)
-			if err != nil {
+			if _, err = tx.Exec(query, params...); err != nil {
 				errorChan <- err
 				return
 			}
@@ -490,13 +468,12 @@ func (service *AccountingJournalEntryService) UpdateJournalEntry(ctx *utils.CtxW
 		for err := range errorChan {
 			switch err.(*pq.Error).Constraint {
 			case database.CHK_ACCOUNTING_JOURANL_ENTRY_LINE_AMOUNT:
-				errorMessage = ErrBothDebitAndCreditZero
+				errorMessage = utils.ErrBothDebitAndCreditZero
 			case database.FK_ACCOUNTING_ACCOUNT_ID:
-				errorMessage = ErrAccountNotFound
+				errorMessage = utils.ErrAccountNotFound
 			}
 			if !hasError {
 				hasError = true
-				tx.Rollback()
 			}
 		}
 	}()
@@ -506,92 +483,83 @@ func (service *AccountingJournalEntryService) UpdateJournalEntry(ctx *utils.CtxW
 
 	if hasError {
 		switch errorMessage {
-		case ErrBothDebitAndCreditZero:
-			return 400, ErrBothDebitAndCreditZero
-		case ErrAccountNotFound:
-			return 400, ErrAccountNotFound
+		case utils.ErrBothDebitAndCreditZero:
+			return http.StatusBadRequest, utils.ErrBothDebitAndCreditZero
+		case utils.ErrAccountNotFound:
+			return http.StatusNotFound, utils.ErrAccountNotFound
 		}
 
-		return 500, utils.ErrInternalServer
+		return http.StatusInternalServerError, utils.ErrInternalServer
 	}
 
 	err = tx.Commit()
 	if err != nil {
-		log.Printf("%v", err)
-		return 500, utils.ErrInternalServer
+		slog.Error(fmt.Sprintf("%v", err))
+		return http.StatusInternalServerError, utils.ErrInternalServer
 	}
 
-	return 200, nil
+	return http.StatusOK, nil
 }
 
 func (service *AccountingJournalEntryService) DeleteJournalEntry(id string) (int, error) {
 	tx, err := service.DB.Begin()
 	if err != nil {
-		log.Printf("%v", err)
-		return 500, utils.ErrInternalServer
+		slog.Error(fmt.Sprintf("%v", err))
+		return http.StatusInternalServerError, utils.ErrInternalServer
 	}
+	defer tx.Rollback()
 
 	bqbQuery := bqb.New(`SELECT status FROM "accounting.journal_entry" WHERE id = ?`, id)
 	query, params, err := bqbQuery.ToPgsql()
 	if err != nil {
-		tx.Rollback()
-		log.Printf("%v", err)
-		return 500, utils.ErrInternalServer
+		slog.Error(fmt.Sprintf("%v", err))
+		return http.StatusInternalServerError, utils.ErrInternalServer
 	}
 
 	var status string
 	err = tx.QueryRow(query, params...).Scan(&status)
 	if err != nil {
-		tx.Rollback()
-
 		if err == sql.ErrNoRows {
-			return 404, ErrJournalEntryNotFound
+			return http.StatusNotFound, utils.ErrJournalEntryNotFound
 		}
 
-		log.Printf("%v", err)
-		return 500, utils.ErrInternalServer
+		slog.Error(fmt.Sprintf("%v", err))
+		return http.StatusInternalServerError, utils.ErrInternalServer
 	}
 
 	if status == models.AccountingJournalEntryStatusPosted || status == models.AccountingJournalEntryStatusCancelled {
-		tx.Rollback()
-		return 400, ErrJournalEntryNotAllowToBeDeleted
+		return http.StatusBadRequest, utils.ErrUnableToDeleteJournalEntry
 	}
 
 	bqbQuery = bqb.New(`DELETE FROM "accounting.journal_entry_line" WHERE accounting_journal_entry_id = ?`, id)
 	query, params, err = bqbQuery.ToPgsql()
 	if err != nil {
-		tx.Rollback()
-		log.Printf("%v", err)
-		return 500, utils.ErrInternalServer
+		slog.Error(fmt.Sprintf("%v", err))
+		return http.StatusInternalServerError, utils.ErrInternalServer
 	}
 
-	_, err = tx.Exec(query, params...)
-	if err != nil {
-		tx.Rollback()
-		log.Printf("%v", err)
-		return 500, utils.ErrInternalServer
+	if _, err = tx.Exec(query, params...); err != nil {
+		slog.Error(fmt.Sprintf("%v", err))
+		return http.StatusInternalServerError, utils.ErrInternalServer
 	}
 
 	bqbQuery = bqb.New(`DELETE FROM "accounting.journal_entry" WHERE id = ?`, id)
 	query, params, err = bqbQuery.ToPgsql()
 	if err != nil {
-		tx.Rollback()
-		log.Printf("%v", err)
-		return 500, utils.ErrInternalServer
+		slog.Error(fmt.Sprintf("%v", err))
+		return http.StatusInternalServerError, utils.ErrInternalServer
 	}
 
-	_, err = tx.Exec(query, params...)
-	if err != nil {
-		tx.Rollback()
-		log.Printf("%v", err)
-		return 500, utils.ErrInternalServer
+	if _, err = tx.Exec(query, params...); err != nil {
+		slog.Error(fmt.Sprintf("%v", err))
+		return http.StatusInternalServerError, utils.ErrInternalServer
 	}
 
 	err = tx.Commit()
 	if err != nil {
-		log.Printf("%v", err)
-		return 500, utils.ErrInternalServer
+		slog.Error(fmt.Sprintf("%v", err))
+		return http.StatusInternalServerError, utils.ErrInternalServer
 	}
 
-	return 200, nil
+	return http.StatusOK, nil
 }

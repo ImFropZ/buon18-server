@@ -8,14 +8,19 @@ import (
 	"github.com/nullism/bqb"
 )
 
-var AccountingPaymentTermAllowFilterFieldsAndOps = []string{"name:like", "description:like"}
-var AccountingPaymentTermAllowSortFields = []string{"name"}
-
 type AccountingPaymentTerm struct {
 	*models.CommonModel
 	Id          int
 	Name        string
 	Description string
+}
+
+func (AccountingPaymentTerm) AllowFilterFieldsAndOps() []string {
+	return []string{"name:like", "description:like"}
+}
+
+func (AccountingPaymentTerm) AllowSorts() []string {
+	return []string{"name"}
 }
 
 type AccountingPaymentTermResponse struct {

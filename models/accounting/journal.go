@@ -8,9 +8,6 @@ import (
 	"github.com/nullism/bqb"
 )
 
-var AccountingJournalAllowFilterFieldsAndOps = []string{"code:like", "name:like", "typ:eq"}
-var AccountingJournalAllowSortFields = []string{"code", "name", "typ"}
-
 type AccountingJournal struct {
 	*models.CommonModel
 	Id   int
@@ -19,6 +16,14 @@ type AccountingJournal struct {
 	Typ  string
 	// -- Foreign keys
 	AccountId int
+}
+
+func (AccountingJournal) AllowFilterFieldsAndOps() []string {
+	return []string{"code:like", "name:like", "typ:eq"}
+}
+
+func (AccountingJournal) AllowSorts() []string {
+	return []string{"code", "name", "typ"}
 }
 
 type AccountingJournalResponse struct {

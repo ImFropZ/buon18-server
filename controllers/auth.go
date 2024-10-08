@@ -2,11 +2,12 @@ package controllers
 
 import (
 	"database/sql"
+	"encoding/json"
+	"net/http"
 
+	"system.buon18.com/m/models/setting"
 	"system.buon18.com/m/services"
 	"system.buon18.com/m/utils"
-
-	"github.com/gin-gonic/gin"
 )
 
 type AuthHandler struct {
@@ -14,104 +15,103 @@ type AuthHandler struct {
 	ServiceFacade *services.ServiceFacade
 }
 
-func (handler *AuthHandler) Me(c *gin.Context) {
-	ctx, err := utils.Ctx(c)
-	if err != nil {
-		c.JSON(500, utils.NewErrorResponse(500, utils.ErrInternalServer.Error()))
-		return
+func (handler *AuthHandler) Me(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context().Value(utils.CtxKey{}).(*utils.CtxValue)
+	w.Header().Set("Content-Type", "application/json")
+
+	pResponse := make([]setting.SettingPermissionResponse, 0)
+	for _, permission := range *ctx.Permissions {
+		pResponse = append(pResponse, setting.SettingPermissionToResponse(permission))
 	}
 
-	user, statusCode, err := handler.ServiceFacade.AuthService.Me(&ctx)
-	if err != nil {
-		c.JSON(statusCode, utils.NewErrorResponse(statusCode, err.Error()))
-		return
-	}
-
-	c.JSON(statusCode, utils.NewResponse(statusCode, "", gin.H{
-		"user": user,
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(utils.NewResponse(http.StatusOK, "", map[string]interface{}{
+		"user": setting.SettingUserToResponse(*ctx.User, setting.SettingRoleToResponse(*ctx.Role, pResponse)),
 	}))
 }
 
-func (handler *AuthHandler) Login(c *gin.Context) {
+func (handler *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
 	// -- Parse request
-	var req services.LoginRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(400, utils.NewErrorResponse(400, "invalid request. request should contain email and password fields"))
+	req, ok := utils.ValidateRequest[services.LoginRequest](r, w, false)
+	if !ok {
 		return
 	}
 
 	tokenAndRefreshToken, statusCode, err := handler.ServiceFacade.AuthService.Login(&req)
 	if err != nil {
-		c.JSON(statusCode, utils.NewErrorResponse(statusCode, err.Error()))
+		msg, clientErr, code := utils.ServerToClientError(err)
+		w.WriteHeader(code)
+		json.NewEncoder(w).Encode(utils.NewErrorResponse(code, msg, clientErr, nil))
 		return
 	}
 
-	c.JSON(statusCode, utils.NewResponse(statusCode, "", tokenAndRefreshToken))
+	w.WriteHeader(statusCode)
+	json.NewEncoder(w).Encode(utils.NewResponse(statusCode, "", tokenAndRefreshToken))
 }
 
-func (handler *AuthHandler) RefreshToken(c *gin.Context) {
+func (handler *AuthHandler) RefreshToken(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
 	// -- Parse request
-	var req services.RefreshTokenRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(400, utils.NewErrorResponse(400, "invalid request. request should contain refresh_token field"))
+	req, ok := utils.ValidateRequest[services.RefreshTokenRequest](r, w, false)
+	if !ok {
 		return
 	}
 
 	tokenAndRefreshToken, statusCode, err := handler.ServiceFacade.AuthService.RefreshToken(&req)
 	if err != nil {
-		c.JSON(statusCode, utils.NewErrorResponse(statusCode, err.Error()))
+		msg, clientErr, code := utils.ServerToClientError(err)
+		w.WriteHeader(code)
+		json.NewEncoder(w).Encode(utils.NewErrorResponse(code, msg, clientErr, nil))
 		return
 	}
 
-	c.JSON(statusCode, utils.NewResponse(statusCode, "", tokenAndRefreshToken))
+	w.WriteHeader(statusCode)
+	json.NewEncoder(w).Encode(utils.NewResponse(statusCode, "", tokenAndRefreshToken))
 }
 
-func (handler *AuthHandler) UpdatePassword(c *gin.Context) {
-	ctx, err := utils.Ctx(c)
-	if err != nil {
-		c.JSON(500, utils.NewErrorResponse(500, utils.ErrInternalServer.Error()))
-		return
-	}
+func (handler *AuthHandler) UpdatePassword(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context().Value(utils.CtxKey{}).(*utils.CtxValue)
+	w.Header().Set("Content-Type", "application/json")
 
 	// -- Parse request
-	var req services.UpdatePasswordRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(400, utils.NewErrorResponse(400, "invalid request. request should contain old_password and new_password fields"))
+	req, ok := utils.ValidateRequest[services.UpdatePasswordRequest](r, w, false)
+	if !ok {
 		return
 	}
 
-	message, statusCode, err := handler.ServiceFacade.AuthService.UpdatePassword(&ctx, &req)
+	message, statusCode, err := handler.ServiceFacade.AuthService.UpdatePassword(ctx, &req)
 	if err != nil {
-		c.JSON(statusCode, utils.NewErrorResponse(statusCode, err.Error()))
+		msg, clientErr, code := utils.ServerToClientError(err)
+		w.WriteHeader(code)
+		json.NewEncoder(w).Encode(utils.NewErrorResponse(code, msg, clientErr, nil))
 		return
 	}
 
-	c.JSON(statusCode, utils.NewResponse(statusCode, message, nil))
+	w.WriteHeader(statusCode)
+	json.NewEncoder(w).Encode(utils.NewResponse(statusCode, message, nil))
 }
 
-func (handler *AuthHandler) UpdateProfile(c *gin.Context) {
-	ctx, err := utils.Ctx(c)
-	if err != nil {
-		c.JSON(500, utils.NewErrorResponse(500, utils.ErrInternalServer.Error()))
-		return
-	}
+func (handler *AuthHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context().Value(utils.CtxKey{}).(*utils.CtxValue)
+	w.Header().Set("Content-Type", "application/json")
 
 	// -- Parse request
-	var updateData services.UpdateProfileRequest
-	if err := c.ShouldBindJSON(&updateData); err != nil {
-		c.JSON(400, utils.NewErrorResponse(400, "invalid request"))
-		return
-	}
-	if utils.IsAllFieldsNil(&updateData) {
-		c.JSON(400, utils.NewErrorResponse(400, "request body should contain at least one field"))
+	req, ok := utils.ValidateRequest[services.UpdateProfileRequest](r, w, false)
+	if !ok {
 		return
 	}
 
-	message, statusCode, err := handler.ServiceFacade.AuthService.UpdateProfile(&ctx, &updateData)
+	message, statusCode, err := handler.ServiceFacade.AuthService.UpdateProfile(ctx, &req)
 	if err != nil {
-		c.JSON(statusCode, utils.NewErrorResponse(statusCode, err.Error()))
+		msg, clientErr, code := utils.ServerToClientError(err)
+		w.WriteHeader(code)
+		json.NewEncoder(w).Encode(utils.NewErrorResponse(code, msg, clientErr, nil))
 		return
 	}
 
-	c.JSON(statusCode, utils.NewResponse(statusCode, message, nil))
+	w.WriteHeader(statusCode)
+	json.NewEncoder(w).Encode(utils.NewResponse(statusCode, message, nil))
 }

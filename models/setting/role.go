@@ -8,14 +8,19 @@ import (
 	"github.com/nullism/bqb"
 )
 
-var SettingRoleAllowFilterFieldsAndOps = []string{"name:like", "description:like"}
-var SettingRoleAllowSortFields = []string{"name"}
-
 type SettingRole struct {
 	*models.CommonModel
 	Id          uint
 	Name        string
 	Description string
+}
+
+func (SettingRole) AllowFilterFieldsAndOps() []string {
+	return []string{"name:like", "description:like"}
+}
+
+func (SettingRole) AllowSorts() []string {
+	return []string{"name"}
 }
 
 type SettingRoleResponse struct {
