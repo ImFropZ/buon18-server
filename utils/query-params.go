@@ -10,18 +10,19 @@ import (
 	"system.buon18.com/m/models"
 )
 
-var ALLOWED_FILTER_OPERATORS = []string{"eq", "ne", "gt", "lt", "gte", "lte", "like", "in", "nin"}
+var ALLOWED_FILTER_OPERATORS = []string{"eq", "ne", "gt", "lt", "gte", "lte", "like", "ilike", "in", "nin"}
 
 var MAPPED_FILTER_OPERATORS_TO_SQL = map[string]string{
-	"eq":   "=",
-	"ne":   "!=",
-	"gt":   ">",
-	"lt":   "<",
-	"gte":  ">=",
-	"lte":  "<=",
-	"like": "LIKE",
-	"in":   "IN",
-	"nin":  "NOT IN",
+	"eq":    "=",
+	"ne":    "!=",
+	"gt":    ">",
+	"lt":    "<",
+	"gte":   ">=",
+	"lte":   "<=",
+	"like":  "LIKE",
+	"ilike": "ILIKE",
+	"in":    "IN",
+	"nin":   "NOT IN",
 }
 
 type FilterValue struct {
@@ -139,7 +140,7 @@ func (qp *QueryParams) PrepareFilters(model models.IFilter, r *http.Request, pre
 	c := r.URL.Query()
 	for _, filter := range model.AllowFilterFieldsAndOps() {
 		if q := c.Get(filter); q != "" {
-			qp.AddFilter(fmt.Sprintf(`%s.%s=%s`, prefix, filter, q))
+			qp.AddFilter(fmt.Sprintf(`"%s".%s=%s`, prefix, filter, q))
 		}
 	}
 	return qp
@@ -149,7 +150,7 @@ func (qp *QueryParams) PrepareSorts(model models.ISort, r *http.Request, prefix 
 	c := r.URL.Query()
 	for _, sort := range model.AllowSorts() {
 		if q := c.Get(fmt.Sprintf("sort:%s", sort)); q != "" {
-			qp.AddOrderBy(fmt.Sprintf(`LOWER(%s.%s) %s`, prefix, sort, q))
+			qp.AddOrderBy(fmt.Sprintf(`LOWER("%s".%s) %s`, prefix, sort, q))
 		}
 	}
 	return qp
