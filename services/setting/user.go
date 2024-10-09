@@ -22,7 +22,7 @@ func (service *SettingUserService) Users(qp *utils.QueryParams) ([]setting.Setti
 	bqbQuery := bqb.New(`
 	WITH "limited_users" AS (
 		SELECT
-			id, name, email, typ, setting_role_id
+			*
 		FROM "setting.user"`)
 
 	qp.FilterIntoBqb(bqbQuery)
