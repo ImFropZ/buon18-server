@@ -4,7 +4,8 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
-	"log"
+	"fmt"
+	"log/slog"
 	"net/http"
 	"strings"
 
@@ -62,7 +63,7 @@ func Authenticate(next http.Handler, DB *sql.DB) http.Handler {
 		// -- Validate user
 		rows, err := DB.Query(query, params...)
 		if err != nil {
-			log.Printf("Error querying user: %v\n", err)
+			slog.Error(fmt.Sprintf("Error querying user: %v", err))
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusInternalServerError)
 			json.NewEncoder(w).Encode(utils.NewErrorResponse(http.StatusInternalServerError, "internal server error", "Internal Server Error", nil))
@@ -76,7 +77,7 @@ func Authenticate(next http.Handler, DB *sql.DB) http.Handler {
 			var permission setting.SettingPermission
 			err = rows.Scan(&user.Id, &user.Name, &user.Email, &user.Typ, &role.Id, &role.Name, &role.Description, &permission.Id, &permission.Name)
 			if err != nil {
-				log.Printf("Error scanning user: %v\n", err)
+				slog.Error(fmt.Sprintf("Error scanning user: %v", err))
 				w.Header().Set("Content-Type", "application/json")
 				w.WriteHeader(http.StatusInternalServerError)
 				json.NewEncoder(w).Encode(utils.NewErrorResponse(http.StatusInternalServerError, "internal server error", "Internal Server Error", nil))
@@ -86,7 +87,7 @@ func Authenticate(next http.Handler, DB *sql.DB) http.Handler {
 			permissions = append(permissions, permission)
 		}
 
-		if user.Id == 0 {
+		if user.Id == nil {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusUnauthorized)
 			json.NewEncoder(w).Encode(utils.NewErrorResponse(http.StatusUnauthorized, "user not found", "Unauthorized", nil))

@@ -3,8 +3,6 @@ package models
 import (
 	"errors"
 	"time"
-
-	"github.com/nullism/bqb"
 )
 
 type IFilter interface {
@@ -84,8 +82,4 @@ func (cm *CommonModel) PrepareForUpdate(mid uint) (err error) {
 	cm.MId = mid
 	cm.MTime = time.Now()
 	return
-}
-
-type CommonUpdateRequest interface {
-	MapUpdateFields(bqbQuery *bqb.Query, fieldname string, value interface{}) error
 }

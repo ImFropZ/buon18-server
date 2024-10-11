@@ -25,14 +25,7 @@ func (service *SalesQuotationService) Quotations(qp *utils.QueryParams) ([]sales
 	bqbQuery := bqb.New(`
 	WITH "limited_quotations" AS (
 		SELECT
-			id,
-			name,
-			creation_date,
-			validity_date,
-			discount,
-			amount_delivery,
-			status,
-			setting_customer_id
+			*
 		FROM
 			"sales.quotation"`)
 
@@ -49,7 +42,7 @@ func (service *SalesQuotationService) Quotations(qp *utils.QueryParams) ([]sales
 		"limited_quotations".amount_delivery,
 		"limited_quotations".status,
 		"setting.customer".id,
-		"setting.customer".fullname,
+		"setting.customer".full_name,
 		"setting.customer".gender,
 		"setting.customer".email,
 		"setting.customer".phone,
@@ -93,13 +86,13 @@ func (service *SalesQuotationService) Quotations(qp *utils.QueryParams) ([]sales
 			return []sales.SalesQuotationResponse{}, 0, http.StatusInternalServerError, utils.ErrInternalServer
 		}
 
-		if lastQuotation.Id != tmpQuotation.Id && lastQuotation.Id != 0 {
+		if lastQuotation.Id != tmpQuotation.Id && lastQuotation.Id != nil {
 			customerResponse := setting.SettingCustomerToResponse(lastCustomer)
 			orderItemsResponse := make([]sales.SalesOrderItemResponse, 0)
 			for _, item := range orderItems {
 				orderItemsResponse = append(orderItemsResponse, sales.SalesOrderItemToResponse(item))
 			}
-			quotationsResponse = append(quotationsResponse, sales.SalesQuotationToResponse(lastQuotation, customerResponse, orderItemsResponse))
+			quotationsResponse = append(quotationsResponse, sales.SalesQuotationToResponse(lastQuotation, &customerResponse, &orderItemsResponse))
 
 			// Reset and append new data
 			lastQuotation = tmpQuotation
@@ -109,22 +102,22 @@ func (service *SalesQuotationService) Quotations(qp *utils.QueryParams) ([]sales
 			continue
 		}
 
-		if lastQuotation.Id == 0 {
+		if lastQuotation.Id == nil {
 			lastQuotation = tmpQuotation
 			lastCustomer = tmpCustomer
 		}
 
-		if tmpOrderItem.Id != 0 {
+		if tmpOrderItem.Id != nil {
 			orderItems = append(orderItems, tmpOrderItem)
 		}
 	}
-	if lastQuotation.Id != 0 {
+	if lastQuotation.Id != nil {
 		customerResponse := setting.SettingCustomerToResponse(lastCustomer)
 		orderItemsResponse := make([]sales.SalesOrderItemResponse, 0)
 		for _, item := range orderItems {
 			orderItemsResponse = append(orderItemsResponse, sales.SalesOrderItemToResponse(item))
 		}
-		quotationsResponse = append(quotationsResponse, sales.SalesQuotationToResponse(lastQuotation, customerResponse, orderItemsResponse))
+		quotationsResponse = append(quotationsResponse, sales.SalesQuotationToResponse(lastQuotation, &customerResponse, &orderItemsResponse))
 	}
 
 	bqbQuery = bqb.New(`SELECT COUNT(*) FROM "sales.quotation"`)
@@ -150,14 +143,7 @@ func (service *SalesQuotationService) Quotation(id string) (sales.SalesQuotation
 	bqbQuery := bqb.New(`
 	WITH "limited_quotations" AS (
 		SELECT
-			id,
-			name,
-			creation_date,
-			validity_date,
-			discount,
-			amount_delivery,
-			status,
-			setting_customer_id
+			*
 		FROM
 			"sales.quotation"
 		WHERE id = ?)
@@ -170,7 +156,7 @@ func (service *SalesQuotationService) Quotation(id string) (sales.SalesQuotation
 		"limited_quotations".amount_delivery,
 		"limited_quotations".status,
 		"setting.customer".id,
-		"setting.customer".fullname,
+		"setting.customer".full_name,
 		"setting.customer".gender,
 		"setting.customer".email,
 		"setting.customer".phone,
@@ -212,7 +198,7 @@ func (service *SalesQuotationService) Quotation(id string) (sales.SalesQuotation
 		orderItems = append(orderItems, tmpOrderItem)
 	}
 
-	if quotation.Id == 0 {
+	if quotation.Id == nil {
 		return sales.SalesQuotationResponse{}, http.StatusNotFound, utils.ErrQuotationNotFound
 	}
 
@@ -222,12 +208,12 @@ func (service *SalesQuotationService) Quotation(id string) (sales.SalesQuotation
 		orderItemsResponse = append(orderItemsResponse, sales.SalesOrderItemToResponse(item))
 	}
 
-	return sales.SalesQuotationToResponse(quotation, customerResponse, orderItemsResponse), http.StatusOK, nil
+	return sales.SalesQuotationToResponse(quotation, &customerResponse, &orderItemsResponse), http.StatusOK, nil
 }
 
 func (service *SalesQuotationService) CreateQuotation(ctx *utils.CtxValue, quotation *sales.SalesQuotationCreateRequest) (int, error) {
 	commonModel := models.CommonModel{}
-	commonModel.PrepareForCreate(ctx.User.Id, ctx.User.Id)
+	commonModel.PrepareForCreate(*ctx.User.Id, *ctx.User.Id)
 
 	tx, err := service.DB.Begin()
 	if err != nil {
@@ -286,8 +272,7 @@ func (service *SalesQuotationService) CreateQuotation(ctx *utils.CtxValue, quota
 		return http.StatusInternalServerError, utils.ErrInternalServer
 	}
 
-	err = tx.Commit()
-	if err != nil {
+	if err = tx.Commit(); err != nil {
 		slog.Error(fmt.Sprintf("%v", err))
 		return http.StatusInternalServerError, utils.ErrInternalServer
 	}
@@ -297,7 +282,7 @@ func (service *SalesQuotationService) CreateQuotation(ctx *utils.CtxValue, quota
 
 func (service *SalesQuotationService) UpdateQuotation(ctx *utils.CtxValue, id string, quotation *sales.SalesQuotationUpdateRequest) (int, error) {
 	commonModel := models.CommonModel{}
-	commonModel.PrepareForCreate(ctx.User.Id, ctx.User.Id)
+	commonModel.PrepareForCreate(*ctx.User.Id, *ctx.User.Id)
 
 	tx, err := service.DB.Begin()
 	if err != nil {
@@ -330,7 +315,24 @@ func (service *SalesQuotationService) UpdateQuotation(ctx *utils.CtxValue, id st
 	}
 
 	bqbQuery = bqb.New(`UPDATE "sales.quotation" SET mid = ?, mtime = ?`, commonModel.MId, commonModel.MTime)
-	utils.PrepareUpdateBqbQuery(bqbQuery, quotation)
+	if quotation.Name != nil {
+		bqbQuery.Space(`name = ?`, *quotation.Name)
+	}
+	if quotation.CreationDate != nil {
+		bqbQuery.Space(`creation_date = ?`, *quotation.CreationDate)
+	}
+	if quotation.ValidityDate != nil {
+		bqbQuery.Space(`validity_date = ?`, *quotation.ValidityDate)
+	}
+	if quotation.Discount != nil {
+		bqbQuery.Space(`discount = ?`, *quotation.Discount)
+	}
+	if quotation.Status != nil {
+		bqbQuery.Space(`status = ?`, *quotation.Status)
+	}
+	if quotation.CustomerId != nil {
+		bqbQuery.Space(`setting_customer_id = ?`, *quotation.CustomerId)
+	}
 	bqbQuery.Space(`WHERE id = ?`, id)
 
 	query, params, err = bqbQuery.ToPgsql()
@@ -390,7 +392,18 @@ func (service *SalesQuotationService) UpdateQuotation(ctx *utils.CtxValue, id st
 			wg.Add(1)
 			go func() {
 				bqbQuery := bqb.New(`UPDATE "sales.order_item" SET mid = ?, mtime = ?`, commonModel.MId, commonModel.MTime)
-				utils.PrepareUpdateBqbQuery(bqbQuery, &item)
+				if item.Name != nil {
+					bqbQuery.Space(`name = ?`, *item.Name)
+				}
+				if item.Description != nil {
+					bqbQuery.Space(`description = ?`, *item.Description)
+				}
+				if item.Price != nil {
+					bqbQuery.Space(`price = ?`, *item.Price)
+				}
+				if item.Discount != nil {
+					bqbQuery.Space(`discount = ?`, *item.Discount)
+				}
 				bqbQuery.Space(`WHERE id = ? AND sales_quotation_id = ?`, item.Id, id)
 
 				query, params, err := bqbQuery.ToPgsql()

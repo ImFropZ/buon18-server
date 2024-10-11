@@ -26,7 +26,7 @@ func Authorize(next http.Handler, allowPermissions []string) http.Handler {
 		for _, permission := range allowPermissions {
 			// -- Check permission
 			for _, ctxPermission := range *userCtx.Permissions {
-				if strings.EqualFold(ctxPermission.Name, permission) {
+				if ctxPermission.Name != nil && strings.EqualFold(*ctxPermission.Name, permission) {
 					allow = true
 					break
 				}

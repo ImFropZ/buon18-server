@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
-	"reflect"
 
 	"github.com/nullism/bqb"
 	"system.buon18.com/m/models"
@@ -23,8 +22,8 @@ type RefreshTokenRequest struct {
 }
 
 type UpdatePasswordRequest struct {
-	OldPassword string `json:"old_password" binding:"required"`
-	NewPassword string `json:"new_password" binding:"required"`
+	OldPassword *string `json:"old_password" validate:"required"`
+	NewPassword *string `json:"new_password" validate:"required"`
 }
 
 type UpdateProfileRequest struct {
@@ -87,18 +86,24 @@ func (service *AuthService) Login(loginRequest *LoginRequest) (models.TokenAndRe
 		permissions = append(permissions, tmpPermission)
 	}
 
-	if user.Email != loginRequest.Email || (!utils.ComparePwd(loginRequest.Password, user.Pwd) && user.Pwd != "") {
+	if (user.Email != nil && *user.Email != loginRequest.Email) || (user.Pwd != nil && !utils.ComparePwd(loginRequest.Password, *user.Pwd) && *user.Pwd != "") {
 		return models.TokenAndRefreshToken{}, http.StatusBadRequest, utils.ErrInvalidEmailOrPassword
 	}
 
 	// -- Generate token
 	permissionNames := make([]string, 0)
 	for _, value := range permissions {
-		permissionNames = append(permissionNames, value.Name)
+		if value.Name != nil {
+			permissionNames = append(permissionNames, *value.Name)
+		}
+	}
+
+	if user.Email == nil || role.Name == nil {
+		return models.TokenAndRefreshToken{}, http.StatusNotFound, utils.ErrUserAccountNotFound
 	}
 	token, err := utils.GenerateWebToken(utils.WebTokenClaims{
-		Email:       user.Email,
-		Role:        role.Name,
+		Email:       *user.Email,
+		Role:        *role.Name,
 		Permissions: permissionNames,
 	})
 	if err != nil {
@@ -108,7 +113,7 @@ func (service *AuthService) Login(loginRequest *LoginRequest) (models.TokenAndRe
 
 	// -- Generate refresh token
 	refreshToken, err := utils.GenerateRefreshToken(utils.RefreshTokenClaims{
-		Email: user.Email,
+		Email: *user.Email,
 	})
 	if err != nil {
 		slog.Error(fmt.Sprintf("Error generating refresh token: %v\n", err))
@@ -131,13 +136,13 @@ func (service *AuthService) RefreshToken(refreshTokenRequest *RefreshTokenReques
 	query, params, err := bqb.New(`
 	SELECT
 		"setting.user".email,
-		COALESCE("setting.user".pwd, ''),
+		"setting.user".pwd,
 		"setting.user".typ,
-		COALESCE("setting.role".id, 0),
-		COALESCE("setting.role".name, ''),
-		COALESCE("setting.role".description, ''),
-		COALESCE("setting.permission".id, 0),
-		COALESCE("setting.permission".name, '')
+		"setting.role".id
+		"setting.role".name
+		"setting.role".description
+		"setting.permission".id
+		"setting.permission".name
 	FROM
 		"setting.user"
 	LEFT JOIN
@@ -179,11 +184,17 @@ func (service *AuthService) RefreshToken(refreshTokenRequest *RefreshTokenReques
 	// -- Generate token
 	permissionNames := make([]string, 0)
 	for _, value := range permissions {
-		permissionNames = append(permissionNames, value.Name)
+		if value.Name != nil {
+			permissionNames = append(permissionNames, *value.Name)
+		}
+	}
+
+	if user.Email == nil || role.Name == nil {
+		return models.TokenAndRefreshToken{}, http.StatusNotFound, utils.ErrUserAccountNotFound
 	}
 	token, err := utils.GenerateWebToken(utils.WebTokenClaims{
-		Email:       user.Email,
-		Role:        role.Name,
+		Email:       *user.Email,
+		Role:        *role.Name,
 		Permissions: permissionNames,
 	})
 	if err != nil {
@@ -193,7 +204,7 @@ func (service *AuthService) RefreshToken(refreshTokenRequest *RefreshTokenReques
 
 	// -- Generate refresh token
 	refreshToken, err := utils.GenerateRefreshToken(utils.RefreshTokenClaims{
-		Email: user.Email,
+		Email: *user.Email,
 	})
 	if err != nil {
 		slog.Error(fmt.Sprintf("Error generating refresh token: %v\n", err))
@@ -227,20 +238,21 @@ func (service *AuthService) UpdatePassword(ctx *utils.CtxValue, updatePasswordRe
 	}
 
 	// -- Validate old password if exists
-	if user.Pwd != "" {
-		if ok := utils.ComparePwd(updatePasswordRequest.OldPassword, user.Pwd); !ok {
+	if (user.Pwd != nil && *user.Pwd != "") && updatePasswordRequest.OldPassword != nil {
+		if ok := utils.ComparePwd(*updatePasswordRequest.OldPassword, *user.Pwd); !ok {
 			return "", http.StatusBadRequest, utils.ErrInvalidOldPassword
 		}
 	}
 
 	// -- Update pwd
-	if hashedPwd, err := utils.HashPwd(updatePasswordRequest.NewPassword); err == nil {
+	if hashedPwd, err := utils.HashPwd(*updatePasswordRequest.NewPassword); err == nil {
 		// -- Begin transaction
 		tx, err := service.DB.Begin()
 		if err != nil {
 			slog.Error(fmt.Sprintf("Error beginning transaction: %v\n", err))
 			return "", http.StatusInternalServerError, utils.ErrInternalServer
 		}
+		defer tx.Rollback()
 
 		// -- Prepare sql query
 		query, params, err = bqb.New(`UPDATE "setting.user" SET pwd = ? WHERE id = ?`, hashedPwd, ctx.User.Id).ToPgsql()
@@ -251,8 +263,6 @@ func (service *AuthService) UpdatePassword(ctx *utils.CtxValue, updatePasswordRe
 
 		// -- Update pwd
 		if _, err := tx.Exec(query, params...); err != nil {
-			tx.Rollback()
-
 			slog.Error(fmt.Sprintf("Error updating password: %v\n", err))
 			return "", http.StatusInternalServerError, utils.ErrInternalServer
 		}
@@ -290,73 +300,55 @@ func (service *AuthService) UpdateProfile(ctx *utils.CtxValue, updateData *Updat
 		slog.Error(fmt.Sprintf("Error beginning transaction: %v\n", err))
 		return "", http.StatusInternalServerError, utils.ErrInternalServer
 	}
+	defer tx.Rollback()
 
 	// -- Check if user exists
 	var count int
 	if row := tx.QueryRow(query, params...); row.Err() != nil {
-		tx.Rollback()
 		slog.Error(fmt.Sprintf("Error querying user: %v\n", row.Err()))
 		return "", http.StatusInternalServerError, utils.ErrInternalServer
 	} else {
 		if err := row.Scan(&count); err != nil {
-			tx.Rollback()
 			slog.Error(fmt.Sprintf("Error scanning user: %v\n", err))
 			return "", http.StatusInternalServerError, utils.ErrInternalServer
 		}
 	}
 	if count == 0 {
-		tx.Rollback()
 		return "", http.StatusNotFound, utils.ErrUserNotFound
-	}
-
-	// -- Loop through request fields
-	updateFeilds := map[string]string{}
-	v := reflect.ValueOf(*updateData)
-	if v.Kind() == reflect.Struct {
-		for i := 0; i < v.NumField(); i++ {
-			field := v.Field(i)
-			if field.IsNil() {
-				continue
-			}
-
-			fieldName := utils.PascalToSnake(v.Type().Field(i).Name)
-			switch fieldName {
-			case "name":
-				updateFeilds[fieldName] = *field.Interface().(*string)
-			case "email":
-				updateFeilds[fieldName] = *field.Interface().(*string)
-			case "role_id":
-				// -- Check if user is allowed to change role
-				permissionArr := []string{}
-				for _, permission := range *ctx.Permissions {
-					permissionArr = append(permissionArr, permission.Name)
-				}
-				if utils.ContainsString(permissionArr, "FULL_ACCESS") {
-					tx.Rollback()
-					return "", http.StatusForbidden, utils.ErrForbidden
-				}
-				updateFeilds[fieldName] = *field.Interface().(*string)
-			default:
-				return "", http.StatusBadRequest, utils.ErrBadRequest
-			}
-		}
 	}
 
 	// -- Prepare sql query
 	bqbQuery := bqb.New(`UPDATE "setting.user" SET`)
-	for key, value := range updateFeilds {
-		bqbQuery = bqbQuery.Space(fmt.Sprintf(`%s = ?`, key), value)
+	if updateData.Name != nil {
+		bqbQuery = bqbQuery.Space(`name = ?`, *updateData.Name)
 	}
+	if updateData.Email != nil {
+		bqbQuery = bqbQuery.Space(`email = ?`, *updateData.Email)
+	}
+	if updateData.RoleId != nil {
+		// -- Check if user is allowed to change role
+		permissionArr := []string{}
+		for _, permission := range *ctx.Permissions {
+			if permission.Name != nil {
+				permissionArr = append(permissionArr, *permission.Name)
+			}
+		}
+		if utils.ContainsString(permissionArr, "FULL_ACCESS") {
+			tx.Rollback()
+			return "", http.StatusForbidden, utils.ErrForbidden
+		}
+
+		bqbQuery = bqbQuery.Space(`setting_role_id = ?`, *updateData.RoleId)
+	}
+
 	query, params, err = bqbQuery.Space(`WHERE id = ?`, ctx.User.Id).ToPgsql()
 	if err != nil {
-		tx.Rollback()
 		slog.Error(fmt.Sprintf("Error preparing query: %v\n", err))
 		return "", http.StatusInternalServerError, utils.ErrInternalServer
 	}
 
 	// -- Update user
 	if _, err := tx.Exec(query, params...); err != nil {
-		tx.Rollback()
 		slog.Error(fmt.Sprintf("Error updating user: %v\n", err))
 		return "", http.StatusInternalServerError, utils.ErrInternalServer
 	}

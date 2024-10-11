@@ -24,9 +24,11 @@ func (handler *AuthHandler) Me(w http.ResponseWriter, r *http.Request) {
 		pResponse = append(pResponse, setting.SettingPermissionToResponse(permission))
 	}
 
+	rResponse := setting.SettingRoleToResponse(*ctx.Role, &pResponse)
+
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(utils.NewResponse(http.StatusOK, "", map[string]interface{}{
-		"user": setting.SettingUserToResponse(*ctx.User, setting.SettingRoleToResponse(*ctx.Role, pResponse)),
+		"user": setting.SettingUserToResponse(*ctx.User, &rResponse),
 	}))
 }
 
@@ -77,7 +79,7 @@ func (handler *AuthHandler) UpdatePassword(w http.ResponseWriter, r *http.Reques
 	w.Header().Set("Content-Type", "application/json")
 
 	// -- Parse request
-	req, ok := utils.ValidateRequest[services.UpdatePasswordRequest](r, w, false)
+	req, ok := utils.ValidateRequest[services.UpdatePasswordRequest](r, w, true)
 	if !ok {
 		return
 	}
@@ -99,7 +101,7 @@ func (handler *AuthHandler) UpdateProfile(w http.ResponseWriter, r *http.Request
 	w.Header().Set("Content-Type", "application/json")
 
 	// -- Parse request
-	req, ok := utils.ValidateRequest[services.UpdateProfileRequest](r, w, false)
+	req, ok := utils.ValidateRequest[services.UpdateProfileRequest](r, w, true)
 	if !ok {
 		return
 	}

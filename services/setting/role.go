@@ -65,24 +65,24 @@ func (service *SettingRoleService) Roles(qp *utils.QueryParams) ([]setting.Setti
 		}
 
 		if lastRole.Id != tmpRole.Id {
-			if lastRole.Id != 0 {
+			if lastRole.Id != nil {
 				permissionsResponse := make([]setting.SettingPermissionResponse, 0)
 				for _, permission := range permissions {
 					permissionsResponse = append(permissionsResponse, setting.SettingPermissionToResponse(permission))
 				}
-				roles = append(roles, setting.SettingRoleToResponse(lastRole, permissionsResponse))
+				roles = append(roles, setting.SettingRoleToResponse(lastRole, &permissionsResponse))
 			}
 			lastRole = tmpRole
 			permissions = make([]setting.SettingPermission, 0)
 		}
 		permissions = append(permissions, tmpPermission)
 	}
-	if lastRole.Id != 0 {
+	if lastRole.Id != nil {
 		permissionsResponse := make([]setting.SettingPermissionResponse, 0)
 		for _, permission := range permissions {
 			permissionsResponse = append(permissionsResponse, setting.SettingPermissionToResponse(permission))
 		}
-		roles = append(roles, setting.SettingRoleToResponse(lastRole, permissionsResponse))
+		roles = append(roles, setting.SettingRoleToResponse(lastRole, &permissionsResponse))
 	}
 
 	bqbQuery = bqb.New(`SELECT COUNT(*) FROM "setting.role"`)
@@ -148,7 +148,7 @@ func (service *SettingRoleService) Role(id string) (setting.SettingRoleResponse,
 		permissions = append(permissions, tmpPermission)
 	}
 
-	if role.Id == 0 {
+	if role.Id == nil {
 		return setting.SettingRoleResponse{}, http.StatusNotFound, utils.ErrRoleNotFound
 	}
 
@@ -157,12 +157,12 @@ func (service *SettingRoleService) Role(id string) (setting.SettingRoleResponse,
 		permissionsResponse = append(permissionsResponse, setting.SettingPermissionToResponse(permission))
 	}
 
-	return setting.SettingRoleToResponse(role, permissionsResponse), http.StatusOK, nil
+	return setting.SettingRoleToResponse(role, &permissionsResponse), http.StatusOK, nil
 }
 
 func (service *SettingRoleService) CreateRole(ctx *utils.CtxValue, role *setting.SettingRoleCreateRequest) (int, error) {
 	commonModel := models.CommonModel{}
-	commonModel.PrepareForCreate(ctx.User.Id, ctx.User.Id)
+	commonModel.PrepareForCreate(*ctx.User.Id, *ctx.User.Id)
 
 	tx, err := service.DB.Begin()
 	if err != nil {
@@ -176,8 +176,10 @@ func (service *SettingRoleService) CreateRole(ctx *utils.CtxValue, role *setting
 	for index, permissionId := range role.PermissionIds {
 		if utils.ContainsString(utils.FULL_PERMISSION_IDS, utils.IntToStr(int(permissionId))) {
 			for _, permission := range *ctx.Permissions {
-				if !utils.ContainsString([]string{utils.PREDEFINED_PERMISSIONS.FULL_ACCESS}, permission.Name) {
-					hasPermission = false
+				if permission.Name != nil {
+					if !utils.ContainsString([]string{utils.PREDEFINED_PERMISSIONS.FULL_ACCESS}, *permission.Name) {
+						hasPermission = false
+					}
 				}
 			}
 		}
@@ -254,7 +256,7 @@ func (service *SettingRoleService) CreateRole(ctx *utils.CtxValue, role *setting
 
 func (service *SettingRoleService) UpdateRole(ctx *utils.CtxValue, id string, role *setting.SettingRoleUpdateRequest) (int, error) {
 	commonModel := models.CommonModel{}
-	commonModel.PrepareForUpdate(ctx.User.Id)
+	commonModel.PrepareForUpdate(*ctx.User.Id)
 
 	tx, err := service.DB.Begin()
 	if err != nil {
@@ -264,7 +266,12 @@ func (service *SettingRoleService) UpdateRole(ctx *utils.CtxValue, id string, ro
 	defer tx.Rollback()
 
 	bqbQuery := bqb.New(`UPDATE "setting.role" SET mid = ?, mtime = ?`, commonModel.MId, commonModel.MTime)
-	utils.PrepareUpdateBqbQuery(bqbQuery, role)
+	if role.Name != nil {
+		bqbQuery.Space(`name = ?`, *role.Name)
+	}
+	if role.Description != nil {
+		bqbQuery.Space(`description = ?`, *role.Description)
+	}
 	bqbQuery.Space(`WHERE id = ?`, id)
 
 	query, params, err := bqbQuery.ToPgsql()

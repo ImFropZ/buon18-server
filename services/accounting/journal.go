@@ -127,7 +127,7 @@ func (service *AccountingJournalService) Journal(id string) (accounting.Accounti
 		return accounting.AccountingJournalResponse{}, http.StatusInternalServerError, utils.ErrInternalServer
 	}
 
-	if journal.Id == 0 {
+	if journal.Id == nil {
 		return accounting.AccountingJournalResponse{}, http.StatusNotFound, utils.ErrJournalNotFound
 	}
 
@@ -137,7 +137,7 @@ func (service *AccountingJournalService) Journal(id string) (accounting.Accounti
 
 func (service *AccountingJournalService) CreateJournal(ctx *utils.CtxValue, journal *accounting.AccountingJournalCreateRequest) (int, error) {
 	commonModel := models.CommonModel{}
-	commonModel.PrepareForCreate(ctx.User.Id, ctx.User.Id)
+	commonModel.PrepareForCreate(*ctx.User.Id, *ctx.User.Id)
 
 	bqbQuery := bqb.New(`INSERT INTO "accounting.journal"
 	(code, name, typ, accounting_account_id, cid, ctime, mid, mtime)
@@ -167,10 +167,21 @@ func (service *AccountingJournalService) CreateJournal(ctx *utils.CtxValue, jour
 
 func (service *AccountingJournalService) UpdateJournal(ctx *utils.CtxValue, id string, journal *accounting.AccountingJournalUpdateRequest) (int, error) {
 	commonModel := models.CommonModel{}
-	commonModel.PrepareForUpdate(ctx.User.Id)
+	commonModel.PrepareForUpdate(*ctx.User.Id)
 
 	bqbQuery := bqb.New(`UPDATE "accounting.journal" SET mid = ?, mtime = ?`, commonModel.MId, commonModel.MTime)
-	utils.PrepareUpdateBqbQuery(bqbQuery, journal)
+	if journal.Code != nil {
+		bqbQuery.Space(`SET code = ?`, *journal.Code)
+	}
+	if journal.Name != nil {
+		bqbQuery.Space(`SET name = ?`, *journal.Name)
+	}
+	if journal.Typ != nil {
+		bqbQuery.Space(`SET typ = ?`, *journal.Typ)
+	}
+	if journal.AccountId != nil {
+		bqbQuery.Space(`SET accounting_account_id = ?`, *journal.AccountId)
+	}
 	bqbQuery.Space(`WHERE id = ?`, id)
 
 	query, params, err := bqbQuery.ToPgsql()

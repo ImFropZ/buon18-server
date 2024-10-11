@@ -34,11 +34,11 @@ func (service *SettingUserService) Users(qp *utils.QueryParams) ([]setting.Setti
 		"limited_users".name,
 		"limited_users".email,
 		"limited_users".typ,
-		COALESCE("setting.role".id, 0),
-		COALESCE("setting.role".name, ''),
-		COALESCE("setting.role".description, ''),
-		COALESCE("setting.permission".id, 0),
-		COALESCE("setting.permission".name, '')
+		"setting.role".id
+		"setting.role".name
+		"setting.role".description
+		"setting.permission".id
+		"setting.permission".name
 	FROM "limited_users"
 	LEFT JOIN "setting.role" ON "limited_users".setting_role_id = "setting.role".id
 	LEFT JOIN "setting.role_permission" ON "setting.role".id = "setting.role_permission".setting_role_id
@@ -72,13 +72,13 @@ func (service *SettingUserService) Users(qp *utils.QueryParams) ([]setting.Setti
 			return nil, 0, http.StatusInternalServerError, utils.ErrInternalServer
 		}
 
-		if lastUser.Id != tmpUser.Id && lastUser.Id != 0 {
+		if lastUser.Id != tmpUser.Id && lastUser.Id != nil {
 			permissionsResponse := make([]setting.SettingPermissionResponse, 0)
 			for _, permission := range permissions {
 				permissionsResponse = append(permissionsResponse, setting.SettingPermissionToResponse(permission))
 			}
-			roleResponse := setting.SettingRoleToResponse(lastRole, permissionsResponse)
-			usersResponse = append(usersResponse, setting.SettingUserToResponse(lastUser, roleResponse))
+			roleResponse := setting.SettingRoleToResponse(lastRole, &permissionsResponse)
+			usersResponse = append(usersResponse, setting.SettingUserToResponse(lastUser, &roleResponse))
 			lastUser = tmpUser
 			lastRole = tmpRole
 			permissions = make([]setting.SettingPermission, 0)
@@ -86,22 +86,22 @@ func (service *SettingUserService) Users(qp *utils.QueryParams) ([]setting.Setti
 			continue
 		}
 
-		if lastUser.Id == 0 {
+		if lastUser.Id == nil {
 			lastUser = tmpUser
 			lastRole = tmpRole
 		}
 
-		if tmpPermission.Id != 0 {
+		if tmpPermission.Id != nil {
 			permissions = append(permissions, tmpPermission)
 		}
 	}
-	if lastUser.Id != 0 {
+	if lastUser.Id != nil {
 		permissionsResponse := make([]setting.SettingPermissionResponse, 0)
 		for _, permission := range permissions {
 			permissionsResponse = append(permissionsResponse, setting.SettingPermissionToResponse(permission))
 		}
-		roleResponse := setting.SettingRoleToResponse(lastRole, permissionsResponse)
-		usersResponse = append(usersResponse, setting.SettingUserToResponse(lastUser, roleResponse))
+		roleResponse := setting.SettingRoleToResponse(lastRole, &permissionsResponse)
+		usersResponse = append(usersResponse, setting.SettingUserToResponse(lastUser, &roleResponse))
 	}
 
 	bqbQuery = bqb.New(`SELECT COUNT(*) FROM "setting.user"`)
@@ -127,7 +127,7 @@ func (service *SettingUserService) User(id string) (setting.SettingUserResponse,
 	query := `
 	WITH "limited_users" AS (
 		SELECT
-			id, name, email, typ, setting_role_id
+			*
 		FROM "setting.user"
 		WHERE id = ?
 	)
@@ -136,11 +136,11 @@ func (service *SettingUserService) User(id string) (setting.SettingUserResponse,
 		"limited_users".name,
 		"limited_users".email,
 		"limited_users".typ,
-		COALESCE("setting.role".id, 0),
-		COALESCE("setting.role".name, ''),
-		COALESCE("setting.role".description, ''),
-		COALESCE("setting.permission".id, 0),
-		COALESCE("setting.permission".name, '')
+		"setting.role".id
+		"setting.role".name
+		"setting.role".description
+		"setting.permission".id
+		"setting.permission".name
 	FROM "limited_users"
 	LEFT JOIN "setting.role" ON "limited_users".setting_role_id = "setting.role".id
 	LEFT JOIN "setting.role_permission" ON "setting.role".id = "setting.role_permission".setting_role_id
@@ -172,7 +172,7 @@ func (service *SettingUserService) User(id string) (setting.SettingUserResponse,
 		permissions = append(permissions, tmpPermission)
 	}
 
-	if user.Id == 0 {
+	if user.Id == nil {
 		return setting.SettingUserResponse{}, http.StatusNotFound, utils.ErrUserNotFound
 	}
 
@@ -180,14 +180,14 @@ func (service *SettingUserService) User(id string) (setting.SettingUserResponse,
 	for _, permission := range permissions {
 		permissionsResponse = append(permissionsResponse, setting.SettingPermissionToResponse(permission))
 	}
-	roleResponse := setting.SettingRoleToResponse(role, permissionsResponse)
+	roleResponse := setting.SettingRoleToResponse(role, &permissionsResponse)
 
-	return setting.SettingUserToResponse(user, roleResponse), 200, nil
+	return setting.SettingUserToResponse(user, &roleResponse), http.StatusOK, nil
 }
 
 func (service *SettingUserService) CreateUser(ctx *utils.CtxValue, user *setting.SettingUserCreateRequest) (int, error) {
 	commonModel := models.CommonModel{}
-	commonModel.PrepareForCreate(ctx.User.Id, ctx.User.Id)
+	commonModel.PrepareForCreate(*ctx.User.Id, *ctx.User.Id)
 
 	bqbQuery := bqb.New(`
 	INSERT INTO
@@ -202,8 +202,7 @@ func (service *SettingUserService) CreateUser(ctx *utils.CtxValue, user *setting
 		return http.StatusInternalServerError, utils.ErrInternalServer
 	}
 
-	_, err = service.DB.Exec(query, params...)
-	if err != nil {
+	if _, err = service.DB.Exec(query, params...); err != nil {
 		switch err.(*pq.Error).Constraint {
 		case database.FK_SETTING_ROLE_ID:
 			return http.StatusNotFound, utils.ErrRoleNotFound
@@ -220,16 +219,27 @@ func (service *SettingUserService) CreateUser(ctx *utils.CtxValue, user *setting
 
 func (service *SettingUserService) UpdateUser(ctx *utils.CtxValue, id string, user *setting.SettingUserUpdateRequest) (int, error) {
 	commonModel := models.CommonModel{}
-	commonModel.PrepareForUpdate(ctx.User.Id)
+	commonModel.PrepareForUpdate(*ctx.User.Id)
 
 	bqbQuery := bqb.New(`UPDATE "setting.user" SET mid = ?, mtime = ?`, commonModel.MId, commonModel.MTime)
-	utils.PrepareUpdateBqbQuery(bqbQuery, user)
+
+	if user.Name != nil {
+		bqbQuery.Space(`name = ?`, *user.Name)
+	}
+	if user.Email != nil {
+		bqbQuery.Space(`email = ?`, *user.Email)
+	}
+	if user.RoleId != nil {
+		bqbQuery.Space(`setting_role_id = ?`, *user.RoleId)
+	}
 
 	if user.Password != nil {
 		hasPermission := false
 		for _, permission := range *ctx.Permissions {
-			if utils.ContainsString([]string{utils.IntToStr(utils.FULL_ACCESS_ID), utils.IntToStr(utils.FULL_SETTING_ID)}, utils.IntToStr(int(permission.Id))) {
-				hasPermission = true
+			if permission.Id != nil {
+				if utils.ContainsString([]string{utils.IntToStr(utils.FULL_ACCESS_ID), utils.IntToStr(utils.FULL_SETTING_ID)}, utils.IntToStr(int(*permission.Id))) {
+					hasPermission = true
+				}
 			}
 		}
 

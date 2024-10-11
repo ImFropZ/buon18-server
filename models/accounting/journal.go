@@ -1,25 +1,21 @@
 package accounting
 
 import (
-	"strings"
-
 	"system.buon18.com/m/models"
-
-	"github.com/nullism/bqb"
 )
 
 type AccountingJournal struct {
 	*models.CommonModel
-	Id   int
-	Code string
-	Name string
-	Typ  string
+	Id   *int
+	Code *string
+	Name *string
+	Typ  *string
 	// -- Foreign keys
-	AccountId int
+	AccountId *int
 }
 
 func (AccountingJournal) AllowFilterFieldsAndOps() []string {
-	return []string{"code:like", "name:like", "typ:eq"}
+	return []string{"code:like", "code:ilike", "name:like", "name:ilike", "typ:eq"}
 }
 
 func (AccountingJournal) AllowSorts() []string {
@@ -27,10 +23,10 @@ func (AccountingJournal) AllowSorts() []string {
 }
 
 type AccountingJournalResponse struct {
-	Id      int                        `json:"id"`
-	Code    string                     `json:"code"`
-	Name    string                     `json:"name"`
-	Typ     string                     `json:"type"`
+	Id      *int                       `json:"id,omitempty"`
+	Code    *string                    `json:"code,omitempty"`
+	Name    *string                    `json:"name,omitempty"`
+	Typ     *string                    `json:"type,omitempty"`
 	Account *AccountingAccountResponse `json:"account,omitempty"`
 }
 
@@ -59,20 +55,4 @@ type AccountingJournalUpdateRequest struct {
 	Name      *string `json:"name"`
 	Typ       *string `json:"type" validate:"omitempty,accounting_journal_typ"`
 	AccountId *uint   `json:"account_id"`
-}
-
-func (request AccountingJournalUpdateRequest) MapUpdateFields(bqbQuery *bqb.Query, fieldname string, value interface{}) error {
-	switch strings.ToLower(fieldname) {
-	case "code":
-		bqbQuery.Comma("code = ?", value)
-	case "name":
-		bqbQuery.Comma("name = ?", value)
-	case "typ":
-		bqbQuery.Comma("typ = ?", value)
-	case "accountid":
-		bqbQuery.Comma("accounting_account_id = ?", value)
-	default:
-		return models.ErrInvalidUpdateField
-	}
-	return nil
 }

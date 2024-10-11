@@ -112,7 +112,7 @@ psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-E
                 WITH
                     1000
             ) PRIMARY KEY,
-            fullname VARCHAR(64) NOT NULL,
+            full_name VARCHAR(64) NOT NULL,
             gender setting_gender_typ NOT NULL DEFAULT 'u',
             email VARCHAR(64) NOT NULL UNIQUE,
             phone VARCHAR(16) NOT NULL,

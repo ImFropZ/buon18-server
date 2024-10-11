@@ -1,27 +1,24 @@
 package accounting
 
 import (
-	"strings"
 	"time"
 
 	"system.buon18.com/m/models"
-
-	"github.com/nullism/bqb"
 )
 
 type AccountingJournalEntry struct {
 	*models.CommonModel
-	Id     int
-	Name   string
-	Date   time.Time
-	Note   string
-	Status string
+	Id     *int
+	Name   *string
+	Date   *time.Time
+	Note   *string
+	Status *string
 	// -- Foreign keys
-	JournalId int
+	JournalId *int
 }
 
 func (AccountingJournalEntry) AllowFilterFieldsAndOps() []string {
-	return []string{"status:in", "date:gte", "date:lte", "date:gt", "date:lt", "date:eq", "name:like"}
+	return []string{"status:in", "date:gte", "date:lte", "date:gt", "date:lt", "date:eq", "name:like", "name:ilike"}
 }
 
 func (AccountingJournalEntry) AllowSorts() []string {
@@ -29,21 +26,21 @@ func (AccountingJournalEntry) AllowSorts() []string {
 }
 
 type AccountingJournalEntryResponse struct {
-	Id                int                                  `json:"id"`
-	Name              string                               `json:"name"`
-	Date              time.Time                            `json:"date"`
-	Note              string                               `json:"note"`
-	Status            string                               `json:"status"`
-	AmountTotalDebit  float64                              `json:"amount_total_debit"`
-	AmountTotalCredit float64                              `json:"amount_total_credit"`
-	Lines             []AccountingJournalEntryLineResponse `json:"lines"`
-	Journal           AccountingJournalResponse            `json:"journal"`
+	Id                *int                                  `json:"id,omitempty"`
+	Name              *string                               `json:"name,omitempty"`
+	Date              *time.Time                            `json:"date,omitempty"`
+	Note              *string                               `json:"note,omitempty"`
+	Status            *string                               `json:"status,omitempty"`
+	AmountTotalDebit  *float64                              `json:"amount_total_debit,omitempty"`
+	AmountTotalCredit *float64                              `json:"amount_total_credit,omitempty"`
+	Lines             *[]AccountingJournalEntryLineResponse `json:"lines,omitempty"`
+	Journal           *AccountingJournalResponse            `json:"journal,omitempty"`
 }
 
 func AccountingJournalEntryToResponse(
 	journalEntry AccountingJournalEntry,
-	lines []AccountingJournalEntryLineResponse,
-	journal AccountingJournalResponse,
+	lines *[]AccountingJournalEntryLineResponse,
+	journal *AccountingJournalResponse,
 ) AccountingJournalEntryResponse {
 	response := AccountingJournalEntryResponse{
 		Id:      journalEntry.Id,
@@ -55,10 +52,22 @@ func AccountingJournalEntryToResponse(
 		Journal: journal,
 	}
 
-	for _, line := range lines {
-		response.AmountTotalDebit += line.AmountDebit
-		response.AmountTotalCredit += line.AmountCredit
+	amountTotalCredit := 0.0
+	amountTotalDebit := 0.0
+
+	if lines != nil {
+		for _, line := range *lines {
+			if line.AmountDebit != nil {
+				amountTotalCredit += *line.AmountDebit
+			}
+			if line.AmountCredit != nil {
+				amountTotalDebit += *line.AmountCredit
+			}
+		}
 	}
+
+	response.AmountTotalCredit = &amountTotalCredit
+	response.AmountTotalDebit = &amountTotalDebit
 
 	return response
 }
@@ -81,23 +90,4 @@ type AccountingJournalEntryUpdateRequest struct {
 	AddLines    *[]AccountingJournalEntryLineCreateRequest `json:"add_lines" validate:"omitempty,gt=0,dive"`
 	UpdateLines *[]AccountingJournalEntryLineUpdateRequest `json:"update_lines" validate:"omitempty,gt=0,dive"`
 	DeleteLines *[]int                                     `json:"delete_lines" validate:"omitempty,gt=0,dive"`
-}
-
-func (request AccountingJournalEntryUpdateRequest) MapUpdateFields(bqbQuery *bqb.Query, fieldname string, value interface{}) error {
-	switch strings.ToLower(fieldname) {
-	case "name":
-		bqbQuery.Comma("name = ?", value)
-	case "date":
-		bqbQuery.Comma("date = ?", value)
-	case "note":
-		bqbQuery.Comma("note = ?", value)
-	case "status":
-		bqbQuery.Comma("status = ?", value)
-	case "journalid":
-		bqbQuery.Comma("accounting_journal_id = ?", value)
-	default:
-		return models.ErrInvalidUpdateField
-	}
-
-	return nil
 }

@@ -1,58 +1,71 @@
 package sales
 
 import (
-	"strings"
 	"time"
 
 	"system.buon18.com/m/models"
 	"system.buon18.com/m/models/setting"
-
-	"github.com/nullism/bqb"
 )
 
 type SalesQuotation struct {
 	*models.CommonModel
-	Id             int
-	Name           string
-	CreationDate   time.Time
-	ValidityDate   time.Time
-	Discount       float64
-	AmountDelivery float64
-	Status         string
+	Id             *int
+	Name           *string
+	CreationDate   *time.Time
+	ValidityDate   *time.Time
+	Discount       *float64
+	AmountDelivery *float64
+	Status         *string
 	// -- Foreign keys
-	CustomerId int
+	CustomerId *int
 }
 
 func (SalesQuotation) AllowFilterFieldsAndOps() []string {
-	return []string{"name:like", "status:eq", "creation_date:gte", "creation_date:lte", "validity_date:gte", "validity_date:lte"}
+	return []string{"name:like", "name:ilike", "status:eq", "creation-date:gte", "creation-date:lte", "validity-date:gte", "validity-date:lte"}
 }
 
 func (SalesQuotation) AllowSorts() []string {
-	return []string{"name", "status"}
+	return []string{"name", "status", "creation-date", "validity-date"}
 }
 
 type SalesQuotationResponse struct {
-	Id              int                             `json:"id"`
-	Name            string                          `json:"name"`
-	CreationDate    time.Time                       `json:"creation_date"`
-	ValidityDate    time.Time                       `json:"validity_date"`
-	Discount        float64                         `json:"discount"`
-	AmountDelivery  float64                         `json:"amount_delivery"`
-	Status          string                          `json:"status"`
-	TotalAmount     float64                         `json:"total_amount"`
-	Customer        setting.SettingCustomerResponse `json:"customer"`
-	SalesOrderItems []SalesOrderItemResponse        `json:"items"`
+	Id              *int                             `json:"id,omitempty"`
+	Name            *string                          `json:"name,omitempty"`
+	CreationDate    *time.Time                       `json:"creation_date,omitempty"`
+	ValidityDate    *time.Time                       `json:"validity_date,omitempty"`
+	Discount        *float64                         `json:"discount,omitempty"`
+	AmountDelivery  *float64                         `json:"amount_delivery,omitempty"`
+	Status          *string                          `json:"status,omitempty"`
+	TotalAmount     *float64                         `json:"total_amount,omitempty"`
+	Customer        *setting.SettingCustomerResponse `json:"customer,omitempty"`
+	SalesOrderItems *[]SalesOrderItemResponse        `json:"items,omitempty"`
 }
 
 func SalesQuotationToResponse(
 	quotation SalesQuotation,
-	customer setting.SettingCustomerResponse,
-	orderItems []SalesOrderItemResponse,
+	customer *setting.SettingCustomerResponse,
+	orderItems *[]SalesOrderItemResponse,
 ) SalesQuotationResponse {
 	subAmountTotal := 0.0
-	for _, item := range orderItems {
-		subAmountTotal += item.AmountTotal
+	if orderItems != nil {
+		for _, item := range *orderItems {
+			if item.AmountTotal != nil {
+				subAmountTotal += *item.AmountTotal
+			}
+		}
 	}
+
+	discount := 0.0
+	if quotation.Discount != nil {
+		discount = *quotation.Discount
+	}
+
+	amountDelivery := 0.0
+	if quotation.AmountDelivery != nil {
+		amountDelivery = *quotation.AmountDelivery
+	}
+
+	total := subAmountTotal + amountDelivery - discount
 
 	return SalesQuotationResponse{
 		Id:              quotation.Id,
@@ -63,7 +76,7 @@ func SalesQuotationToResponse(
 		AmountDelivery:  quotation.AmountDelivery,
 		Status:          quotation.Status,
 		Customer:        customer,
-		TotalAmount:     subAmountTotal + quotation.AmountDelivery - quotation.Discount,
+		TotalAmount:     &total,
 		SalesOrderItems: orderItems,
 	}
 }
@@ -90,26 +103,4 @@ type SalesQuotationUpdateRequest struct {
 	AddSalesOrderItems      *[]SalesOrderItemCreateRequest `json:"add_items" validate:"omitempty,gt=0,dive"`
 	UpdateSalesOrderItems   *[]SalesOrderItemUpdateRequest `json:"update_items" validate:"omitempty,gt=0,dive"`
 	DeleteSalesOrderItemIds *[]uint                        `json:"delete_item_ids" validate:"omitempty,gt=0,dive"`
-}
-
-func (request SalesQuotationUpdateRequest) MapUpdateFields(bqbQuery *bqb.Query, fieldname string, value interface{}) error {
-	switch strings.ToLower(fieldname) {
-	case "name":
-		bqbQuery.Comma("name = ?", value)
-	case "creation_date":
-		bqbQuery.Comma("creation_date = ?", value)
-	case "validity_date":
-		bqbQuery.Comma("validity_date = ?", value)
-	case "discount":
-		bqbQuery.Comma("discount = ?", value)
-	case "amount_delivery":
-		bqbQuery.Comma("amount_delivery = ?", value)
-	case "status":
-		bqbQuery.Comma("status = ?", value)
-	case "customer_id":
-		bqbQuery.Comma("customer_id = ?", value)
-	default:
-		return models.ErrInvalidUpdateField
-	}
-	return nil
 }

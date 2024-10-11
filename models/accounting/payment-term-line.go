@@ -1,28 +1,24 @@
 package accounting
 
 import (
-	"strings"
-
 	"system.buon18.com/m/models"
-
-	"github.com/nullism/bqb"
 )
 
 type AccountingPaymentTermLine struct {
 	*models.CommonModel
-	Id                 int
-	Sequence           int
-	ValueAmountPercent float64
-	NumberOfDays       int
+	Id                 *int
+	Sequence           *int
+	ValueAmountPercent *float64
+	NumberOfDays       *int
 	// -- Foreign keys
-	PaymentTermId int
+	PaymentTermId *int
 }
 
 type AccountingPaymentTermLineResponse struct {
-	Id                 int     `json:"id"`
-	Sequence           int     `json:"sequence"`
-	ValueAmountPercent float64 `json:"value_amount_percent"`
-	NumberOfDays       int     `json:"number_of_days"`
+	Id                 *int     `json:"id,omitempty"`
+	Sequence           *int     `json:"sequence,omitempty"`
+	ValueAmountPercent *float64 `json:"value_amount_percent,omitempty"`
+	NumberOfDays       *int     `json:"number_of_days,omitempty"`
 }
 
 func AccountingPaymentTermLineToResponse(line AccountingPaymentTermLine) AccountingPaymentTermLineResponse {
@@ -45,16 +41,4 @@ type AccountingPaymentTermLineUpdateRequest struct {
 	Sequence           *int     `json:"sequence" validate:"omitempty"`
 	ValueAmountPercent *float64 `json:"value_amount_percent" validate:"omitempty"`
 	NumberOfDays       *int     `json:"number_of_days" validate:"omitempty"`
-}
-
-func (request AccountingPaymentTermLineUpdateRequest) MapUpdateFields(bqbQuery *bqb.Query, fieldname string, value interface{}) error {
-	switch strings.ToLower(fieldname) {
-	case "sequence":
-		bqbQuery.Comma("sequence = ?", value)
-	case "valueamountpercent":
-		bqbQuery.Comma("value_amount_percent = ?", value)
-	case "numberofdays":
-		bqbQuery.Comma("number_of_days = ?", value)
-	}
-	return nil
 }

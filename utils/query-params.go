@@ -87,6 +87,8 @@ func (qp *QueryParams) AddOrderBy(orderBy string) *QueryParams {
 		return qp
 	}
 
+	// NOTE: replace `-` with `_` in field name to match with database column name and clean query
+	field = strings.ReplaceAll(field, `-`, "_")
 	qp.OrderBy = append(qp.OrderBy, fmt.Sprintf("%s %s", field, strings.ToUpper(sort)))
 	return qp
 }
@@ -95,6 +97,8 @@ func (qp *QueryParams) FilterIntoBqb(bqbQuery *bqb.Query) {
 	if len(qp.Fitlers) > 0 {
 		bqbQuery.Space("WHERE")
 		for index, filter := range qp.Fitlers {
+			// NOTE: replace `-` with `_` in field name to match with database column name and clean query
+			filter.Field = strings.ReplaceAll(filter.Field, `-`, "_")
 			if filter.Operator == "in" || filter.Operator == "nin" {
 				values := strings.Split(filter.Value, ",")
 				bqbQuery.Space(fmt.Sprintf("%s %s (", filter.Field, MAPPED_FILTER_OPERATORS_TO_SQL[filter.Operator]))

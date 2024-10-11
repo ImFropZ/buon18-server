@@ -1,22 +1,18 @@
 package setting
 
 import (
-	"strings"
-
 	"system.buon18.com/m/models"
-
-	"github.com/nullism/bqb"
 )
 
 type SettingRole struct {
 	*models.CommonModel
-	Id          uint
-	Name        string
-	Description string
+	Id          *uint
+	Name        *string
+	Description *string
 }
 
 func (SettingRole) AllowFilterFieldsAndOps() []string {
-	return []string{"name:like", "description:like"}
+	return []string{"name:like", "name:ilike", "description:like", "description:ilike"}
 }
 
 func (SettingRole) AllowSorts() []string {
@@ -24,13 +20,13 @@ func (SettingRole) AllowSorts() []string {
 }
 
 type SettingRoleResponse struct {
-	Id          uint                        `json:"id"`
-	Name        string                      `json:"name"`
-	Description string                      `json:"description"`
-	Permissions []SettingPermissionResponse `json:"permissions"`
+	Id          *uint                        `json:"id,omitempty"`
+	Name        *string                      `json:"name,omitempty"`
+	Description *string                      `json:"description,omitempty"`
+	Permissions *[]SettingPermissionResponse `json:"permissions,omitempty"`
 }
 
-func SettingRoleToResponse(role SettingRole, permissions []SettingPermissionResponse) SettingRoleResponse {
+func SettingRoleToResponse(role SettingRole, permissions *[]SettingPermissionResponse) SettingRoleResponse {
 	return SettingRoleResponse{
 		Id:          role.Id,
 		Name:        role.Name,
@@ -50,16 +46,4 @@ type SettingRoleUpdateRequest struct {
 	Description         *string `json:"description" validate:"omitempty,max=255"`
 	AddPermissionIds    *[]uint `json:"add_permission_ids" validate:"omitempty,gt=0,dive"`
 	RemovePermissionIds *[]uint `json:"remove_permission_ids" validate:"omitempty,gt=0,dive"`
-}
-
-func (request SettingRoleUpdateRequest) MapUpdateFields(bqbQuery *bqb.Query, fieldname string, value interface{}) error {
-	switch strings.ToLower(fieldname) {
-	case "name":
-		bqbQuery.Comma("name = ?", value)
-	case "description":
-		bqbQuery.Comma("description = ?", value)
-	default:
-		return models.ErrInvalidUpdateField
-	}
-	return nil
 }

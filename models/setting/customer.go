@@ -2,43 +2,40 @@ package setting
 
 import (
 	"encoding/json"
-	"strings"
 
 	"system.buon18.com/m/models"
-
-	"github.com/nullism/bqb"
 )
 
 type SettingCustomer struct {
 	*models.CommonModel
-	Id                    int
-	FullName              string
-	Gender                string
-	Email                 string
-	Phone                 string
-	AdditionalInformation string
+	Id                    *int
+	FullName              *string
+	Gender                *string
+	Email                 *string
+	Phone                 *string
+	AdditionalInformation *string
 }
 
 func (SettingCustomer) AllowFilterFieldsAndOps() []string {
-	return []string{"fullname:like", "gender:in", "email:like", "phone:like"}
+	return []string{"full-name:like", "full-name:ilike", "gender:in", "email:like", "phone:like"}
 }
 
 func (SettingCustomer) AllowSorts() []string {
-	return []string{"fullname", "gender", "email", "phone"}
+	return []string{"full-name", "gender", "email", "phone"}
 }
 
 type SettingCustomerResponse struct {
-	Id                    int    `json:"id"`
-	FullName              string `json:"full_name"`
-	Gender                string `json:"gender"`
-	Email                 string `json:"email"`
-	Phone                 string `json:"phone"`
-	AdditionalInformation any    `json:"additional_information"`
+	Id                    *int    `json:"id,omitempty"`
+	FullName              *string `json:"full_name,omitempty"`
+	Gender                *string `json:"gender,omitempty"`
+	Email                 *string `json:"email,omitempty"`
+	Phone                 *string `json:"phone,omitempty"`
+	AdditionalInformation *any    `json:"additional_information,omitempty"`
 }
 
 func SettingCustomerToResponse(settingCustomer SettingCustomer) SettingCustomerResponse {
 	var additionalInformation any
-	if err := json.Unmarshal([]byte(settingCustomer.AdditionalInformation), &additionalInformation); err != nil {
+	if err := json.Unmarshal([]byte(*settingCustomer.AdditionalInformation), &additionalInformation); err != nil {
 		additionalInformation = []byte{}
 	}
 	return SettingCustomerResponse{
@@ -47,7 +44,7 @@ func SettingCustomerToResponse(settingCustomer SettingCustomer) SettingCustomerR
 		Gender:                settingCustomer.Gender,
 		Email:                 settingCustomer.Email,
 		Phone:                 settingCustomer.Phone,
-		AdditionalInformation: additionalInformation,
+		AdditionalInformation: &additionalInformation,
 	}
 }
 
@@ -65,22 +62,4 @@ type SettingCustomerUpdateRequest struct {
 	Email                 *string `json:"email" validate:"omitempty,email"`
 	Phone                 *string `json:"phone" validate:"omitempty,phone"`
 	AdditionalInformation *string `json:"additional_information" validate:"omitempty,json"`
-}
-
-func (request SettingCustomerUpdateRequest) MapUpdateFields(bqbQuery *bqb.Query, fieldname string, value interface{}) error {
-	switch strings.ToLower(fieldname) {
-	case "fullname":
-		bqbQuery.Comma("fullname = ?", value)
-	case "gender":
-		bqbQuery.Comma("gender = ?", value)
-	case "email":
-		bqbQuery.Comma("email = ?", value)
-	case "phone":
-		bqbQuery.Comma("phone = ?", value)
-	case "additional_information":
-		bqbQuery.Comma("additional_information = ?", value)
-	default:
-		return models.ErrInvalidUpdateField
-	}
-	return nil
 }

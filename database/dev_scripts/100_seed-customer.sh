@@ -5,7 +5,7 @@ psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-E
     INSERT INTO
         "setting.customer" (
             id,
-            fullname,
+            full_name,
             gender,
             email,
             phone,

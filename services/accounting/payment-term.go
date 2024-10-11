@@ -78,31 +78,31 @@ func (service *AccountingPaymentTermService) PaymentTerms(qp *utils.QueryParams)
 			return nil, 0, http.StatusInternalServerError, utils.ErrInternalServer
 		}
 
-		if lastPaymentTerm.Id != tmpPaymentTerm.Id && lastPaymentTerm.Id != 0 {
+		if lastPaymentTerm.Id != tmpPaymentTerm.Id && lastPaymentTerm.Id != nil {
 			paymentTermLinesResponse := make([]accounting.AccountingPaymentTermLineResponse, 0)
 			for _, paymentTermLine := range paymentTermLines {
 				paymentTermLinesResponse = append(paymentTermLinesResponse, accounting.AccountingPaymentTermLineToResponse(paymentTermLine))
 			}
-			paymentTermsResponse = append(paymentTermsResponse, accounting.AccountingPaymentTermToResponse(lastPaymentTerm, paymentTermLinesResponse))
+			paymentTermsResponse = append(paymentTermsResponse, accounting.AccountingPaymentTermToResponse(lastPaymentTerm, &paymentTermLinesResponse))
 			lastPaymentTerm = tmpPaymentTerm
 			paymentTermLines = make([]accounting.AccountingPaymentTermLine, 0)
 			paymentTermLines = append(paymentTermLines, tmpPaymentTermLine)
 			continue
 		}
 
-		if lastPaymentTerm.Id == 0 {
+		if lastPaymentTerm.Id == nil {
 			lastPaymentTerm = tmpPaymentTerm
 		}
 
 		paymentTermLines = append(paymentTermLines, tmpPaymentTermLine)
 	}
 
-	if lastPaymentTerm.Id != 0 {
+	if lastPaymentTerm.Id != nil {
 		paymentTermLinesResponse := make([]accounting.AccountingPaymentTermLineResponse, 0)
 		for _, paymentTermLine := range paymentTermLines {
 			paymentTermLinesResponse = append(paymentTermLinesResponse, accounting.AccountingPaymentTermLineToResponse(paymentTermLine))
 		}
-		paymentTermsResponse = append(paymentTermsResponse, accounting.AccountingPaymentTermToResponse(lastPaymentTerm, paymentTermLinesResponse))
+		paymentTermsResponse = append(paymentTermsResponse, accounting.AccountingPaymentTermToResponse(lastPaymentTerm, &paymentTermLinesResponse))
 	}
 
 	bqbQuery = bqb.New(`SELECT COUNT(*) FROM "accounting.payment_term"`)
@@ -180,7 +180,7 @@ func (service *AccountingPaymentTermService) PaymentTerm(id string) (accounting.
 		paymentTermLines = append(paymentTermLines, tmpPaymentTermLine)
 	}
 
-	if paymentTerm.Id == 0 {
+	if paymentTerm.Id == nil {
 		return accounting.AccountingPaymentTermResponse{}, http.StatusNotFound, utils.ErrPaymentTermNotFound
 	}
 
@@ -189,12 +189,12 @@ func (service *AccountingPaymentTermService) PaymentTerm(id string) (accounting.
 		paymentTermLinesResponse = append(paymentTermLinesResponse, accounting.AccountingPaymentTermLineToResponse(paymentTermLine))
 	}
 
-	return accounting.AccountingPaymentTermToResponse(paymentTerm, paymentTermLinesResponse), http.StatusOK, nil
+	return accounting.AccountingPaymentTermToResponse(paymentTerm, &paymentTermLinesResponse), http.StatusOK, nil
 }
 
 func (service *AccountingPaymentTermService) CreatePaymentTerm(ctx *utils.CtxValue, paymentTerm *accounting.AccountingPaymentTermCreateRequest) (int, error) {
 	commonModel := models.CommonModel{}
-	commonModel.PrepareForCreate(ctx.User.Id, ctx.User.Id)
+	commonModel.PrepareForCreate(*ctx.User.Id, *ctx.User.Id)
 
 	tx, err := service.DB.Begin()
 	if err != nil {
@@ -259,7 +259,7 @@ func (service *AccountingPaymentTermService) CreatePaymentTerm(ctx *utils.CtxVal
 
 func (service *AccountingPaymentTermService) UpdatePaymentTerm(ctx *utils.CtxValue, id string, paymentTerm *accounting.AccountingPaymentTermUpdateRequest) (int, error) {
 	commonModel := models.CommonModel{}
-	commonModel.PrepareForCreate(ctx.User.Id, ctx.User.Id)
+	commonModel.PrepareForCreate(*ctx.User.Id, *ctx.User.Id)
 
 	tx, err := service.DB.Begin()
 	if err != nil {
@@ -269,7 +269,12 @@ func (service *AccountingPaymentTermService) UpdatePaymentTerm(ctx *utils.CtxVal
 	defer tx.Rollback()
 
 	bqbQuery := bqb.New(`UPDATE "accounting.payment_term" SET mid = ?, mtime = ?`, commonModel.MId, commonModel.MTime)
-	utils.PrepareUpdateBqbQuery(bqbQuery, paymentTerm)
+	if paymentTerm.Name != nil {
+		bqbQuery.Space(`SET name = ?`, *paymentTerm.Name)
+	}
+	if paymentTerm.Description != nil {
+		bqbQuery.Space(`SET description = ?`, *paymentTerm.Description)
+	}
 	bqbQuery.Space(`WHERE id = ?`, id)
 
 	query, params, err := bqbQuery.ToPgsql()
@@ -331,7 +336,15 @@ func (service *AccountingPaymentTermService) UpdatePaymentTerm(ctx *utils.CtxVal
 			wg.Add(1)
 			go func() {
 				bqbQuery := bqb.New(`UPDATE "accounting.payment_term_line" SET mid = ?, mtime = ?`, commonModel.MId, commonModel.MTime)
-				utils.PrepareUpdateBqbQuery(bqbQuery, &line)
+				if line.Sequence != nil {
+					bqbQuery.Space(`SET sequence = ?`, *line.Sequence)
+				}
+				if line.ValueAmountPercent != nil {
+					bqbQuery.Space(`SET value_amount_percent = ?`, *line.ValueAmountPercent)
+				}
+				if line.NumberOfDays != nil {
+					bqbQuery.Space(`SET number_of_days = ?`, *line.NumberOfDays)
+				}
 				bqbQuery.Space(`WHERE id = ? AND accounting_payment_term_id = ?`, line.Id, id)
 
 				query, params, err := bqbQuery.ToPgsql()

@@ -23,7 +23,7 @@ func (service *SettingCustomerService) Customers(qp *utils.QueryParams) ([]setti
 	bqbQuery := bqb.New(`
 	SELECT
 		"setting.customer".id,
-		"setting.customer".fullname,
+		"setting.customer".full_name,
 		"setting.customer".gender,
 		"setting.customer".email,
 		"setting.customer".phone,
@@ -81,7 +81,7 @@ func (service *SettingCustomerService) Customer(id string) (setting.SettingCusto
 	bqbQuery := bqb.New(`
 	SELECT
 		"setting.customer".id,
-		"setting.customer".fullname,
+		"setting.customer".full_name,
 		"setting.customer".gender,
 		"setting.customer".email,
 		"setting.customer".phone,
@@ -109,7 +109,7 @@ func (service *SettingCustomerService) Customer(id string) (setting.SettingCusto
 		}
 	}
 
-	if customer.Id == 0 {
+	if customer.Id == nil {
 		return setting.SettingCustomerResponse{}, http.StatusNotFound, utils.ErrCustomerNotFound
 	}
 
@@ -118,10 +118,10 @@ func (service *SettingCustomerService) Customer(id string) (setting.SettingCusto
 
 func (service *SettingCustomerService) CreateCustomer(ctx *utils.CtxValue, customer *setting.SettingCustomerCreateRequest) (int, error) {
 	commonModel := models.CommonModel{}
-	commonModel.PrepareForCreate(ctx.User.Id, ctx.User.Id)
+	commonModel.PrepareForCreate(*ctx.User.Id, *ctx.User.Id)
 
 	bqbQuery := bqb.New(`INSERT INTO "setting.customer" (
-		fullname,
+		full_name,
 		gender,
 		email,
 		phone,
@@ -138,8 +138,7 @@ func (service *SettingCustomerService) CreateCustomer(ctx *utils.CtxValue, custo
 		return http.StatusInternalServerError, utils.ErrInternalServer
 	}
 
-	_, err = service.DB.Exec(query, params...)
-	if err != nil {
+	if _, err = service.DB.Exec(query, params...); err != nil {
 		switch err.(*pq.Error).Constraint {
 		case database.KEY_SETTING_CUSTOMER_EMAIL:
 			return http.StatusConflict, utils.ErrCustomerEmailExists
@@ -154,10 +153,18 @@ func (service *SettingCustomerService) CreateCustomer(ctx *utils.CtxValue, custo
 
 func (service *SettingCustomerService) UpdateCustomer(ctx *utils.CtxValue, id string, customer *setting.SettingCustomerUpdateRequest) (int, error) {
 	commonModel := models.CommonModel{}
-	commonModel.PrepareForUpdate(ctx.User.Id)
+	commonModel.PrepareForUpdate(*ctx.User.Id)
 
 	bqbQuery := bqb.New(`UPDATE "setting.customer" SET mid = ?, mtime = ?`, commonModel.MId, commonModel.MTime)
-	utils.PrepareUpdateBqbQuery(bqbQuery, customer)
+	if customer.Email != nil {
+		bqbQuery.Space(`SET email = ?`, *customer.Email)
+	}
+	if customer.Phone != nil {
+		bqbQuery.Space(`SET phone = ?`, *customer.Phone)
+	}
+	if customer.AdditionalInformation != nil {
+		bqbQuery.Space(`SET additional_information = ?`, *customer.AdditionalInformation)
+	}
 	bqbQuery.Space(` WHERE id = ?`, id)
 
 	query, params, err := bqbQuery.ToPgsql()

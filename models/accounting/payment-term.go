@@ -1,22 +1,18 @@
 package accounting
 
 import (
-	"strings"
-
 	"system.buon18.com/m/models"
-
-	"github.com/nullism/bqb"
 )
 
 type AccountingPaymentTerm struct {
 	*models.CommonModel
-	Id          int
-	Name        string
-	Description string
+	Id          *int
+	Name        *string
+	Description *string
 }
 
 func (AccountingPaymentTerm) AllowFilterFieldsAndOps() []string {
-	return []string{"name:like", "description:like"}
+	return []string{"name:like", "name:ilike", "description:like", "description:ilike"}
 }
 
 func (AccountingPaymentTerm) AllowSorts() []string {
@@ -24,15 +20,15 @@ func (AccountingPaymentTerm) AllowSorts() []string {
 }
 
 type AccountingPaymentTermResponse struct {
-	Id          int                                 `json:"id"`
-	Name        string                              `json:"name"`
-	Description string                              `json:"description"`
-	Lines       []AccountingPaymentTermLineResponse `json:"lines"`
+	Id          *int                                 `json:"id,omitempty"`
+	Name        *string                              `json:"name,omitempty"`
+	Description *string                              `json:"description,omitempty"`
+	Lines       *[]AccountingPaymentTermLineResponse `json:"lines,omitempty"`
 }
 
 func AccountingPaymentTermToResponse(
 	term AccountingPaymentTerm,
-	lines []AccountingPaymentTermLineResponse,
+	lines *[]AccountingPaymentTermLineResponse,
 ) AccountingPaymentTermResponse {
 	return AccountingPaymentTermResponse{
 		Id:          term.Id,
@@ -54,14 +50,4 @@ type AccountingPaymentTermUpdateRequest struct {
 	AddLines      []AccountingPaymentTermLineCreateRequest `json:"add_lines" validate:"omitempty,dive"`
 	UpdateLines   []AccountingPaymentTermLineUpdateRequest `json:"update_lines" validate:"omitempty,dive"`
 	RemoveLineIds []uint                                   `json:"remove_line_ids" validate:"omitempty,dive"`
-}
-
-func (request AccountingPaymentTermUpdateRequest) MapUpdateFields(bqbQuery *bqb.Query, fieldname string, value interface{}) error {
-	switch strings.ToLower(fieldname) {
-	case "name":
-		bqbQuery.Comma("name = ?", value)
-	case "description":
-		bqbQuery.Comma("description = ?", value)
-	}
-	return nil
 }

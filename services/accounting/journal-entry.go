@@ -110,9 +110,9 @@ func (service *AccountingJournalEntryService) JournalEntries(qp *utils.QueryPara
 		}
 
 		if lastJournal.Id != tmpJournal.Id {
-			if lastJournalEntry.Id != 0 {
+			if lastJournalEntry.Id != nil {
 				journalResponse := accounting.AccountingJournalToResponse(lastJournal, nil)
-				journalEntriesResponse = append(journalEntriesResponse, accounting.AccountingJournalEntryToResponse(lastJournalEntry, journalEntryLinesResponse, journalResponse))
+				journalEntriesResponse = append(journalEntriesResponse, accounting.AccountingJournalEntryToResponse(lastJournalEntry, &journalEntryLinesResponse, &journalResponse))
 			}
 
 			// Reset and append new data
@@ -120,7 +120,7 @@ func (service *AccountingJournalEntryService) JournalEntries(qp *utils.QueryPara
 			lastJournal = tmpJournal
 			journalEntryLinesResponse = make([]accounting.AccountingJournalEntryLineResponse, 0)
 			accountResponse := accounting.AccountingAccountToResponse(tmpAccount)
-			journalEntryLinesResponse = append(journalEntryLinesResponse, accounting.AccountingJournalEntryLineToResponse(tmpJournalEntryLine, accountResponse))
+			journalEntryLinesResponse = append(journalEntryLinesResponse, accounting.AccountingJournalEntryLineToResponse(tmpJournalEntryLine, &accountResponse))
 			continue
 		}
 
@@ -129,12 +129,12 @@ func (service *AccountingJournalEntryService) JournalEntries(qp *utils.QueryPara
 		}
 
 		accountResponse := accounting.AccountingAccountToResponse(tmpAccount)
-		journalEntryLinesResponse = append(journalEntryLinesResponse, accounting.AccountingJournalEntryLineToResponse(tmpJournalEntryLine, accountResponse))
+		journalEntryLinesResponse = append(journalEntryLinesResponse, accounting.AccountingJournalEntryLineToResponse(tmpJournalEntryLine, &accountResponse))
 	}
 
-	if lastJournalEntry.Id != 0 {
+	if lastJournalEntry.Id != nil {
 		journalResponse := accounting.AccountingJournalToResponse(lastJournal, nil)
-		journalEntriesResponse = append(journalEntriesResponse, accounting.AccountingJournalEntryToResponse(lastJournalEntry, journalEntryLinesResponse, journalResponse))
+		journalEntriesResponse = append(journalEntriesResponse, accounting.AccountingJournalEntryToResponse(lastJournalEntry, &journalEntryLinesResponse, &journalResponse))
 	}
 
 	bqbQuery = bqb.New(`SELECT COUNT(*) FROM "accounting.journal_entry"`)
@@ -240,20 +240,20 @@ func (service *AccountingJournalEntryService) JournalEntry(id string) (accountin
 		}
 
 		accountResponse := accounting.AccountingAccountToResponse(tmpAccount)
-		journalEntryLinesResponse = append(journalEntryLinesResponse, accounting.AccountingJournalEntryLineToResponse(tmpJournalEntryLine, accountResponse))
+		journalEntryLinesResponse = append(journalEntryLinesResponse, accounting.AccountingJournalEntryLineToResponse(tmpJournalEntryLine, &accountResponse))
 	}
 
-	if journalEntry.Id == 0 {
+	if journalEntry.Id == nil {
 		return accounting.AccountingJournalEntryResponse{}, http.StatusNotFound, utils.ErrJournalEntryNotFound
 	}
 
 	journalResponse := accounting.AccountingJournalToResponse(journal, nil)
-	return accounting.AccountingJournalEntryToResponse(journalEntry, journalEntryLinesResponse, journalResponse), http.StatusOK, nil
+	return accounting.AccountingJournalEntryToResponse(journalEntry, &journalEntryLinesResponse, &journalResponse), http.StatusOK, nil
 }
 
 func (service *AccountingJournalEntryService) CreateJournalEntry(ctx *utils.CtxValue, journalEntry *accounting.AccountingJournalEntryCreateRequest) (int, error) {
 	commonModel := models.CommonModel{}
-	commonModel.PrepareForCreate(ctx.User.Id, ctx.User.Id)
+	commonModel.PrepareForCreate(*ctx.User.Id, *ctx.User.Id)
 
 	// Check if lines are empty debit and credit
 	for _, line := range journalEntry.Lines {
@@ -332,7 +332,7 @@ func (service *AccountingJournalEntryService) CreateJournalEntry(ctx *utils.CtxV
 
 func (service *AccountingJournalEntryService) UpdateJournalEntry(ctx *utils.CtxValue, id string, journalEntry *accounting.AccountingJournalEntryUpdateRequest) (int, error) {
 	commonModel := models.CommonModel{}
-	commonModel.PrepareForCreate(ctx.User.Id, ctx.User.Id)
+	commonModel.PrepareForCreate(*ctx.User.Id, *ctx.User.Id)
 
 	tx, err := service.DB.Begin()
 	if err != nil {
@@ -361,7 +361,21 @@ func (service *AccountingJournalEntryService) UpdateJournalEntry(ctx *utils.CtxV
 	}
 
 	bqbQuery = bqb.New(`UPDATE "accounting.journal_entry" SET mid = ?, mtime = ?`, commonModel.MId, commonModel.MTime)
-	utils.PrepareUpdateBqbQuery(bqbQuery, journalEntry)
+	if journalEntry.Name != nil {
+		bqbQuery.Space(`name = ?`, *journalEntry.Name)
+	}
+	if journalEntry.Date != nil {
+		bqbQuery.Space(`date = ?`, *journalEntry.Date)
+	}
+	if journalEntry.Note != nil {
+		bqbQuery.Space(`note = ?`, *journalEntry.Note)
+	}
+	if journalEntry.Status != nil {
+		bqbQuery.Space(`status = ?`, *journalEntry.Status)
+	}
+	if journalEntry.JournalId != nil {
+		bqbQuery.Space(`accounting_journal_id = ?`, *journalEntry.JournalId)
+	}
 	bqbQuery.Space(`WHERE id = ?`, id)
 
 	query, params, err = bqbQuery.ToPgsql()
@@ -418,7 +432,18 @@ func (service *AccountingJournalEntryService) UpdateJournalEntry(ctx *utils.CtxV
 			go func() {
 				defer wg.Done()
 				bqbQuery := bqb.New(`UPDATE "accounting.journal_entry_line" SET mid = ?, mtime = ?`, commonModel.MId, commonModel.MTime)
-				utils.PrepareUpdateBqbQuery(bqbQuery, &line)
+				if line.Sequence != nil {
+					bqbQuery.Space(`SET sequence = ?`, *line.Sequence)
+				}
+				if line.Name != nil {
+					bqbQuery.Space(`SET name = ?`, *line.Name)
+				}
+				if line.AmountDebit != nil {
+					bqbQuery.Space(`SET amount_debit = ?`, *line.AmountDebit)
+				}
+				if line.AmountCredit != nil {
+					bqbQuery.Space(`SET amount_credit = ?`, *line.AmountCredit)
+				}
 				bqbQuery.Space(`WHERE id = ? AND accounting_journal_entry_id = ?`, line.Id, id)
 
 				query, params, err := bqbQuery.ToPgsql()

@@ -102,7 +102,7 @@ func (service *AccountingAccountService) Account(id string) (accounting.Accounti
 
 func (service *AccountingAccountService) CreateAccount(ctx *utils.CtxValue, account *accounting.AccountingAccountCreateRequest) (int, error) {
 	commonModel := models.CommonModel{}
-	commonModel.PrepareForCreate(ctx.User.Id, ctx.User.Id)
+	commonModel.PrepareForCreate(*ctx.User.Id, *ctx.User.Id)
 
 	bqbQuery := bqb.New(`INSERT INTO "accounting.account"
 	(name, code, typ, cid, ctime, mid, mtime)
@@ -131,10 +131,18 @@ func (service *AccountingAccountService) CreateAccount(ctx *utils.CtxValue, acco
 
 func (service *AccountingAccountService) UpdateAccount(ctx *utils.CtxValue, id string, account *accounting.AccountingAccountUpdateRequest) (int, error) {
 	commonModel := models.CommonModel{}
-	commonModel.PrepareForUpdate(ctx.User.Id)
+	commonModel.PrepareForUpdate(*ctx.User.Id)
 
 	bqbQuery := bqb.New(`UPDATE "accounting.account" SET mid = ?, mtime = ?`, commonModel.MId, commonModel.MTime)
-	utils.PrepareUpdateBqbQuery(bqbQuery, account)
+	if account.Name != nil {
+		bqbQuery.Space(`SET name = ?`, *account.Name)
+	}
+	if account.Code != nil {
+		bqbQuery.Space(`SET code = ?`, *account.Code)
+	}
+	if account.Typ != nil {
+		bqbQuery.Space(`SET typ = ?`, *account.Typ)
+	}
 	bqbQuery.Space(`WHERE id = ?`, id)
 
 	query, params, err := bqbQuery.ToPgsql()

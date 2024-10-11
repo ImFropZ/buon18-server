@@ -1,26 +1,22 @@
 package setting
 
 import (
-	"strings"
-
 	"system.buon18.com/m/models"
-
-	"github.com/nullism/bqb"
 )
 
 type SettingUser struct {
 	*models.CommonModel
-	Id    uint
-	Name  string
-	Email string
-	Pwd   string
-	Typ   string
+	Id    *uint
+	Name  *string
+	Email *string
+	Pwd   *string
+	Typ   *string
 	// -- Foreign keys
-	SettingRoleId uint
+	SettingRoleId *uint
 }
 
 func (SettingUser) AllowFilterFieldsAndOps() []string {
-	return []string{"name:ilike", "email:ilike", "name:like", "email:like", "typ:in", "role_id:eq"}
+	return []string{"name:ilike", "email:ilike", "name:like", "email:like", "typ:in", "role-id:eq"}
 }
 
 func (SettingUser) AllowSorts() []string {
@@ -28,14 +24,14 @@ func (SettingUser) AllowSorts() []string {
 }
 
 type SettingUserResponse struct {
-	Id    uint                `json:"id"`
-	Name  string              `json:"name"`
-	Email string              `json:"email"`
-	Type  string              `json:"type"`
-	Role  SettingRoleResponse `json:"role"`
+	Id    *uint                `json:"id"`
+	Name  *string              `json:"name"`
+	Email *string              `json:"email"`
+	Type  *string              `json:"type"`
+	Role  *SettingRoleResponse `json:"role"`
 }
 
-func SettingUserToResponse(user SettingUser, role SettingRoleResponse) SettingUserResponse {
+func SettingUserToResponse(user SettingUser, role *SettingRoleResponse) SettingUserResponse {
 	return SettingUserResponse{
 		Id:    user.Id,
 		Name:  user.Name,
@@ -56,19 +52,4 @@ type SettingUserUpdateRequest struct {
 	Email    *string `json:"email" validate:"omitempty,email"`
 	Password *string `json:"password"`
 	RoleId   *uint   `json:"role_id"`
-}
-
-func (request SettingUserUpdateRequest) MapUpdateFields(bqbQuery *bqb.Query, fieldName string, value interface{}) error {
-	switch strings.ToLower(fieldName) {
-	case "name":
-		bqbQuery.Comma("name = ?", value)
-	case "email":
-		bqbQuery.Comma("email = ?", value)
-	case "roleid":
-		bqbQuery.Comma("setting_role_id = ?", value)
-	default:
-		return models.ErrInvalidUpdateField
-	}
-
-	return nil
 }

@@ -1,7 +1,7 @@
 INSERT INTO
     "setting.customer" (
         id,
-        fullname,
+        full_name,
         gender,
         email,
         phone,

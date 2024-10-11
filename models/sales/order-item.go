@@ -1,39 +1,40 @@
 package sales
 
 import (
-	"strings"
-
 	"system.buon18.com/m/models"
-
-	"github.com/nullism/bqb"
 )
 
 type SalesOrderItem struct {
 	*models.CommonModel
-	Id          int
-	Name        string
-	Description string
-	Price       float64
-	Discount    float64
+	Id          *int
+	Name        *string
+	Description *string
+	Price       *float64
+	Discount    *float64
 }
 
 type SalesOrderItemResponse struct {
-	Id          int     `json:"id"`
-	Name        string  `json:"name"`
-	Description string  `json:"description"`
-	Price       float64 `json:"price"`
-	Discount    float64 `json:"discount"`
-	AmountTotal float64 `json:"amount_total"`
+	Id          *int     `json:"id,omitempty"`
+	Name        *string  `json:"name,omitempty"`
+	Description *string  `json:"description,omitempty"`
+	Price       *float64 `json:"price,omitempty"`
+	Discount    *float64 `json:"discount,omitempty"`
+	AmountTotal *float64 `json:"amount_total,omitempty"`
 }
 
 func SalesOrderItemToResponse(item SalesOrderItem) SalesOrderItemResponse {
+	amount := 0.0
+	if item.Price != nil && item.Discount != nil {
+		amount = *item.Price - *item.Discount
+	}
+
 	return SalesOrderItemResponse{
 		Id:          item.Id,
 		Name:        item.Name,
 		Description: item.Description,
 		Price:       item.Price,
 		Discount:    item.Discount,
-		AmountTotal: item.Price - item.Discount,
+		AmountTotal: &amount,
 	}
 }
 
@@ -50,20 +51,4 @@ type SalesOrderItemUpdateRequest struct {
 	Description *string  `json:"description" validate:"omitempty,max=255"`
 	Price       *float64 `json:"price" validate:"omitempty,numeric,min=0"`
 	Discount    *float64 `json:"discount" validate:"omitempty,numeric,min=0"`
-}
-
-func (request SalesOrderItemUpdateRequest) MapUpdateFields(bqbQuery *bqb.Query, fieldname string, value interface{}) error {
-	switch strings.ToLower(fieldname) {
-	case "name":
-		bqbQuery.Comma("name = ?", value)
-	case "description":
-		bqbQuery.Comma("description = ?", value)
-	case "price":
-		bqbQuery.Comma("price = ?", value)
-	case "discount":
-		bqbQuery.Comma("discount = ?", value)
-	default:
-		return models.ErrInvalidUpdateField
-	}
-	return nil
 }

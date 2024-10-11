@@ -318,7 +318,8 @@ func (handler *SettingHandler) UpdateRole(w http.ResponseWriter, r *http.Request
 				for _, permissionId := range *req.AddPermissionIds {
 					if utils.ContainsString(utils.FULL_PERMISSION_IDS, utils.IntToStr(int(permissionId))) {
 						for _, permission := range *ctx.Permissions {
-							if utils.ContainsString([]string{utils.PREDEFINED_PERMISSIONS.FULL_ACCESS}, permission.Name) {
+
+							if permission.Name != nil && utils.ContainsString([]string{utils.PREDEFINED_PERMISSIONS.FULL_ACCESS}, *permission.Name) {
 								hasPermission = true
 							}
 						}
@@ -329,7 +330,7 @@ func (handler *SettingHandler) UpdateRole(w http.ResponseWriter, r *http.Request
 				for _, permissionId := range *req.RemovePermissionIds {
 					if utils.ContainsString(utils.FULL_PERMISSION_IDS, utils.IntToStr(int(permissionId))) {
 						for _, permission := range *ctx.Permissions {
-							if utils.ContainsString([]string{utils.PREDEFINED_PERMISSIONS.FULL_ACCESS}, permission.Name) {
+							if permission.Name != nil && utils.ContainsString([]string{utils.PREDEFINED_PERMISSIONS.FULL_ACCESS}, *permission.Name) {
 								hasPermission = true
 							}
 						}
