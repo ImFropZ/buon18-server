@@ -2,7 +2,8 @@ package accounting
 
 import (
 	"database/sql"
-	"log"
+	"fmt"
+	"log/slog"
 	"net/http"
 
 	"github.com/lib/pq"
@@ -45,13 +46,13 @@ func (service *AccountingJournalService) Journals(qp *utils.QueryParams) ([]acco
 
 	query, params, err := bqbQuery.ToPgsql()
 	if err != nil {
-		log.Printf("%v", err)
+		slog.Error(fmt.Sprintf("%v", err))
 		return nil, 0, http.StatusInternalServerError, utils.ErrInternalServer
 	}
 
 	rows, err := service.DB.Query(query, params...)
 	if err != nil {
-		log.Printf("%v", err)
+		slog.Error(fmt.Sprintf("%v", err))
 		return nil, 0, http.StatusInternalServerError, utils.ErrInternalServer
 	}
 
@@ -61,7 +62,7 @@ func (service *AccountingJournalService) Journals(qp *utils.QueryParams) ([]acco
 		var account accounting.AccountingAccount
 		err := rows.Scan(&journal.Id, &journal.Code, &journal.Name, &journal.Typ, &account.Id, &account.Code, &account.Name, &account.Typ)
 		if err != nil {
-			log.Printf("%v", err)
+			slog.Error(fmt.Sprintf("%v", err))
 			return nil, 0, http.StatusInternalServerError, utils.ErrInternalServer
 		}
 
@@ -74,14 +75,13 @@ func (service *AccountingJournalService) Journals(qp *utils.QueryParams) ([]acco
 
 	query, params, err = bqbQuery.ToPgsql()
 	if err != nil {
-		log.Printf("%v", err)
+		slog.Error(fmt.Sprintf("%v", err))
 		return nil, 0, http.StatusInternalServerError, utils.ErrInternalServer
 	}
 
 	var total int
-	err = service.DB.QueryRow(query, params...).Scan(&total)
-	if err != nil {
-		log.Printf("%v", err)
+	if err := service.DB.QueryRow(query, params...).Scan(&total); err != nil {
+		slog.Error(fmt.Sprintf("%v", err))
 		return nil, 0, http.StatusInternalServerError, utils.ErrInternalServer
 	}
 
@@ -112,7 +112,7 @@ func (service *AccountingJournalService) Journal(id string) (accounting.Accounti
 
 	query, params, err := bqbQuery.ToPgsql()
 	if err != nil {
-		log.Printf("%v", err)
+		slog.Error(fmt.Sprintf("%v", err))
 		return accounting.AccountingJournalResponse{}, http.StatusInternalServerError, utils.ErrInternalServer
 	}
 
@@ -123,7 +123,7 @@ func (service *AccountingJournalService) Journal(id string) (accounting.Accounti
 			return accounting.AccountingJournalResponse{}, http.StatusNotFound, utils.ErrJournalNotFound
 		}
 
-		log.Printf("%v", err)
+		slog.Error(fmt.Sprintf("%v", err))
 		return accounting.AccountingJournalResponse{}, http.StatusInternalServerError, utils.ErrInternalServer
 	}
 
@@ -146,11 +146,11 @@ func (service *AccountingJournalService) CreateJournal(ctx *utils.CtxValue, jour
 
 	query, params, err := bqbQuery.ToPgsql()
 	if err != nil {
-		log.Printf("%v", err)
+		slog.Error(fmt.Sprintf("%v", err))
 		return http.StatusInternalServerError, utils.ErrInternalServer
 	}
 
-	if _, err = service.DB.Exec(query, params...); err != nil {
+	if _, err := service.DB.Exec(query, params...); err != nil {
 		switch err.(*pq.Error).Constraint {
 		case database.FK_ACCOUNTING_ACCOUNT_ID:
 			return http.StatusNotFound, utils.ErrAccountNotFound
@@ -158,7 +158,7 @@ func (service *AccountingJournalService) CreateJournal(ctx *utils.CtxValue, jour
 			return http.StatusConflict, utils.ErrJournalCodeExists
 		}
 
-		log.Printf("%v", err)
+		slog.Error(fmt.Sprintf("%v", err))
 		return http.StatusInternalServerError, utils.ErrInternalServer
 	}
 
@@ -186,7 +186,7 @@ func (service *AccountingJournalService) UpdateJournal(ctx *utils.CtxValue, id s
 
 	query, params, err := bqbQuery.ToPgsql()
 	if err != nil {
-		log.Printf("%v", err)
+		slog.Error(fmt.Sprintf("%v", err))
 		return http.StatusInternalServerError, utils.ErrInternalServer
 	}
 
@@ -199,7 +199,7 @@ func (service *AccountingJournalService) UpdateJournal(ctx *utils.CtxValue, id s
 			return http.StatusConflict, utils.ErrJournalCodeExists
 		}
 
-		log.Printf("%v", err)
+		slog.Error(fmt.Sprintf("%v", err))
 		return http.StatusInternalServerError, utils.ErrInternalServer
 	}
 
@@ -214,7 +214,7 @@ func (service *AccountingJournalService) DeleteJournal(id string) (int, error) {
 	bqbQuery := bqb.New(`DELETE FROM "accounting.journal" WHERE id = ?`, id)
 	query, params, err := bqbQuery.ToPgsql()
 	if err != nil {
-		log.Printf("%v", err)
+		slog.Error(fmt.Sprintf("%v", err))
 		return http.StatusInternalServerError, utils.ErrInternalServer
 	}
 
@@ -225,7 +225,7 @@ func (service *AccountingJournalService) DeleteJournal(id string) (int, error) {
 			return http.StatusForbidden, utils.ErrResourceInUsed
 		}
 
-		log.Printf("%v", err)
+		slog.Error(fmt.Sprintf("%v", err))
 		return http.StatusInternalServerError, utils.ErrInternalServer
 	}
 

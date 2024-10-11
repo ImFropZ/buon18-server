@@ -64,8 +64,7 @@ func (service *AccountingAccountService) Accounts(qp *utils.QueryParams) ([]acco
 	}
 
 	var total int
-	err = service.DB.QueryRow(query, params...).Scan(&total)
-	if err != nil {
+	if err := service.DB.QueryRow(query, params...).Scan(&total); err != nil {
 		slog.Error(fmt.Sprintf("%v", err))
 		return nil, 0, http.StatusInternalServerError, utils.ErrInternalServer
 	}
@@ -91,8 +90,7 @@ func (service *AccountingAccountService) Account(id string) (accounting.Accounti
 	}
 
 	account := accounting.AccountingAccount{}
-	err = service.DB.QueryRow(query, params...).Scan(&account.Id, &account.Code, &account.Name, &account.Typ)
-	if err != nil {
+	if err = service.DB.QueryRow(query, params...).Scan(&account.Id, &account.Code, &account.Name, &account.Typ); err != nil {
 		slog.Error(fmt.Sprintf("%v", err))
 		return accounting.AccountingAccountResponse{}, http.StatusNotFound, utils.ErrAccountNotFound
 	}
@@ -115,8 +113,7 @@ func (service *AccountingAccountService) CreateAccount(ctx *utils.CtxValue, acco
 		return http.StatusInternalServerError, utils.ErrInternalServer
 	}
 
-	_, err = service.DB.Exec(query, params...)
-	if err != nil {
+	if _, err = service.DB.Exec(query, params...); err != nil {
 		switch err.(*pq.Error).Constraint {
 		case database.KEY_ACCOUNTING_ACCOUNT_CODE:
 			return http.StatusConflict, utils.ErrResourceInUsed

@@ -2,7 +2,8 @@ package setting
 
 import (
 	"database/sql"
-	"log"
+	"fmt"
+	"log/slog"
 	"net/http"
 
 	"system.buon18.com/m/models/setting"
@@ -23,13 +24,13 @@ func (service *SettingPermissionService) Permissions(qp *utils.QueryParams) ([]s
 
 	query, params, err := bqbQuery.ToPgsql()
 	if err != nil {
-		log.Printf("%s", err)
+		slog.Error(fmt.Sprintf("%s", err))
 		return nil, 0, http.StatusInternalServerError, utils.ErrInternalServer
 	}
 
 	rows, err := service.DB.Query(query, params...)
 	if err != nil {
-		log.Printf("%s", err)
+		slog.Error(fmt.Sprintf("%s", err))
 		return nil, 0, http.StatusInternalServerError, utils.ErrInternalServer
 	}
 
@@ -38,7 +39,7 @@ func (service *SettingPermissionService) Permissions(qp *utils.QueryParams) ([]s
 		var permission setting.SettingPermission
 		err := rows.Scan(&permission.Id, &permission.Name)
 		if err != nil {
-			log.Printf("%s", err)
+			slog.Error(fmt.Sprintf("%s", err))
 			return nil, 0, http.StatusInternalServerError, utils.ErrInternalServer
 		}
 		permissions = append(permissions, setting.SettingPermissionToResponse(permission))
@@ -49,14 +50,13 @@ func (service *SettingPermissionService) Permissions(qp *utils.QueryParams) ([]s
 
 	query, params, err = bqbQuery.ToPgsql()
 	if err != nil {
-		log.Printf("%s", err)
+		slog.Error(fmt.Sprintf("%s", err))
 		return nil, 0, http.StatusInternalServerError, utils.ErrInternalServer
 	}
 
 	var total int
-	err = service.DB.QueryRow(query, params...).Scan(&total)
-	if err != nil {
-		log.Printf("%s", err)
+	if err := service.DB.QueryRow(query, params...).Scan(&total); err != nil {
+		slog.Error(fmt.Sprintf("%s", err))
 		return nil, 0, http.StatusInternalServerError, utils.ErrInternalServer
 	}
 

@@ -68,8 +68,7 @@ func (service *SettingCustomerService) Customers(qp *utils.QueryParams) ([]setti
 	}
 
 	var total int
-	err = service.DB.QueryRow(query, params...).Scan(&total)
-	if err != nil {
+	if err := service.DB.QueryRow(query, params...).Scan(&total); err != nil {
 		slog.Error(fmt.Sprintf("%s", err))
 		return nil, 0, http.StatusInternalServerError, utils.ErrInternalServer
 	}
@@ -138,7 +137,7 @@ func (service *SettingCustomerService) CreateCustomer(ctx *utils.CtxValue, custo
 		return http.StatusInternalServerError, utils.ErrInternalServer
 	}
 
-	if _, err = service.DB.Exec(query, params...); err != nil {
+	if _, err := service.DB.Exec(query, params...); err != nil {
 		switch err.(*pq.Error).Constraint {
 		case database.KEY_SETTING_CUSTOMER_EMAIL:
 			return http.StatusConflict, utils.ErrCustomerEmailExists
@@ -183,6 +182,7 @@ func (service *SettingCustomerService) UpdateCustomer(ctx *utils.CtxValue, id st
 		if n == 0 {
 			return http.StatusNotFound, utils.ErrCustomerNotFound
 		}
+
 		slog.Error(fmt.Sprintf("%v", err))
 		return http.StatusInternalServerError, utils.ErrInternalServer
 	}
@@ -205,6 +205,8 @@ func (service *SettingCustomerService) DeleteCustomer(id string) (int, error) {
 		case database.FK_SETTING_CUSTOMER_ID:
 			return http.StatusConflict, utils.ErrUnableToDeleteCustomer
 		}
+
+		slog.Error(fmt.Sprintf("%v", err))
 		return http.StatusInternalServerError, utils.ErrInternalServer
 	}
 
@@ -212,6 +214,7 @@ func (service *SettingCustomerService) DeleteCustomer(id string) (int, error) {
 		if n == 0 {
 			return http.StatusNotFound, utils.ErrCustomerNotFound
 		}
+
 		slog.Error(fmt.Sprintf("%v", err))
 		return http.StatusInternalServerError, utils.ErrInternalServer
 	}

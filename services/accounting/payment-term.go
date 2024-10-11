@@ -23,9 +23,7 @@ func (service *AccountingPaymentTermService) PaymentTerms(qp *utils.QueryParams)
 	bqbQuery := bqb.New(`
 	WITH "limited_payment_terms" AS (
 		SELECT
-			id,
-			name,
-			description
+			*
 		FROM
 			"accounting.payment_term"`)
 	qp.FilterIntoBqb(bqbQuery)
@@ -64,7 +62,7 @@ func (service *AccountingPaymentTermService) PaymentTerms(qp *utils.QueryParams)
 	for rows.Next() {
 		var tmpPaymentTerm accounting.AccountingPaymentTerm
 		var tmpPaymentTermLine accounting.AccountingPaymentTermLine
-		err = rows.Scan(
+		if err := rows.Scan(
 			&tmpPaymentTerm.Id,
 			&tmpPaymentTerm.Name,
 			&tmpPaymentTerm.Description,
@@ -72,8 +70,7 @@ func (service *AccountingPaymentTermService) PaymentTerms(qp *utils.QueryParams)
 			&tmpPaymentTermLine.Sequence,
 			&tmpPaymentTermLine.ValueAmountPercent,
 			&tmpPaymentTermLine.NumberOfDays,
-		)
-		if err != nil {
+		); err != nil {
 			slog.Error(fmt.Sprintf("%v", err))
 			return nil, 0, http.StatusInternalServerError, utils.ErrInternalServer
 		}
@@ -115,8 +112,7 @@ func (service *AccountingPaymentTermService) PaymentTerms(qp *utils.QueryParams)
 	}
 
 	var total int
-	err = service.DB.QueryRow(query, params...).Scan(&total)
-	if err != nil {
+	if err := service.DB.QueryRow(query, params...).Scan(&total); err != nil {
 		slog.Error(fmt.Sprintf("%v", err))
 		return nil, 0, http.StatusInternalServerError, utils.ErrInternalServer
 	}
@@ -128,9 +124,7 @@ func (service *AccountingPaymentTermService) PaymentTerm(id string) (accounting.
 	bqbQuery := bqb.New(`
 	WITH "limited_payment_terms" AS (
 		SELECT
-			id,
-			name,
-			description
+			*
 		FROM
 			"accounting.payment_term"
 		WHERE id = ?)
@@ -163,7 +157,7 @@ func (service *AccountingPaymentTermService) PaymentTerm(id string) (accounting.
 	paymentTermLines := make([]accounting.AccountingPaymentTermLine, 0)
 	for rows.Next() {
 		tmpPaymentTermLine := accounting.AccountingPaymentTermLine{}
-		err = rows.Scan(
+		if err := rows.Scan(
 			&paymentTerm.Id,
 			&paymentTerm.Name,
 			&paymentTerm.Description,
@@ -171,8 +165,7 @@ func (service *AccountingPaymentTermService) PaymentTerm(id string) (accounting.
 			&tmpPaymentTermLine.Sequence,
 			&tmpPaymentTermLine.ValueAmountPercent,
 			&tmpPaymentTermLine.NumberOfDays,
-		)
-		if err != nil {
+		); err != nil {
 			slog.Error(fmt.Sprintf("%v", err))
 			return accounting.AccountingPaymentTermResponse{}, http.StatusInternalServerError, utils.ErrInternalServer
 		}
@@ -215,8 +208,7 @@ func (service *AccountingPaymentTermService) CreatePaymentTerm(ctx *utils.CtxVal
 	}
 
 	var paymentTermId int
-	err = tx.QueryRow(query, params...).Scan(&paymentTermId)
-	if err != nil {
+	if err := tx.QueryRow(query, params...).Scan(&paymentTermId); err != nil {
 		switch err.(*pq.Error).Constraint {
 		case database.KEY_ACCOUNTING_PAYMENT_TERM_NAME:
 			return http.StatusConflict, utils.ErrPaymentTermNameExists
@@ -242,14 +234,12 @@ func (service *AccountingPaymentTermService) CreatePaymentTerm(ctx *utils.CtxVal
 		return http.StatusInternalServerError, utils.ErrInternalServer
 	}
 
-	_, err = tx.Exec(query, params...)
-	if err != nil {
+	if _, err := tx.Exec(query, params...); err != nil {
 		slog.Error(fmt.Sprintf("%v", err))
 		return http.StatusInternalServerError, utils.ErrInternalServer
 	}
 
-	err = tx.Commit()
-	if err != nil {
+	if err := tx.Commit(); err != nil {
 		slog.Error(fmt.Sprintf("%v", err))
 		return http.StatusInternalServerError, utils.ErrInternalServer
 	}
@@ -321,8 +311,7 @@ func (service *AccountingPaymentTermService) UpdatePaymentTerm(ctx *utils.CtxVal
 				return
 			}
 
-			_, err = tx.Exec(query, params...)
-			if err != nil {
+			if _, err := tx.Exec(query, params...); err != nil {
 				errorChan <- err
 				return
 			}
@@ -353,8 +342,7 @@ func (service *AccountingPaymentTermService) UpdatePaymentTerm(ctx *utils.CtxVal
 					return
 				}
 
-				_, err = tx.Exec(query, params...)
-				if err != nil {
+				if _, err := tx.Exec(query, params...); err != nil {
 					errorChan <- err
 					return
 				}
@@ -383,8 +371,7 @@ func (service *AccountingPaymentTermService) UpdatePaymentTerm(ctx *utils.CtxVal
 				return
 			}
 
-			_, err = tx.Exec(query, params...)
-			if err != nil {
+			if _, err := tx.Exec(query, params...); err != nil {
 				errorChan <- err
 				return
 			}
@@ -420,8 +407,7 @@ func (service *AccountingPaymentTermService) UpdatePaymentTerm(ctx *utils.CtxVal
 		return http.StatusInternalServerError, utils.ErrInternalServer
 	}
 
-	err = tx.Commit()
-	if err != nil {
+	if err := tx.Commit(); err != nil {
 		slog.Error(fmt.Sprintf("%v", err))
 		return http.StatusInternalServerError, utils.ErrInternalServer
 	}
@@ -471,8 +457,7 @@ func (service *AccountingPaymentTermService) DeletePaymentTerm(id string) (int, 
 		return http.StatusNotFound, utils.ErrPaymentTermNotFound
 	}
 
-	err = tx.Commit()
-	if err != nil {
+	if err := tx.Commit(); err != nil {
 		slog.Error(fmt.Sprintf("%v", err))
 		return http.StatusInternalServerError, utils.ErrInternalServer
 	}

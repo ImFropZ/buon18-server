@@ -41,13 +41,13 @@ func (service *AuthService) Login(loginRequest *LoginRequest) (models.TokenAndRe
 	query, params, err := bqb.New(`
 	SELECT
 		"setting.user".email,
-		COALESCE("setting.user".pwd, ''),
+		"setting.user".pwd,
 		"setting.user".typ,
-		COALESCE("setting.role".id, 0),
-		COALESCE("setting.role".name, ''),
-		COALESCE("setting.role".description, ''),
-		COALESCE("setting.permission".id, 0),
-		COALESCE("setting.permission".name, '')
+		"setting.role".id,
+		"setting.role".name,
+		"setting.role".description,
+		"setting.permission".id,
+		"setting.permission".name
 	FROM
 		"setting.user"
 	LEFT JOIN
@@ -138,10 +138,10 @@ func (service *AuthService) RefreshToken(refreshTokenRequest *RefreshTokenReques
 		"setting.user".email,
 		"setting.user".pwd,
 		"setting.user".typ,
-		"setting.role".id
-		"setting.role".name
-		"setting.role".description
-		"setting.permission".id
+		"setting.role".id,
+		"setting.role".name,
+		"setting.role".description,
+		"setting.permission".id,
 		"setting.permission".name
 	FROM
 		"setting.user"

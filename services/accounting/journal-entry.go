@@ -452,7 +452,7 @@ func (service *AccountingJournalEntryService) UpdateJournalEntry(ctx *utils.CtxV
 					return
 				}
 
-				if _, err = tx.Exec(query, params...); err != nil {
+				if _, err := tx.Exec(query, params...); err != nil {
 					errorChan <- err
 					return
 				}
@@ -480,7 +480,7 @@ func (service *AccountingJournalEntryService) UpdateJournalEntry(ctx *utils.CtxV
 				return
 			}
 
-			if _, err = tx.Exec(query, params...); err != nil {
+			if _, err := tx.Exec(query, params...); err != nil {
 				errorChan <- err
 				return
 			}
@@ -517,8 +517,7 @@ func (service *AccountingJournalEntryService) UpdateJournalEntry(ctx *utils.CtxV
 		return http.StatusInternalServerError, utils.ErrInternalServer
 	}
 
-	err = tx.Commit()
-	if err != nil {
+	if err := tx.Commit(); err != nil {
 		slog.Error(fmt.Sprintf("%v", err))
 		return http.StatusInternalServerError, utils.ErrInternalServer
 	}
@@ -542,8 +541,7 @@ func (service *AccountingJournalEntryService) DeleteJournalEntry(id string) (int
 	}
 
 	var status string
-	err = tx.QueryRow(query, params...).Scan(&status)
-	if err != nil {
+	if err := tx.QueryRow(query, params...).Scan(&status); err != nil {
 		if err == sql.ErrNoRows {
 			return http.StatusNotFound, utils.ErrJournalEntryNotFound
 		}
@@ -563,7 +561,7 @@ func (service *AccountingJournalEntryService) DeleteJournalEntry(id string) (int
 		return http.StatusInternalServerError, utils.ErrInternalServer
 	}
 
-	if _, err = tx.Exec(query, params...); err != nil {
+	if _, err := tx.Exec(query, params...); err != nil {
 		slog.Error(fmt.Sprintf("%v", err))
 		return http.StatusInternalServerError, utils.ErrInternalServer
 	}
@@ -575,13 +573,12 @@ func (service *AccountingJournalEntryService) DeleteJournalEntry(id string) (int
 		return http.StatusInternalServerError, utils.ErrInternalServer
 	}
 
-	if _, err = tx.Exec(query, params...); err != nil {
+	if _, err := tx.Exec(query, params...); err != nil {
 		slog.Error(fmt.Sprintf("%v", err))
 		return http.StatusInternalServerError, utils.ErrInternalServer
 	}
 
-	err = tx.Commit()
-	if err != nil {
+	if err := tx.Commit(); err != nil {
 		slog.Error(fmt.Sprintf("%v", err))
 		return http.StatusInternalServerError, utils.ErrInternalServer
 	}

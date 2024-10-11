@@ -99,7 +99,7 @@ func (service *SalesOrderService) Orders(qp *utils.QueryParams) ([]sales.SalesOr
 		tmpOrderItem := sales.SalesOrderItem{}
 		tmpPaymentTerm := accounting.AccountingPaymentTerm{}
 		tmpPaymentTermLine := accounting.AccountingPaymentTermLine{}
-		err := rows.Scan(
+		if err := rows.Scan(
 			&tmpOrder.Id,
 			&tmpOrder.Name,
 			&tmpOrder.CommitmentDate,
@@ -129,8 +129,7 @@ func (service *SalesOrderService) Orders(qp *utils.QueryParams) ([]sales.SalesOr
 			&tmpPaymentTermLine.Sequence,
 			&tmpPaymentTermLine.ValueAmountPercent,
 			&tmpPaymentTermLine.NumberOfDays,
-		)
-		if err != nil {
+		); err != nil {
 			slog.Error(fmt.Sprintf("%v", err))
 			return nil, 0, http.StatusInternalServerError, utils.ErrInternalServer
 		}
@@ -291,7 +290,7 @@ func (service *SalesOrderService) Order(id string) (sales.SalesOrderResponse, in
 	for rows.Next() {
 		tmpOrderItem := sales.SalesOrderItem{}
 		tmpPaymentTermLine := accounting.AccountingPaymentTermLine{}
-		err := rows.Scan(
+		if err := rows.Scan(
 			&order.Id,
 			&order.Name,
 			&order.CommitmentDate,
@@ -321,8 +320,7 @@ func (service *SalesOrderService) Order(id string) (sales.SalesOrderResponse, in
 			&tmpPaymentTermLine.Sequence,
 			&tmpPaymentTermLine.ValueAmountPercent,
 			&tmpPaymentTermLine.NumberOfDays,
-		)
-		if err != nil {
+		); err != nil {
 			slog.Error(fmt.Sprintf("%v", err))
 			return sales.SalesOrderResponse{}, http.StatusInternalServerError, utils.ErrInternalServer
 		}
@@ -378,7 +376,7 @@ func (service *SalesOrderService) CreateOrder(ctx *utils.CtxValue, order *sales.
 		return http.StatusInternalServerError, utils.ErrInternalServer
 	}
 
-	if _, err = service.DB.Exec(query, params...); err != nil {
+	if _, err := service.DB.Exec(query, params...); err != nil {
 		if message := err.(*pq.Error).Message; strings.HasPrefix(message, "custom_error:") {
 			return http.StatusBadRequest, errors.New(strings.TrimPrefix(message, "custom_error:"))
 		}
@@ -446,8 +444,7 @@ func (service *SalesOrderService) UpdateOrder(ctx *utils.CtxValue, id string, or
 		return http.StatusNotFound, utils.ErrOrderNotFound
 	}
 
-	err = tx.Commit()
-	if err != nil {
+	if err := tx.Commit(); err != nil {
 		slog.Error(fmt.Sprintf("%v", err))
 		return http.StatusInternalServerError, utils.ErrInternalServer
 	}

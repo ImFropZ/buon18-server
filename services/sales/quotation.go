@@ -130,8 +130,7 @@ func (service *SalesQuotationService) Quotations(qp *utils.QueryParams) ([]sales
 	}
 
 	var total int
-	err = service.DB.QueryRow(query, params...).Scan(&total)
-	if err != nil {
+	if err := service.DB.QueryRow(query, params...).Scan(&total); err != nil {
 		slog.Error(fmt.Sprintf("%v", err))
 		return []sales.SalesQuotationResponse{}, 0, http.StatusInternalServerError, utils.ErrInternalServer
 	}
@@ -234,8 +233,7 @@ func (service *SalesQuotationService) CreateQuotation(ctx *utils.CtxValue, quota
 	}
 
 	var id int
-	err = tx.QueryRow(query, params...).Scan(&id)
-	if err != nil {
+	if err := tx.QueryRow(query, params...).Scan(&id); err != nil {
 		switch err.(*pq.Error).Constraint {
 		case database.KEY_SALES_QUOTATION_NAME:
 			return http.StatusConflict, utils.ErrQuotationNameExists
@@ -262,7 +260,7 @@ func (service *SalesQuotationService) CreateQuotation(ctx *utils.CtxValue, quota
 		return http.StatusInternalServerError, utils.ErrInternalServer
 	}
 
-	if _, err = tx.Exec(query, params...); err != nil {
+	if _, err := tx.Exec(query, params...); err != nil {
 		switch err.(*pq.Error).Constraint {
 		case database.FK_SETTING_CUSTOMER_ID:
 			return http.StatusBadRequest, utils.ErrCustomerNotFound
@@ -272,7 +270,7 @@ func (service *SalesQuotationService) CreateQuotation(ctx *utils.CtxValue, quota
 		return http.StatusInternalServerError, utils.ErrInternalServer
 	}
 
-	if err = tx.Commit(); err != nil {
+	if err := tx.Commit(); err != nil {
 		slog.Error(fmt.Sprintf("%v", err))
 		return http.StatusInternalServerError, utils.ErrInternalServer
 	}
@@ -300,8 +298,7 @@ func (service *SalesQuotationService) UpdateQuotation(ctx *utils.CtxValue, id st
 	}
 
 	var status string
-	err = tx.QueryRow(query, params...).Scan(&status)
-	if err != nil {
+	if err := tx.QueryRow(query, params...).Scan(&status); err != nil {
 		if err == sql.ErrNoRows {
 			return http.StatusNotFound, utils.ErrQuotationNotFound
 		}
@@ -480,8 +477,7 @@ func (service *SalesQuotationService) UpdateQuotation(ctx *utils.CtxValue, id st
 		return http.StatusInternalServerError, errorMessage
 	}
 
-	err = tx.Commit()
-	if err != nil {
+	if err := tx.Commit(); err != nil {
 		slog.Error(fmt.Sprintf("%v", err))
 		return http.StatusInternalServerError, utils.ErrInternalServer
 	}
@@ -505,8 +501,7 @@ func (service *SalesQuotationService) DeleteQuotation(id string) (int, error) {
 	}
 
 	var status string
-	err = tx.QueryRow(query, params...).Scan(&status)
-	if err != nil {
+	if err := tx.QueryRow(query, params...).Scan(&status); err != nil {
 		if err == sql.ErrNoRows {
 			return http.StatusNotFound, utils.ErrQuotationNotFound
 		}
@@ -548,8 +543,7 @@ func (service *SalesQuotationService) DeleteQuotation(id string) (int, error) {
 		return http.StatusNotFound, utils.ErrQuotationNotFound
 	}
 
-	err = tx.Commit()
-	if err != nil {
+	if err := tx.Commit(); err != nil {
 		slog.Error(fmt.Sprintf("%v", err))
 		return http.StatusInternalServerError, utils.ErrInternalServer
 	}

@@ -34,17 +34,17 @@ func (service *SettingUserService) Users(qp *utils.QueryParams) ([]setting.Setti
 		"limited_users".name,
 		"limited_users".email,
 		"limited_users".typ,
-		"setting.role".id
-		"setting.role".name
-		"setting.role".description
-		"setting.permission".id
+		"setting.role".id,
+		"setting.role".name,
+		"setting.role".description,
+		"setting.permission".id,
 		"setting.permission".name
 	FROM "limited_users"
 	LEFT JOIN "setting.role" ON "limited_users".setting_role_id = "setting.role".id
 	LEFT JOIN "setting.role_permission" ON "setting.role".id = "setting.role_permission".setting_role_id
 	LEFT JOIN "setting.permission" ON "setting.role_permission".setting_permission_id = "setting.permission".id`)
 
-	qp.OrderByIntoBqb(bqbQuery, `"limited_users".id ASC, "setting.role".id ASC, "setting.permission".id ASC`)
+	qp.OrderByIntoBqb(bqbQuery, ` "limited_users".id ASC, "setting.role".id ASC, "setting.permission".id ASC`)
 
 	query, params, err := bqbQuery.ToPgsql()
 	if err != nil {
@@ -136,10 +136,10 @@ func (service *SettingUserService) User(id string) (setting.SettingUserResponse,
 		"limited_users".name,
 		"limited_users".email,
 		"limited_users".typ,
-		"setting.role".id
-		"setting.role".name
-		"setting.role".description
-		"setting.permission".id
+		"setting.role".id,
+		"setting.role".name,
+		"setting.role".description,
+		"setting.permission".id,
 		"setting.permission".name
 	FROM "limited_users"
 	LEFT JOIN "setting.role" ON "limited_users".setting_role_id = "setting.role".id

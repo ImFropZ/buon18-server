@@ -132,7 +132,7 @@ func (qp *QueryParams) OrderByIntoBqb(bqbQuery *bqb.Query, defaultOrderBy string
 			bqbQuery.Space(fmt.Sprintf(", %s", defaultOrderBy))
 		}
 	} else {
-		bqbQuery.Space(`ORDER BY` + defaultOrderBy)
+		bqbQuery.Space(`ORDER BY ` + defaultOrderBy)
 	}
 }
 
