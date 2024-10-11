@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
-	"sync"
 
 	"github.com/lib/pq"
 	"github.com/nullism/bqb"
@@ -355,12 +354,83 @@ func (service *SalesQuotationService) UpdateQuotation(ctx *utils.CtxValue, id st
 		return http.StatusNotFound, utils.ErrQuotationNotFound
 	}
 
-	errorChan := make(chan error)
-	var wg sync.WaitGroup
+	if quotation.DeleteSalesOrderItemIds != nil {
+		bqbQuery := bqb.New(`DELETE FROM "sales.order_item" WHERE id IN (`)
+		for index, id := range *quotation.DeleteSalesOrderItemIds {
+			bqbQuery.Space(`?`, id)
+			if index != len(*quotation.DeleteSalesOrderItemIds)-1 {
+				bqbQuery.Space(",")
+			}
+		}
+		bqbQuery.Space(`) AND sales_quotation_id = ?`, id)
 
-	if quotation.AddSalesOrderItems != nil {
-		wg.Add(1)
-		go func() {
+		query, params, err := bqbQuery.ToPgsql()
+		if err != nil {
+			slog.Error(fmt.Sprintf("%v", err))
+			return http.StatusInternalServerError, utils.ErrInternalServer
+		}
+
+		if _, err := tx.Exec(query, params...); err != nil {
+			slog.Error(fmt.Sprintf("%v", err))
+			return http.StatusInternalServerError, utils.ErrInternalServer
+		}
+	}
+
+	if quotation.UpdateSalesOrderItems != nil {
+		query := `UPDATE "sales.order_item" SET mid = ?, mtime = ?`
+		params := []interface{}{commonModel.MId, commonModel.MTime}
+
+		queryName := `SET name = (CASE`
+		queryDescription := `SET description = (CASE`
+		queryPrice := `SET price = (CASE`
+		queryDiscount := `SET discount = (CASE`
+
+		queryWhere := `WHERE id in (`
+
+		for i, item := range *quotation.UpdateSalesOrderItems {
+			if item.Name != nil {
+				queryName += ` WHEN id = ? THEN ?`
+				params = append(params, item.Id, *item.Name)
+			}
+			if item.Description != nil {
+				queryDescription += ` WHEN id = ? THEN ?`
+				params = append(params, item.Id, *item.Description)
+			}
+			if item.Price != nil {
+				queryPrice += ` WHEN id = ? THEN ?`
+				params = append(params, item.Id, *item.Price)
+			}
+			if item.Discount != nil {
+				queryDiscount += ` WHEN id = ? THEN ?`
+				params = append(params, item.Id, *item.Discount)
+			}
+			queryWhere += `?`
+
+			if i != len(*quotation.UpdateSalesOrderItems)-1 {
+				queryWhere += `,`
+			} else {
+				if queryName != `SET name = (CASE` {
+					queryName += ` ELSE name END)`
+					query += `,` + queryName
+				}
+				if queryDescription != `SET description = (CASE` {
+					queryDescription += ` ELSE description END)`
+					query += `,` + queryDescription
+				}
+				if queryPrice != `SET price = (CASE` {
+					queryPrice += ` ELSE price END)`
+					query += `,` + queryPrice
+				}
+				if queryDiscount != `SET discount = (CASE` {
+					queryDiscount += ` ELSE discount END)`
+					query += `,` + queryDiscount
+				}
+				query += ` ` + queryWhere + `)` + ` AND sales_quotation_id = ?`
+				params = append(params, id)
+			}
+		}
+
+		if quotation.AddSalesOrderItems != nil {
 			bqbQuery := bqb.New(`INSERT INTO "sales.order_item" (name, description, price, discount, sales_quotation_id, cid, ctime, mid, mtime) VALUES`)
 			for index, item := range *quotation.AddSalesOrderItems {
 				bqbQuery.Space(`(?, ?, ?, ?, ?, ?, ?, ?, ?)`, item.Name, item.Description, item.Price, item.Discount, id, commonModel.CId, commonModel.CTime, commonModel.MId, commonModel.MTime)
@@ -372,109 +442,25 @@ func (service *SalesQuotationService) UpdateQuotation(ctx *utils.CtxValue, id st
 			query, params, err := bqbQuery.ToPgsql()
 			if err != nil {
 				slog.Error(fmt.Sprintf("%v", err))
+				return http.StatusInternalServerError, utils.ErrInternalServer
 			}
 
-			result, err = tx.Exec(query, params...)
-			if err != nil {
+			if _, err := tx.Exec(query, params...); err != nil {
 				slog.Error(fmt.Sprintf("%v", err))
-				errorChan <- err
-			}
-
-			wg.Done()
-		}()
-	}
-
-	if quotation.UpdateSalesOrderItems != nil {
-		for _, item := range *quotation.UpdateSalesOrderItems {
-			wg.Add(1)
-			go func() {
-				bqbQuery := bqb.New(`UPDATE "sales.order_item" SET mid = ?, mtime = ?`, commonModel.MId, commonModel.MTime)
-				if item.Name != nil {
-					bqbQuery.Space(`name = ?`, *item.Name)
-				}
-				if item.Description != nil {
-					bqbQuery.Space(`description = ?`, *item.Description)
-				}
-				if item.Price != nil {
-					bqbQuery.Space(`price = ?`, *item.Price)
-				}
-				if item.Discount != nil {
-					bqbQuery.Space(`discount = ?`, *item.Discount)
-				}
-				bqbQuery.Space(`WHERE id = ? AND sales_quotation_id = ?`, item.Id, id)
-
-				query, params, err := bqbQuery.ToPgsql()
-				if err != nil {
-					slog.Error(fmt.Sprintf("%v", err))
-				}
-
-				_, err = tx.Exec(query, params...)
-				if err != nil {
-					slog.Error(fmt.Sprintf("%v", err))
-					errorChan <- err
-				}
-
-				wg.Done()
-			}()
-		}
-	}
-
-	if quotation.DeleteSalesOrderItemIds != nil {
-		wg.Add(1)
-		go func() {
-			bqbQuery := bqb.New(`DELETE FROM "sales.order_item" WHERE id IN (`)
-			for index, id := range *quotation.DeleteSalesOrderItemIds {
-				bqbQuery.Space(`?`, id)
-				if index != len(*quotation.DeleteSalesOrderItemIds)-1 {
-					bqbQuery.Space(",")
-				}
-			}
-			bqbQuery.Space(`) AND sales_quotation_id = ?`, id)
-
-			query, params, err := bqbQuery.ToPgsql()
-			if err != nil {
-				slog.Error(fmt.Sprintf("%v", err))
-			}
-
-			_, err = tx.Exec(query, params...)
-			if err != nil {
-				slog.Error(fmt.Sprintf("%v", err))
-				errorChan <- err
-			}
-
-			wg.Done()
-		}()
-	}
-
-	hasError := false
-	var errorMessage error
-	go func() {
-		for err := range errorChan {
-			switch err.(*pq.Error).Constraint {
-			case database.KEY_SALES_QUOTATION_NAME:
-				errorMessage = utils.ErrQuotationNameExists
-			case database.FK_SETTING_CUSTOMER_ID:
-				errorMessage = utils.ErrCustomerNotFound
-			}
-			if !hasError {
-				hasError = true
+				return http.StatusInternalServerError, utils.ErrInternalServer
 			}
 		}
-	}()
 
-	wg.Wait()
-	close(errorChan)
-
-	if hasError {
-		switch errorMessage {
-		case utils.ErrQuotationNameExists:
-			return http.StatusConflict, errorMessage
-		case utils.ErrCustomerNotFound:
-			return http.StatusBadRequest, errorMessage
+		query, params, err := bqb.New(query, params...).ToPgsql()
+		if err != nil {
+			slog.Error(fmt.Sprintf("%v", err))
+			return http.StatusInternalServerError, utils.ErrInternalServer
 		}
 
-		slog.Error(fmt.Sprintf("%v", errorMessage))
-		return http.StatusInternalServerError, errorMessage
+		if _, err := tx.Exec(query, params...); err != nil {
+			slog.Error(fmt.Sprintf("%v", err))
+			return http.StatusInternalServerError, utils.ErrInternalServer
+		}
 	}
 
 	if err := tx.Commit(); err != nil {

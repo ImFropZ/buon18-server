@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
-	"sync"
 
 	"github.com/lib/pq"
 	"github.com/nullism/bqb"
@@ -396,125 +395,95 @@ func (service *AccountingJournalEntryService) UpdateJournalEntry(ctx *utils.CtxV
 		return http.StatusInternalServerError, utils.ErrInternalServer
 	}
 
-	errorChan := make(chan error)
-	var wg sync.WaitGroup
-
 	if journalEntry.AddLines != nil {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			bqbQuery := bqb.New(`INSERT INTO "accounting.journal_entry_line"
+		bqbQuery := bqb.New(`INSERT INTO "accounting.journal_entry_line"
 			(sequence, name, amount_debit, amount_credit, accounting_journal_entry_id, accounting_account_id, cid, ctime, mid, mtime)
 			VALUES`)
-			for index, line := range *journalEntry.AddLines {
-				bqbQuery.Space(`(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, line.Sequence, line.Name, line.AmountDebit, line.AmountCredit, id, line.AccountId, commonModel.CId, commonModel.CTime, commonModel.MId, commonModel.MTime)
-				if index != len(*journalEntry.AddLines)-1 {
-					bqbQuery.Space(`,`)
-				}
+		for index, line := range *journalEntry.AddLines {
+			bqbQuery.Space(`(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, line.Sequence, line.Name, line.AmountDebit, line.AmountCredit, id, line.AccountId, commonModel.CId, commonModel.CTime, commonModel.MId, commonModel.MTime)
+			if index != len(*journalEntry.AddLines)-1 {
+				bqbQuery.Space(`,`)
+			}
+		}
+
+		query, params, err := bqbQuery.ToPgsql()
+		if err != nil {
+			slog.Error(fmt.Sprintf("%v", err))
+			return http.StatusInternalServerError, utils.ErrInternalServer
+		}
+
+		if _, err := tx.Exec(query, params...); err != nil {
+			switch err.(*pq.Error).Constraint {
+			case database.CHK_ACCOUNTING_JOURANL_ENTRY_LINE_AMOUNT:
+				return http.StatusBadRequest, utils.ErrBothDebitAndCreditZero
 			}
 
-			query, params, err := bqbQuery.ToPgsql()
-			if err != nil {
-				errorChan <- err
-				return
-			}
-
-			if _, err = tx.Exec(query, params...); err != nil {
-				errorChan <- err
-				return
-			}
-		}()
+			slog.Error(fmt.Sprintf("%v", err))
+			return http.StatusInternalServerError, utils.ErrInternalServer
+		}
 	}
 
 	if journalEntry.UpdateLines != nil {
 		for _, line := range *journalEntry.UpdateLines {
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
-				bqbQuery := bqb.New(`UPDATE "accounting.journal_entry_line" SET mid = ?, mtime = ?`, commonModel.MId, commonModel.MTime)
-				if line.Sequence != nil {
-					bqbQuery.Space(`SET sequence = ?`, *line.Sequence)
-				}
-				if line.Name != nil {
-					bqbQuery.Space(`SET name = ?`, *line.Name)
-				}
-				if line.AmountDebit != nil {
-					bqbQuery.Space(`SET amount_debit = ?`, *line.AmountDebit)
-				}
-				if line.AmountCredit != nil {
-					bqbQuery.Space(`SET amount_credit = ?`, *line.AmountCredit)
-				}
-				bqbQuery.Space(`WHERE id = ? AND accounting_journal_entry_id = ?`, line.Id, id)
+			bqbQuery := bqb.New(`UPDATE "accounting.journal_entry_line" SET mid = ?, mtime = ?`, commonModel.MId, commonModel.MTime)
+			if line.Sequence != nil {
+				bqbQuery.Space(`SET sequence = ?`, *line.Sequence)
+			}
+			if line.Name != nil {
+				bqbQuery.Space(`SET name = ?`, *line.Name)
+			}
+			if line.AmountDebit != nil {
+				bqbQuery.Space(`SET amount_debit = ?`, *line.AmountDebit)
+			}
+			if line.AmountCredit != nil {
+				bqbQuery.Space(`SET amount_credit = ?`, *line.AmountCredit)
+			}
+			bqbQuery.Space(`WHERE id = ? AND accounting_journal_entry_id = ?`, line.Id, id)
 
-				query, params, err := bqbQuery.ToPgsql()
-				if err != nil {
-					errorChan <- err
-					return
+			query, params, err := bqbQuery.ToPgsql()
+			if err != nil {
+				slog.Error(fmt.Sprintf("%v", err))
+				return http.StatusInternalServerError, utils.ErrInternalServer
+			}
+
+			if _, err := tx.Exec(query, params...); err != nil {
+				switch err.(*pq.Error).Constraint {
+				case database.CHK_ACCOUNTING_JOURANL_ENTRY_LINE_AMOUNT:
+					return http.StatusBadRequest, utils.ErrBothDebitAndCreditZero
 				}
 
-				if _, err := tx.Exec(query, params...); err != nil {
-					errorChan <- err
-					return
-				}
-			}()
+				slog.Error(fmt.Sprintf("%v", err))
+				return http.StatusInternalServerError, utils.ErrInternalServer
+			}
 		}
 	}
 
 	if journalEntry.DeleteLines != nil {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			bqbQuery := bqb.New(`DELETE FROM "accounting.journal_entry_line" WHERE id IN (`)
-			for index, lineId := range *journalEntry.DeleteLines {
-				if index == 0 {
-					bqbQuery.Space(`?`, lineId)
-				} else {
-					bqbQuery.Comma(`?`, lineId)
-				}
+		bqbQuery := bqb.New(`DELETE FROM "accounting.journal_entry_line" WHERE id IN (`)
+		for index, lineId := range *journalEntry.DeleteLines {
+			if index == 0 {
+				bqbQuery.Space(`?`, lineId)
+			} else {
+				bqbQuery.Comma(`?`, lineId)
 			}
-			bqbQuery.Space(`) AND accounting_journal_entry_id = ?`, id)
+		}
+		bqbQuery.Space(`) AND accounting_journal_entry_id = ?`, id)
 
-			query, params, err := bqbQuery.ToPgsql()
-			if err != nil {
-				errorChan <- err
-				return
-			}
+		query, params, err := bqbQuery.ToPgsql()
+		if err != nil {
+			slog.Error(fmt.Sprintf("%v", err))
+			return http.StatusInternalServerError, utils.ErrInternalServer
+		}
 
-			if _, err := tx.Exec(query, params...); err != nil {
-				errorChan <- err
-				return
-			}
-		}()
-	}
-
-	hasError := false
-	var errorMessage error
-	go func() {
-		for err := range errorChan {
+		if _, err := tx.Exec(query, params...); err != nil {
 			switch err.(*pq.Error).Constraint {
 			case database.CHK_ACCOUNTING_JOURANL_ENTRY_LINE_AMOUNT:
-				errorMessage = utils.ErrBothDebitAndCreditZero
-			case database.FK_ACCOUNTING_ACCOUNT_ID:
-				errorMessage = utils.ErrAccountNotFound
+				return http.StatusBadRequest, utils.ErrBothDebitAndCreditZero
 			}
-			if !hasError {
-				hasError = true
-			}
+
+			slog.Error(fmt.Sprintf("%v", err))
+			return http.StatusInternalServerError, utils.ErrInternalServer
 		}
-	}()
-
-	wg.Wait()
-	close(errorChan)
-
-	if hasError {
-		switch errorMessage {
-		case utils.ErrBothDebitAndCreditZero:
-			return http.StatusBadRequest, utils.ErrBothDebitAndCreditZero
-		case utils.ErrAccountNotFound:
-			return http.StatusNotFound, utils.ErrAccountNotFound
-		}
-
-		return http.StatusInternalServerError, utils.ErrInternalServer
 	}
 
 	if err := tx.Commit(); err != nil {
