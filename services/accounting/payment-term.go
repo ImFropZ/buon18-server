@@ -74,22 +74,17 @@ func (service *AccountingPaymentTermService) PaymentTerms(qp *utils.QueryParams)
 			return nil, 0, http.StatusInternalServerError, utils.ErrInternalServer
 		}
 
-		if lastPaymentTerm.Id != tmpPaymentTerm.Id && lastPaymentTerm.Id != nil {
+		if *lastPaymentTerm.Id != *tmpPaymentTerm.Id && lastPaymentTerm.Id != nil {
 			paymentTermLinesResponse := make([]accounting.AccountingPaymentTermLineResponse, 0)
 			for _, paymentTermLine := range paymentTermLines {
 				paymentTermLinesResponse = append(paymentTermLinesResponse, accounting.AccountingPaymentTermLineToResponse(paymentTermLine))
 			}
 			paymentTermsResponse = append(paymentTermsResponse, accounting.AccountingPaymentTermToResponse(lastPaymentTerm, &paymentTermLinesResponse))
-			lastPaymentTerm = tmpPaymentTerm
+
 			paymentTermLines = make([]accounting.AccountingPaymentTermLine, 0)
-			paymentTermLines = append(paymentTermLines, tmpPaymentTermLine)
-			continue
 		}
 
-		if lastPaymentTerm.Id == nil {
-			lastPaymentTerm = tmpPaymentTerm
-		}
-
+		lastPaymentTerm = tmpPaymentTerm
 		paymentTermLines = append(paymentTermLines, tmpPaymentTermLine)
 	}
 

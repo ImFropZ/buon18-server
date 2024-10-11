@@ -79,13 +79,12 @@ func (service *SalesQuotationService) Quotations(qp *utils.QueryParams) ([]sales
 		var tmpCustomer setting.SettingCustomer
 		var tmpOrderItem sales.SalesOrderItem
 
-		err = rows.Scan(&tmpQuotation.Id, &tmpQuotation.Name, &tmpQuotation.CreationDate, &tmpQuotation.ValidityDate, &tmpQuotation.Discount, &tmpQuotation.AmountDelivery, &tmpQuotation.Status, &tmpCustomer.Id, &tmpCustomer.FullName, &tmpCustomer.Gender, &tmpCustomer.Email, &tmpCustomer.Phone, &tmpCustomer.AdditionalInformation, &tmpOrderItem.Id, &tmpOrderItem.Name, &tmpOrderItem.Description, &tmpOrderItem.Price, &tmpOrderItem.Discount)
-		if err != nil {
+		if err := rows.Scan(&tmpQuotation.Id, &tmpQuotation.Name, &tmpQuotation.CreationDate, &tmpQuotation.ValidityDate, &tmpQuotation.Discount, &tmpQuotation.AmountDelivery, &tmpQuotation.Status, &tmpCustomer.Id, &tmpCustomer.FullName, &tmpCustomer.Gender, &tmpCustomer.Email, &tmpCustomer.Phone, &tmpCustomer.AdditionalInformation, &tmpOrderItem.Id, &tmpOrderItem.Name, &tmpOrderItem.Description, &tmpOrderItem.Price, &tmpOrderItem.Discount); err != nil {
 			slog.Error(fmt.Sprintf("%v", err))
 			return []sales.SalesQuotationResponse{}, 0, http.StatusInternalServerError, utils.ErrInternalServer
 		}
 
-		if lastQuotation.Id != tmpQuotation.Id && lastQuotation.Id != nil {
+		if *lastQuotation.Id != *tmpQuotation.Id && lastQuotation.Id != nil {
 			customerResponse := setting.SettingCustomerToResponse(lastCustomer)
 			orderItemsResponse := make([]sales.SalesOrderItemResponse, 0)
 			for _, item := range orderItems {
@@ -93,22 +92,12 @@ func (service *SalesQuotationService) Quotations(qp *utils.QueryParams) ([]sales
 			}
 			quotationsResponse = append(quotationsResponse, sales.SalesQuotationToResponse(lastQuotation, &customerResponse, &orderItemsResponse))
 
-			// Reset and append new data
-			lastQuotation = tmpQuotation
-			lastCustomer = tmpCustomer
 			orderItems = make([]sales.SalesOrderItem, 0)
-			orderItems = append(orderItems, tmpOrderItem)
-			continue
 		}
 
-		if lastQuotation.Id == nil {
-			lastQuotation = tmpQuotation
-			lastCustomer = tmpCustomer
-		}
-
-		if tmpOrderItem.Id != nil {
-			orderItems = append(orderItems, tmpOrderItem)
-		}
+		lastQuotation = tmpQuotation
+		lastCustomer = tmpCustomer
+		orderItems = append(orderItems, tmpOrderItem)
 	}
 	if lastQuotation.Id != nil {
 		customerResponse := setting.SettingCustomerToResponse(lastCustomer)
@@ -187,8 +176,25 @@ func (service *SalesQuotationService) Quotation(id string) (sales.SalesQuotation
 	orderItems := make([]sales.SalesOrderItem, 0)
 	for rows.Next() {
 		var tmpOrderItem sales.SalesOrderItem
-		err = rows.Scan(&quotation.Id, &quotation.Name, &quotation.CreationDate, &quotation.ValidityDate, &quotation.Discount, &quotation.AmountDelivery, &quotation.Status, &customer.Id, &customer.FullName, &customer.Gender, &customer.Email, &customer.Phone, &customer.AdditionalInformation, &tmpOrderItem.Id, &tmpOrderItem.Name, &tmpOrderItem.Description, &tmpOrderItem.Price, &tmpOrderItem.Discount)
-		if err != nil {
+		if err := rows.Scan(
+			&quotation.Id,
+			&quotation.Name,
+			&quotation.CreationDate,
+			&quotation.ValidityDate,
+			&quotation.Discount,
+			&quotation.AmountDelivery,
+			&quotation.Status,
+			&customer.Id,
+			&customer.FullName,
+			&customer.Gender,
+			&customer.Email,
+			&customer.Phone,
+			&customer.AdditionalInformation,
+			&tmpOrderItem.Id,
+			&tmpOrderItem.Name,
+			&tmpOrderItem.Description,
+			&tmpOrderItem.Price,
+			&tmpOrderItem.Discount); err != nil {
 			slog.Error(fmt.Sprintf("%v", err))
 			return sales.SalesQuotationResponse{}, http.StatusInternalServerError, utils.ErrInternalServer
 		}

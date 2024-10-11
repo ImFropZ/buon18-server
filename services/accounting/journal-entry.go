@@ -22,13 +22,8 @@ type AccountingJournalEntryService struct {
 func (service *AccountingJournalEntryService) JournalEntries(qp *utils.QueryParams) ([]accounting.AccountingJournalEntryResponse, int, int, error) {
 	bqbQuery := bqb.New(`WITH limited_journal_entries AS (
     SELECT
-        "accounting.journal_entry".id,
-		"accounting.journal_entry".name,
-		"accounting.journal_entry".date,
-		"accounting.journal_entry".note,
-		"accounting.journal_entry".status,
-		"accounting.journal_entry".accounting_journal_id
-    FROM
+		*
+	FROM
         "accounting.journal_entry"`)
 
 	qp.FilterIntoBqb(bqbQuery)
@@ -108,25 +103,12 @@ func (service *AccountingJournalEntryService) JournalEntries(qp *utils.QueryPara
 			return nil, 0, http.StatusInternalServerError, utils.ErrInternalServer
 		}
 
-		if lastJournal.Id != tmpJournal.Id {
-			if lastJournalEntry.Id != nil {
-				journalResponse := accounting.AccountingJournalToResponse(lastJournal, nil)
-				journalEntriesResponse = append(journalEntriesResponse, accounting.AccountingJournalEntryToResponse(lastJournalEntry, &journalEntryLinesResponse, &journalResponse))
-			}
-
-			// Reset and append new data
-			lastJournalEntry = tmpJournalEntry
-			lastJournal = tmpJournal
-			journalEntryLinesResponse = make([]accounting.AccountingJournalEntryLineResponse, 0)
-			accountResponse := accounting.AccountingAccountToResponse(tmpAccount)
-			journalEntryLinesResponse = append(journalEntryLinesResponse, accounting.AccountingJournalEntryLineToResponse(tmpJournalEntryLine, &accountResponse))
-			continue
+		if *lastJournal.Id != *tmpJournal.Id && lastJournal.Id != nil {
+			journalResponse := accounting.AccountingJournalToResponse(lastJournal, nil)
+			journalEntriesResponse = append(journalEntriesResponse, accounting.AccountingJournalEntryToResponse(lastJournalEntry, &journalEntryLinesResponse, &journalResponse))
 		}
 
-		if lastJournalEntry.Id != tmpJournalEntry.Id {
-			lastJournalEntry = tmpJournalEntry
-		}
-
+		lastJournalEntry = tmpJournalEntry
 		accountResponse := accounting.AccountingAccountToResponse(tmpAccount)
 		journalEntryLinesResponse = append(journalEntryLinesResponse, accounting.AccountingJournalEntryLineToResponse(tmpJournalEntryLine, &accountResponse))
 	}
@@ -158,12 +140,7 @@ func (service *AccountingJournalEntryService) JournalEntries(qp *utils.QueryPara
 func (service *AccountingJournalEntryService) JournalEntry(id string) (accounting.AccountingJournalEntryResponse, int, error) {
 	bqbQuery := bqb.New(`WITH limited_journal_entries AS (
 		SELECT
-			"accounting.journal_entry".id,
-			"accounting.journal_entry".name,
-			"accounting.journal_entry".date,
-			"accounting.journal_entry".note,
-			"accounting.journal_entry".status,
-			"accounting.journal_entry".accounting_journal_id
+			*
 		FROM
 			"accounting.journal_entry"
 		WHERE

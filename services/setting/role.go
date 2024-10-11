@@ -64,17 +64,17 @@ func (service *SettingRoleService) Roles(qp *utils.QueryParams) ([]setting.Setti
 			return nil, 0, http.StatusInternalServerError, utils.ErrInternalServer
 		}
 
-		if lastRole.Id != tmpRole.Id {
-			if lastRole.Id != nil {
-				permissionsResponse := make([]setting.SettingPermissionResponse, 0)
-				for _, permission := range permissions {
-					permissionsResponse = append(permissionsResponse, setting.SettingPermissionToResponse(permission))
-				}
-				roles = append(roles, setting.SettingRoleToResponse(lastRole, &permissionsResponse))
+		if *lastRole.Id != *tmpRole.Id && lastRole.Id != nil {
+			permissionsResponse := make([]setting.SettingPermissionResponse, 0)
+			for _, permission := range permissions {
+				permissionsResponse = append(permissionsResponse, setting.SettingPermissionToResponse(permission))
 			}
+			roles = append(roles, setting.SettingRoleToResponse(lastRole, &permissionsResponse))
+
 			lastRole = tmpRole
 			permissions = make([]setting.SettingPermission, 0)
 		}
+
 		permissions = append(permissions, tmpPermission)
 	}
 	if lastRole.Id != nil {

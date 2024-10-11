@@ -89,8 +89,8 @@ func (service *SalesOrderService) Orders(qp *utils.QueryParams) ([]sales.SalesOr
 	lastOrder := sales.SalesOrder{}
 	lastCustomer := setting.SettingCustomer{}
 	lastQuotation := sales.SalesQuotation{}
-	orderItems := make([]sales.SalesOrderItem, 0)
 	lastPaymentTerm := accounting.AccountingPaymentTerm{}
+	orderItems := make([]sales.SalesOrderItem, 0)
 	paymentTermLines := make([]accounting.AccountingPaymentTermLine, 0)
 	for rows.Next() {
 		tmpOrder := sales.SalesOrder{}
@@ -134,7 +134,7 @@ func (service *SalesOrderService) Orders(qp *utils.QueryParams) ([]sales.SalesOr
 			return nil, 0, http.StatusInternalServerError, utils.ErrInternalServer
 		}
 
-		if (lastQuotation.Id != tmpQuotation.Id && lastQuotation.Id != nil) && (lastPaymentTerm.Id != tmpPaymentTerm.Id && lastPaymentTerm.Id != nil) {
+		if *lastOrder.Id != *tmpOrder.Id && lastOrder.Id != nil {
 			orderItemsResponse := make([]sales.SalesOrderItemResponse, 0)
 			for _, item := range orderItems {
 				orderItemsResponse = append(orderItemsResponse, sales.SalesOrderItemToResponse(item))
@@ -147,44 +147,19 @@ func (service *SalesOrderService) Orders(qp *utils.QueryParams) ([]sales.SalesOr
 			}
 			paymentTermResponse := accounting.AccountingPaymentTermToResponse(lastPaymentTerm, &paymentTermLinesResponse)
 			ordersResponse = append(ordersResponse, sales.SalesOrderToResponse(lastOrder, &quotationResponse, &paymentTermResponse))
+		}
 
-			// Reset and append new data
-			lastOrder = tmpOrder
-			lastQuotation = tmpQuotation
-			lastCustomer = tmpCustomer
-			orderItems = make([]sales.SalesOrderItem, 0)
+		lastOrder = tmpOrder
+		lastQuotation = tmpQuotation
+		lastCustomer = tmpCustomer
+		lastPaymentTerm = tmpPaymentTerm
+
+		if len(orderItems) != 0 && *orderItems[len(orderItems)-1].Id != *tmpOrderItem.Id || len(orderItems) == 0 {
 			orderItems = append(orderItems, tmpOrderItem)
-			lastPaymentTerm = tmpPaymentTerm
-			paymentTermLines = make([]accounting.AccountingPaymentTermLine, 0)
+		}
+
+		if len(paymentTermLines) != 0 && *paymentTermLines[len(paymentTermLines)-1].Id != *tmpPaymentTermLine.Id || len(paymentTermLines) == 0 {
 			paymentTermLines = append(paymentTermLines, tmpPaymentTermLine)
-			continue
-		}
-
-		if lastQuotation.Id == nil || lastPaymentTerm.Id == nil || lastOrder.Id == nil {
-			lastOrder = tmpOrder
-			lastQuotation = tmpQuotation
-			lastCustomer = tmpCustomer
-			lastPaymentTerm = tmpPaymentTerm
-		}
-
-		if tmpOrderItem.Id != nil {
-			if len(orderItems) != 0 {
-				if orderItems[len(orderItems)-1].Id != tmpOrderItem.Id {
-					orderItems = append(orderItems, tmpOrderItem)
-				}
-			} else {
-				orderItems = append(orderItems, tmpOrderItem)
-			}
-		}
-
-		if tmpPaymentTermLine.Id != nil {
-			if len(paymentTermLines) != 0 {
-				if paymentTermLines[len(paymentTermLines)-1].Id != tmpPaymentTermLine.Id {
-					paymentTermLines = append(paymentTermLines, tmpPaymentTermLine)
-				}
-			} else {
-				paymentTermLines = append(paymentTermLines, tmpPaymentTermLine)
-			}
 		}
 	}
 
@@ -284,8 +259,8 @@ func (service *SalesOrderService) Order(id string) (sales.SalesOrderResponse, in
 	order := sales.SalesOrder{}
 	customer := setting.SettingCustomer{}
 	quotation := sales.SalesQuotation{}
-	orderItems := make([]sales.SalesOrderItem, 0)
 	paymentTerm := accounting.AccountingPaymentTerm{}
+	orderItems := make([]sales.SalesOrderItem, 0)
 	paymentTermLines := make([]accounting.AccountingPaymentTermLine, 0)
 	for rows.Next() {
 		tmpOrderItem := sales.SalesOrderItem{}
@@ -325,24 +300,12 @@ func (service *SalesOrderService) Order(id string) (sales.SalesOrderResponse, in
 			return sales.SalesOrderResponse{}, http.StatusInternalServerError, utils.ErrInternalServer
 		}
 
-		if tmpOrderItem.Id != nil {
-			if len(orderItems) != 0 {
-				if orderItems[len(orderItems)-1].Id != tmpOrderItem.Id {
-					orderItems = append(orderItems, tmpOrderItem)
-				}
-			} else {
-				orderItems = append(orderItems, tmpOrderItem)
-			}
+		if len(orderItems) != 0 && *orderItems[len(orderItems)-1].Id != *tmpOrderItem.Id || len(orderItems) == 0 {
+			orderItems = append(orderItems, tmpOrderItem)
 		}
 
-		if tmpPaymentTermLine.Id != nil {
-			if len(paymentTermLines) != 0 {
-				if paymentTermLines[len(paymentTermLines)-1].Id != tmpPaymentTermLine.Id {
-					paymentTermLines = append(paymentTermLines, tmpPaymentTermLine)
-				}
-			} else {
-				paymentTermLines = append(paymentTermLines, tmpPaymentTermLine)
-			}
+		if len(paymentTermLines) != 0 && *paymentTermLines[len(paymentTermLines)-1].Id != *tmpPaymentTermLine.Id || len(paymentTermLines) == 0 {
+			paymentTermLines = append(paymentTermLines, tmpPaymentTermLine)
 		}
 	}
 	if order.Id == nil {

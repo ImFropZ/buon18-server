@@ -59,41 +59,32 @@ func (service *SettingUserService) Users(qp *utils.QueryParams) ([]setting.Setti
 	}
 
 	usersResponse := make([]setting.SettingUserResponse, 0)
-	permissions := make([]setting.SettingPermission, 0)
 	var lastUser setting.SettingUser
 	var lastRole setting.SettingRole
+	permissions := make([]setting.SettingPermission, 0)
 	for rows.Next() {
 		var tmpUser setting.SettingUser
 		var tmpRole setting.SettingRole
 		var tmpPermission setting.SettingPermission
-		err := rows.Scan(&tmpUser.Id, &tmpUser.Name, &tmpUser.Email, &tmpUser.Typ, &tmpRole.Id, &tmpRole.Name, &tmpRole.Description, &tmpPermission.Id, &tmpPermission.Name)
-		if err != nil {
+		if err := rows.Scan(&tmpUser.Id, &tmpUser.Name, &tmpUser.Email, &tmpUser.Typ, &tmpRole.Id, &tmpRole.Name, &tmpRole.Description, &tmpPermission.Id, &tmpPermission.Name); err != nil {
 			slog.Error(fmt.Sprintf("%s", err))
 			return nil, 0, http.StatusInternalServerError, utils.ErrInternalServer
 		}
 
-		if lastUser.Id != tmpUser.Id && lastUser.Id != nil {
+		if *lastUser.Id != *tmpUser.Id && lastUser.Id != nil {
 			permissionsResponse := make([]setting.SettingPermissionResponse, 0)
 			for _, permission := range permissions {
 				permissionsResponse = append(permissionsResponse, setting.SettingPermissionToResponse(permission))
 			}
 			roleResponse := setting.SettingRoleToResponse(lastRole, &permissionsResponse)
 			usersResponse = append(usersResponse, setting.SettingUserToResponse(lastUser, &roleResponse))
-			lastUser = tmpUser
-			lastRole = tmpRole
+
 			permissions = make([]setting.SettingPermission, 0)
-			permissions = append(permissions, tmpPermission)
-			continue
 		}
 
-		if lastUser.Id == nil {
-			lastUser = tmpUser
-			lastRole = tmpRole
-		}
-
-		if tmpPermission.Id != nil {
-			permissions = append(permissions, tmpPermission)
-		}
+		lastUser = tmpUser
+		lastRole = tmpRole
+		permissions = append(permissions, tmpPermission)
 	}
 	if lastUser.Id != nil {
 		permissionsResponse := make([]setting.SettingPermissionResponse, 0)
@@ -163,8 +154,7 @@ func (service *SettingUserService) User(id string) (setting.SettingUserResponse,
 	permissions := make([]setting.SettingPermission, 0)
 	for rows.Next() {
 		var tmpPermission setting.SettingPermission
-		err := rows.Scan(&user.Id, &user.Name, &user.Email, &user.Typ, &role.Id, &role.Name, &role.Description, &tmpPermission.Id, &tmpPermission.Name)
-		if err != nil {
+		if err := rows.Scan(&user.Id, &user.Name, &user.Email, &user.Typ, &role.Id, &role.Name, &role.Description, &tmpPermission.Id, &tmpPermission.Name); err != nil {
 			slog.Error(fmt.Sprintf("%s", err))
 			return setting.SettingUserResponse{}, http.StatusInternalServerError, utils.ErrInternalServer
 		}

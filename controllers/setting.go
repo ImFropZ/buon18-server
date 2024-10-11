@@ -21,7 +21,7 @@ func (handler *SettingHandler) Users(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
 	qp := utils.NewQueryParams().
-		PrepareFilters(setting.SettingUser{}, r, "setting.user").
+		PrepareFilters(setting.SettingUser{}, r, `"setting.user"`).
 		PrepareSorts(setting.SettingUser{}, r, `"limited_users"`).
 		PrepareLimitAndOffset(r)
 

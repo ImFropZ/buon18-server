@@ -46,11 +46,11 @@ func (service *AccountingAccountService) Accounts(qp *utils.QueryParams) ([]acco
 	accounts := []accounting.AccountingAccountResponse{}
 	for rows.Next() {
 		account := accounting.AccountingAccount{}
-		err := rows.Scan(&account.Id, &account.Code, &account.Name, &account.Typ)
-		if err != nil {
+		if err := rows.Scan(&account.Id, &account.Code, &account.Name, &account.Typ); err != nil {
 			slog.Error(fmt.Sprintf("%v", err))
 			return nil, 0, http.StatusInternalServerError, utils.ErrInternalServer
 		}
+
 		accounts = append(accounts, accounting.AccountingAccountToResponse(account))
 	}
 

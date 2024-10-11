@@ -144,7 +144,7 @@ func (qp *QueryParams) PrepareFilters(model models.IFilter, r *http.Request, pre
 	c := r.URL.Query()
 	for _, filter := range model.AllowFilterFieldsAndOps() {
 		if q := c.Get(filter); q != "" {
-			qp.AddFilter(fmt.Sprintf(`"%s".%s=%s`, prefix, filter, q))
+			qp.AddFilter(fmt.Sprintf(`%s.%s=%s`, prefix, filter, q))
 		}
 	}
 	return qp
