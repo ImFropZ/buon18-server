@@ -71,7 +71,7 @@ func (service *SettingUserService) Users(qp *utils.QueryParams) ([]setting.Setti
 			return nil, 0, http.StatusInternalServerError, utils.ErrInternalServer
 		}
 
-		if *lastUser.Id != *tmpUser.Id && lastUser.Id != nil {
+		if lastUser.Id != nil && *lastUser.Id != *tmpUser.Id {
 			permissionsResponse := make([]setting.SettingPermissionResponse, 0)
 			for _, permission := range permissions {
 				permissionsResponse = append(permissionsResponse, setting.SettingPermissionToResponse(permission))

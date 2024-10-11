@@ -84,7 +84,7 @@ func (service *SalesQuotationService) Quotations(qp *utils.QueryParams) ([]sales
 			return []sales.SalesQuotationResponse{}, 0, http.StatusInternalServerError, utils.ErrInternalServer
 		}
 
-		if *lastQuotation.Id != *tmpQuotation.Id && lastQuotation.Id != nil {
+		if lastQuotation.Id != nil && *lastQuotation.Id != *tmpQuotation.Id {
 			customerResponse := setting.SettingCustomerToResponse(lastCustomer)
 			orderItemsResponse := make([]sales.SalesOrderItemResponse, 0)
 			for _, item := range orderItems {

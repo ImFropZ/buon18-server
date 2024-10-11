@@ -134,7 +134,7 @@ func (service *SalesOrderService) Orders(qp *utils.QueryParams) ([]sales.SalesOr
 			return nil, 0, http.StatusInternalServerError, utils.ErrInternalServer
 		}
 
-		if *lastOrder.Id != *tmpOrder.Id && lastOrder.Id != nil {
+		if lastOrder.Id != nil && *lastOrder.Id != *tmpOrder.Id {
 			orderItemsResponse := make([]sales.SalesOrderItemResponse, 0)
 			for _, item := range orderItems {
 				orderItemsResponse = append(orderItemsResponse, sales.SalesOrderItemToResponse(item))
@@ -147,6 +147,9 @@ func (service *SalesOrderService) Orders(qp *utils.QueryParams) ([]sales.SalesOr
 			}
 			paymentTermResponse := accounting.AccountingPaymentTermToResponse(lastPaymentTerm, &paymentTermLinesResponse)
 			ordersResponse = append(ordersResponse, sales.SalesOrderToResponse(lastOrder, &quotationResponse, &paymentTermResponse))
+
+			orderItems = make([]sales.SalesOrderItem, 0)
+			paymentTermLines = make([]accounting.AccountingPaymentTermLine, 0)
 		}
 
 		lastOrder = tmpOrder

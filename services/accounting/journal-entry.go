@@ -103,9 +103,11 @@ func (service *AccountingJournalEntryService) JournalEntries(qp *utils.QueryPara
 			return nil, 0, http.StatusInternalServerError, utils.ErrInternalServer
 		}
 
-		if *lastJournal.Id != *tmpJournal.Id && lastJournal.Id != nil {
+		if lastJournal.Id != nil && *lastJournal.Id != *tmpJournal.Id {
 			journalResponse := accounting.AccountingJournalToResponse(lastJournal, nil)
 			journalEntriesResponse = append(journalEntriesResponse, accounting.AccountingJournalEntryToResponse(lastJournalEntry, &journalEntryLinesResponse, &journalResponse))
+
+			journalEntryLinesResponse = make([]accounting.AccountingJournalEntryLineResponse, 0)
 		}
 
 		lastJournalEntry = tmpJournalEntry

@@ -58,23 +58,22 @@ func (service *SettingRoleService) Roles(qp *utils.QueryParams) ([]setting.Setti
 	for rows.Next() {
 		tmpRole := setting.SettingRole{}
 		tmpPermission := setting.SettingPermission{}
-		err := rows.Scan(&tmpRole.Id, &tmpRole.Name, &tmpRole.Description, &tmpPermission.Id, &tmpPermission.Name)
-		if err != nil {
+		if err := rows.Scan(&tmpRole.Id, &tmpRole.Name, &tmpRole.Description, &tmpPermission.Id, &tmpPermission.Name); err != nil {
 			slog.Error(fmt.Sprintf("%s\n", err))
 			return nil, 0, http.StatusInternalServerError, utils.ErrInternalServer
 		}
 
-		if *lastRole.Id != *tmpRole.Id && lastRole.Id != nil {
+		if lastRole.Id != nil && *lastRole.Id != *tmpRole.Id {
 			permissionsResponse := make([]setting.SettingPermissionResponse, 0)
 			for _, permission := range permissions {
 				permissionsResponse = append(permissionsResponse, setting.SettingPermissionToResponse(permission))
 			}
 			roles = append(roles, setting.SettingRoleToResponse(lastRole, &permissionsResponse))
 
-			lastRole = tmpRole
 			permissions = make([]setting.SettingPermission, 0)
 		}
 
+		lastRole = tmpRole
 		permissions = append(permissions, tmpPermission)
 	}
 	if lastRole.Id != nil {
