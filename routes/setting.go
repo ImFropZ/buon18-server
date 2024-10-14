@@ -56,6 +56,14 @@ func SettingRoutes(r *mux.Router, con *database.Connection) {
 	).Methods("PATCH", "OPTIONS")
 
 	r.Handle(
+		"/users",
+		middlewares.Authorize(
+			http.HandlerFunc(controller.DeleteUsers),
+			[]string{utils.PREDEFINED_PERMISSIONS.FULL_SETTING, utils.PREDEFINED_PERMISSIONS.SETTING_USERS.DELETE},
+		),
+	).Methods("DELETE", "OPTIONS")
+
+	r.Handle(
 		"/customers",
 		middlewares.Authorize(
 			http.HandlerFunc(controller.Customers),
@@ -88,9 +96,9 @@ func SettingRoutes(r *mux.Router, con *database.Connection) {
 	).Methods("PATCH", "OPTIONS")
 
 	r.Handle(
-		"/customers/{id:[0-9]+}",
+		"/customers",
 		middlewares.Authorize(
-			http.HandlerFunc(controller.DeleteCustomer),
+			http.HandlerFunc(controller.DeleteCustomers),
 			[]string{utils.PREDEFINED_PERMISSIONS.FULL_SETTING, utils.PREDEFINED_PERMISSIONS.SETTING_CUSTOMERS.DELETE},
 		),
 	).Methods("DELETE", "OPTIONS")
@@ -128,9 +136,9 @@ func SettingRoutes(r *mux.Router, con *database.Connection) {
 	).Methods("PATCH", "OPTIONS")
 
 	r.Handle(
-		"/roles/{id:[0-9]+}",
+		"/roles",
 		middlewares.Authorize(
-			http.HandlerFunc(controller.DeleteRole),
+			http.HandlerFunc(controller.DeleteRoles),
 			[]string{utils.PREDEFINED_PERMISSIONS.FULL_SETTING, utils.PREDEFINED_PERMISSIONS.SETTING_ROLES.DELETE},
 		),
 	).Methods("DELETE", "OPTIONS")

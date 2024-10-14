@@ -54,9 +54,9 @@ func SalesRoutes(r *mux.Router, con *database.Connection) {
 	).Methods("PATCH", "OPTIONS")
 
 	r.Handle(
-		"/quotations/{id:[0-9]+}",
+		"/quotations",
 		middlewares.Authorize(
-			http.HandlerFunc(controller.DeleteQuotation),
+			http.HandlerFunc(controller.DeleteQuotations),
 			[]string{utils.PREDEFINED_PERMISSIONS.FULL_SALES, utils.PREDEFINED_PERMISSIONS.SALES_QUOTATIONS.DELETE},
 		),
 	).Methods("DELETE", "OPTIONS")

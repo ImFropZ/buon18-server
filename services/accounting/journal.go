@@ -210,8 +210,17 @@ func (service *AccountingJournalService) UpdateJournal(ctx *utils.CtxValue, id s
 	return http.StatusOK, nil
 }
 
-func (service *AccountingJournalService) DeleteJournal(id string) (int, error) {
-	bqbQuery := bqb.New(`DELETE FROM "accounting.journal" WHERE id = ?`, id)
+func (service *AccountingJournalService) DeleteJournals(req *models.CommonDelete) (int, error) {
+	bqbQuery := bqb.New(`DELETE FROM "accounting.journal" WHERE id in (`)
+	for i, id := range req.Ids {
+		bqbQuery.Space(`?`, id)
+
+		if i < len(req.Ids)-1 {
+			bqbQuery.Comma("")
+		}
+	}
+	bqbQuery.Space(`)`)
+
 	query, params, err := bqbQuery.ToPgsql()
 	if err != nil {
 		slog.Error(fmt.Sprintf("%v", err))

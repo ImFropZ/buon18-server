@@ -7,6 +7,7 @@ import (
 	"net/http"
 
 	"github.com/gorilla/mux"
+	"system.buon18.com/m/models"
 	"system.buon18.com/m/models/sales"
 	"system.buon18.com/m/services"
 	"system.buon18.com/m/utils"
@@ -103,11 +104,16 @@ func (handler *SalesHandler) UpdateQuotation(w http.ResponseWriter, r *http.Requ
 	json.NewEncoder(w).Encode(utils.NewResponse(statusCode, "updated", nil))
 }
 
-func (handler *SalesHandler) DeleteQuotation(w http.ResponseWriter, r *http.Request) {
+func (handler *SalesHandler) DeleteQuotations(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
-	id := mux.Vars(r)["id"]
-	statusCode, err := handler.ServiceFacade.SalesQuotationService.DeleteQuotation(id)
+	// -- Parse request
+	req, ok := utils.ValidateRequest[models.CommonDelete](r, w, false)
+	if !ok {
+		return
+	}
+
+	statusCode, err := handler.ServiceFacade.SalesQuotationService.DeleteQuotations(&req)
 	if err != nil {
 		msg, clientErr, code := utils.ServerToClientError(err)
 		w.WriteHeader(code)

@@ -190,8 +190,16 @@ func (service *SettingCustomerService) UpdateCustomer(ctx *utils.CtxValue, id st
 	return http.StatusOK, nil
 }
 
-func (service *SettingCustomerService) DeleteCustomer(id string) (int, error) {
-	bqbQuery := bqb.New(`DELETE FROM "setting.customer" WHERE id = ?`, id)
+func (service *SettingCustomerService) DeleteCustomers(req *models.CommonDelete) (int, error) {
+	bqbQuery := bqb.New(`DELETE FROM "setting.customer" WHERE id in (`)
+	for i, id := range req.Ids {
+		bqbQuery.Space(`?`, id)
+
+		if i < len(req.Ids)-1 {
+			bqbQuery.Comma("")
+		}
+	}
+	bqbQuery.Space(`)`)
 
 	query, params, err := bqbQuery.ToPgsql()
 	if err != nil {

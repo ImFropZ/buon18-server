@@ -57,9 +57,9 @@ func AccountingRoutes(r *mux.Router, con *database.Connection) {
 	).Methods("PATCH", "OPTIONS")
 
 	r.Handle(
-		"/accounts/{id:[0-9]+}",
+		"/accounts",
 		middlewares.Authorize(
-			http.HandlerFunc(controller.DeleteAccount),
+			http.HandlerFunc(controller.DeleteAccounts),
 			[]string{utils.PREDEFINED_PERMISSIONS.FULL_ACCOUNTING, utils.PREDEFINED_PERMISSIONS.ACCOUNTING_ACCOUNTS.DELETE},
 		),
 	).Methods("DELETE", "OPTIONS")
@@ -97,9 +97,9 @@ func AccountingRoutes(r *mux.Router, con *database.Connection) {
 	).Methods("PATCH", "OPTIONS")
 
 	r.Handle(
-		"/payment-terms/{id:[0-9]+}",
+		"/payment-terms",
 		middlewares.Authorize(
-			http.HandlerFunc(controller.DeletePaymentTerm),
+			http.HandlerFunc(controller.DeletePaymentTerms),
 			[]string{utils.PREDEFINED_PERMISSIONS.FULL_ACCOUNTING, utils.PREDEFINED_PERMISSIONS.ACCOUNTING_PAYMENT_TERMS.DELETE},
 		),
 	).Methods("DELETE", "OPTIONS")
@@ -137,9 +137,9 @@ func AccountingRoutes(r *mux.Router, con *database.Connection) {
 	).Methods("PATCH", "OPTIONS")
 
 	r.Handle(
-		"/journals/{id:[0-9]+}",
+		"/journals",
 		middlewares.Authorize(
-			http.HandlerFunc(controller.DeleteJournal),
+			http.HandlerFunc(controller.DeleteJournals),
 			[]string{utils.PREDEFINED_PERMISSIONS.FULL_ACCOUNTING, utils.PREDEFINED_PERMISSIONS.ACCOUNTING_JOURNALS.DELETE},
 		),
 	).Methods("DELETE", "OPTIONS")
@@ -177,9 +177,9 @@ func AccountingRoutes(r *mux.Router, con *database.Connection) {
 	).Methods("PATCH", "OPTIONS")
 
 	r.Handle(
-		"/journal-entries/{id:[0-9]+}",
+		"/journal-entries",
 		middlewares.Authorize(
-			http.HandlerFunc(controller.DeleteJournalEntry),
+			http.HandlerFunc(controller.DeleteJournalEntries),
 			[]string{utils.PREDEFINED_PERMISSIONS.FULL_ACCOUNTING, utils.PREDEFINED_PERMISSIONS.ACCOUNTING_JOURNAL_ENTRIES.DELETE},
 		),
 	).Methods("DELETE", "OPTIONS")

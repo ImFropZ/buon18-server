@@ -334,7 +334,7 @@ func (service *SettingRoleService) UpdateRole(ctx *utils.CtxValue, id string, ro
 	return http.StatusOK, nil
 }
 
-func (service *SettingRoleService) DeleteRole(id string) (int, error) {
+func (service *SettingRoleService) DeleteRoles(req *models.CommonDelete) (int, error) {
 	tx, err := service.DB.Begin()
 	if err != nil {
 		slog.Error(fmt.Sprintf("%v\n", err))
@@ -342,7 +342,16 @@ func (service *SettingRoleService) DeleteRole(id string) (int, error) {
 	}
 	defer tx.Rollback()
 
-	bqbQuery := bqb.New(`DELETE FROM "setting.role_permission" WHERE setting_role_id = ?`, id)
+	bqbQuery := bqb.New(`DELETE FROM "setting.role_permission" WHERE setting_role_id in (`)
+	for i, id := range req.Ids {
+		bqbQuery.Space(`?`, id)
+
+		if i < len(req.Ids)-1 {
+			bqbQuery.Comma("")
+		}
+	}
+	bqbQuery.Space(`)`)
+
 	query, params, err := bqbQuery.ToPgsql()
 	if err != nil {
 		slog.Error(fmt.Sprintf("%v\n", err))
@@ -354,7 +363,16 @@ func (service *SettingRoleService) DeleteRole(id string) (int, error) {
 		return http.StatusInternalServerError, utils.ErrInternalServer
 	}
 
-	bqbQuery = bqb.New(`DELETE FROM "setting.role" WHERE id = ?`, id)
+	bqbQuery = bqb.New(`DELETE FROM "setting.role" WHERE id in (`)
+	for i, id := range req.Ids {
+		bqbQuery.Space(`?`, id)
+
+		if i < len(req.Ids)-1 {
+			bqbQuery.Comma("")
+		}
+	}
+	bqbQuery.Space(`)`)
+
 	query, params, err = bqbQuery.ToPgsql()
 	if err != nil {
 		slog.Error(fmt.Sprintf("%v\n", err))

@@ -21,7 +21,7 @@ var (
 	// Gender
 	SettingGenderTypMale   = "m"
 	SettingGenderTypFemale = "f"
-	SettingGenderTypOther  = "o"
+	SettingGenderTypUnkown = "u"
 
 	// Setting user types
 	SettingUserTypUser = "user"
@@ -57,7 +57,7 @@ var (
 	AccountingJournalEntryStatusCancelled = "cancelled"
 )
 
-var VALID_GENDER_TYPES = []string{SettingGenderTypMale, SettingGenderTypFemale, SettingGenderTypOther}
+var VALID_GENDER_TYPES = []string{SettingGenderTypMale, SettingGenderTypFemale, SettingGenderTypUnkown}
 var VALID_SALES_QUOTATION_STATUS = []string{SalesQuotationStatusQuotation, SalesQuotationStatusQuotationSent, SalesQuotationStatusSalesOrder, SalesQuotationStatusSalesCancelled}
 var VALID_ACCOUNTING_ACCOUNT_TYPES = []string{AccountingAccountTypAssetCurrent, AccountingAccountTypAssetNonCurrent, AccountingAccountTypLiabilityCurrent, AccountingAccountTypLiabilityNonCurrent, AccountingAccountTypEquity, AccountingAccountTypIncome, AccountingAccountTypExpense, AccountingAccountTypGain, AccountingAccountTypLoss}
 var VALID_ACCOUNTING_JOURNAL_TYPES = []string{AccountingJournalTypSales, AccountingJournalTypPurchase, AccountingJournalTypCash, AccountingJournalTypBank, AccountingJournalTypGeneral}
@@ -82,4 +82,8 @@ func (cm *CommonModel) PrepareForUpdate(mid uint) (err error) {
 	cm.MId = mid
 	cm.MTime = time.Now()
 	return
+}
+
+type CommonDelete struct {
+	Ids []uint `json:"ids" validate:"required,gt=0,dive"`
 }

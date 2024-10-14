@@ -7,6 +7,7 @@ import (
 	"net/http"
 
 	"github.com/gorilla/mux"
+	"system.buon18.com/m/models"
 	"system.buon18.com/m/models/accounting"
 	"system.buon18.com/m/services"
 	"system.buon18.com/m/utils"
@@ -103,11 +104,16 @@ func (handler *AccountingHandler) UpdateAccount(w http.ResponseWriter, r *http.R
 	json.NewEncoder(w).Encode(utils.NewResponse(statusCode, "updated", nil))
 }
 
-func (handler *AccountingHandler) DeleteAccount(w http.ResponseWriter, r *http.Request) {
+func (handler *AccountingHandler) DeleteAccounts(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
-	id := mux.Vars(r)["id"]
-	statusCode, err := handler.ServiceFacade.AccountingAccountService.DeleteAccount(id)
+	// -- Parse request
+	req, ok := utils.ValidateRequest[models.CommonDelete](r, w, false)
+	if !ok {
+		return
+	}
+
+	statusCode, err := handler.ServiceFacade.AccountingAccountService.DeleteAccounts(&req)
 	if err != nil {
 		msg, clientErr, code := utils.ServerToClientError(err)
 		w.WriteHeader(code)
@@ -205,11 +211,16 @@ func (handler *AccountingHandler) UpdatePaymentTerm(w http.ResponseWriter, r *ht
 	json.NewEncoder(w).Encode(utils.NewResponse(statusCode, "updated", nil))
 }
 
-func (handler *AccountingHandler) DeletePaymentTerm(w http.ResponseWriter, r *http.Request) {
+func (handler *AccountingHandler) DeletePaymentTerms(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
-	id := mux.Vars(r)["id"]
-	statusCode, err := handler.ServiceFacade.AccountingPaymentTermService.DeletePaymentTerm(id)
+	// -- Parse request
+	req, ok := utils.ValidateRequest[models.CommonDelete](r, w, false)
+	if !ok {
+		return
+	}
+
+	statusCode, err := handler.ServiceFacade.AccountingPaymentTermService.DeletePaymentTerms(&req)
 	if err != nil {
 		msg, clientErr, code := utils.ServerToClientError(err)
 		w.WriteHeader(code)
@@ -307,11 +318,16 @@ func (handler *AccountingHandler) UpdateJournal(w http.ResponseWriter, r *http.R
 	json.NewEncoder(w).Encode(utils.NewResponse(statusCode, "updated", nil))
 }
 
-func (handler *AccountingHandler) DeleteJournal(w http.ResponseWriter, r *http.Request) {
+func (handler *AccountingHandler) DeleteJournals(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
-	id := mux.Vars(r)["id"]
-	statusCode, err := handler.ServiceFacade.AccountingJournalService.DeleteJournal(id)
+	// -- Parse request
+	req, ok := utils.ValidateRequest[models.CommonDelete](r, w, false)
+	if !ok {
+		return
+	}
+
+	statusCode, err := handler.ServiceFacade.AccountingJournalService.DeleteJournals(&req)
 	if err != nil {
 		msg, clientErr, code := utils.ServerToClientError(err)
 		w.WriteHeader(code)
@@ -409,11 +425,16 @@ func (handler *AccountingHandler) UpdateJournalEntry(w http.ResponseWriter, r *h
 	json.NewEncoder(w).Encode(utils.NewResponse(statusCode, "updated", nil))
 }
 
-func (handler *AccountingHandler) DeleteJournalEntry(w http.ResponseWriter, r *http.Request) {
+func (handler *AccountingHandler) DeleteJournalEntries(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
-	id := mux.Vars(r)["id"]
-	statusCode, err := handler.ServiceFacade.AccountingJournalEntryService.DeleteJournalEntry(id)
+	// -- Parse request
+	req, ok := utils.ValidateRequest[models.CommonDelete](r, w, false)
+	if !ok {
+		return
+	}
+
+	statusCode, err := handler.ServiceFacade.AccountingJournalEntryService.DeleteJournalEntries(&req)
 	if err != nil {
 		msg, clientErr, code := utils.ServerToClientError(err)
 		w.WriteHeader(code)

@@ -473,7 +473,7 @@ func (service *AccountingJournalEntryService) UpdateJournalEntry(ctx *utils.CtxV
 	return http.StatusOK, nil
 }
 
-func (service *AccountingJournalEntryService) DeleteJournalEntry(id string) (int, error) {
+func (service *AccountingJournalEntryService) DeleteJournalEntries(req *models.CommonDelete) (int, error) {
 	tx, err := service.DB.Begin()
 	if err != nil {
 		slog.Error(fmt.Sprintf("%v", err))
@@ -481,15 +481,24 @@ func (service *AccountingJournalEntryService) DeleteJournalEntry(id string) (int
 	}
 	defer tx.Rollback()
 
-	bqbQuery := bqb.New(`SELECT status FROM "accounting.journal_entry" WHERE id = ?`, id)
+	bqbQuery := bqb.New(fmt.Sprintf(`SELECT COUNT(*) FROM "accounting.journal_entry" WHERE (status != '%s' OR status != '%s') AND id in (`, models.AccountingJournalEntryStatusPosted, models.AccountingJournalEntryStatusCancelled))
+	for i, id := range req.Ids {
+		bqbQuery.Space(`?`, id)
+
+		if i < len(req.Ids)-1 {
+			bqbQuery.Comma("")
+		}
+	}
+	bqbQuery.Space(`)`)
+
 	query, params, err := bqbQuery.ToPgsql()
 	if err != nil {
 		slog.Error(fmt.Sprintf("%v", err))
 		return http.StatusInternalServerError, utils.ErrInternalServer
 	}
 
-	var status string
-	if err := tx.QueryRow(query, params...).Scan(&status); err != nil {
+	var total int
+	if err := tx.QueryRow(query, params...).Scan(&total); err != nil {
 		if err == sql.ErrNoRows {
 			return http.StatusNotFound, utils.ErrJournalEntryNotFound
 		}
@@ -498,11 +507,20 @@ func (service *AccountingJournalEntryService) DeleteJournalEntry(id string) (int
 		return http.StatusInternalServerError, utils.ErrInternalServer
 	}
 
-	if status == models.AccountingJournalEntryStatusPosted || status == models.AccountingJournalEntryStatusCancelled {
-		return http.StatusBadRequest, utils.ErrUnableToDeleteJournalEntry
+	if total != len(req.Ids) {
+		return http.StatusForbidden, utils.ErrUnableToDeleteJournalEntry
 	}
 
-	bqbQuery = bqb.New(`DELETE FROM "accounting.journal_entry_line" WHERE accounting_journal_entry_id = ?`, id)
+	bqbQuery = bqb.New(`DELETE FROM "accounting.journal_entry_line" WHERE accounting_journal_entry_id in (`)
+	for i, id := range req.Ids {
+		bqbQuery.Space(`?`, id)
+
+		if i < len(req.Ids)-1 {
+			bqbQuery.Comma("")
+		}
+	}
+	bqbQuery.Space(`)`)
+
 	query, params, err = bqbQuery.ToPgsql()
 	if err != nil {
 		slog.Error(fmt.Sprintf("%v", err))
@@ -514,7 +532,16 @@ func (service *AccountingJournalEntryService) DeleteJournalEntry(id string) (int
 		return http.StatusInternalServerError, utils.ErrInternalServer
 	}
 
-	bqbQuery = bqb.New(`DELETE FROM "accounting.journal_entry" WHERE id = ?`, id)
+	bqbQuery = bqb.New(`DELETE FROM "accounting.journal_entry" WHERE id in (`)
+	for i, id := range req.Ids {
+		bqbQuery.Space(`?`, id)
+
+		if i < len(req.Ids)-1 {
+			bqbQuery.Comma("")
+		}
+	}
+	bqbQuery.Space(`)`)
+
 	query, params, err = bqbQuery.ToPgsql()
 	if err != nil {
 		slog.Error(fmt.Sprintf("%v", err))

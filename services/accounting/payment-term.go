@@ -379,7 +379,7 @@ func (service *AccountingPaymentTermService) UpdatePaymentTerm(ctx *utils.CtxVal
 	return http.StatusOK, nil
 }
 
-func (service *AccountingPaymentTermService) DeletePaymentTerm(id string) (int, error) {
+func (service *AccountingPaymentTermService) DeletePaymentTerms(req *models.CommonDelete) (int, error) {
 	tx, err := service.DB.Begin()
 	if err != nil {
 		slog.Error(fmt.Sprintf("%v", err))
@@ -387,7 +387,16 @@ func (service *AccountingPaymentTermService) DeletePaymentTerm(id string) (int, 
 	}
 	defer tx.Rollback()
 
-	bqbQuery := bqb.New(`DELETE FROM "accounting.payment_term_line" WHERE accounting_payment_term_id = ?`, id)
+	bqbQuery := bqb.New(`DELETE FROM "accounting.payment_term_line" WHERE accounting_payment_term_id in (`)
+	for i, id := range req.Ids {
+		bqbQuery.Space(`?`, id)
+
+		if i < len(req.Ids)-1 {
+			bqbQuery.Comma("")
+		}
+	}
+	bqbQuery.Space(`)`)
+
 	query, params, err := bqbQuery.ToPgsql()
 	if err != nil {
 		slog.Error(fmt.Sprintf("%v", err))
@@ -399,7 +408,16 @@ func (service *AccountingPaymentTermService) DeletePaymentTerm(id string) (int, 
 		return http.StatusInternalServerError, utils.ErrInternalServer
 	}
 
-	bqbQuery = bqb.New(`DELETE FROM "accounting.payment_term" WHERE id = ?`, id)
+	bqbQuery = bqb.New(`DELETE FROM "accounting.payment_term" WHERE id in (`)
+	for i, id := range req.Ids {
+		bqbQuery.Space(`?`, id)
+
+		if i < len(req.Ids)-1 {
+			bqbQuery.Comma("")
+		}
+	}
+	bqbQuery.Space(`)`)
+
 	query, params, err = bqbQuery.ToPgsql()
 	if err != nil {
 		slog.Error(fmt.Sprintf("%v", err))

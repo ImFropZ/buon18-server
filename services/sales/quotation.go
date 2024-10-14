@@ -477,7 +477,7 @@ func (service *SalesQuotationService) UpdateQuotation(ctx *utils.CtxValue, id st
 	return http.StatusOK, nil
 }
 
-func (service *SalesQuotationService) DeleteQuotation(id string) (int, error) {
+func (service *SalesQuotationService) DeleteQuotations(req *models.CommonDelete) (int, error) {
 	tx, err := service.DB.Begin()
 	if err != nil {
 		slog.Error(fmt.Sprintf("%v", err))
@@ -485,15 +485,23 @@ func (service *SalesQuotationService) DeleteQuotation(id string) (int, error) {
 	}
 	defer tx.Rollback()
 
-	bqbQuery := bqb.New(`SELECT status FROM "sales.quotation" WHERE id = ?`, id)
+	bqbQuery := bqb.New(fmt.Sprintf(`SELECT COUNT(*) FROM "sales.quotation" WHERE (status != '%s' OR status != '%s') AND id in (`, models.SalesQuotationStatusSalesOrder, models.SalesQuotationStatusSalesCancelled))
+	for i, id := range req.Ids {
+		bqbQuery.Space(`?`, id)
+		if i != len(req.Ids)-1 {
+			bqbQuery.Comma("")
+		}
+	}
+	bqbQuery.Space(`)`)
+
 	query, params, err := bqbQuery.ToPgsql()
 	if err != nil {
 		slog.Error(fmt.Sprintf("%v", err))
 		return http.StatusInternalServerError, utils.ErrInternalServer
 	}
 
-	var status string
-	if err := tx.QueryRow(query, params...).Scan(&status); err != nil {
+	var total int
+	if err := tx.QueryRow(query, params...).Scan(&total); err != nil {
 		if err == sql.ErrNoRows {
 			return http.StatusNotFound, utils.ErrQuotationNotFound
 		}
@@ -502,11 +510,19 @@ func (service *SalesQuotationService) DeleteQuotation(id string) (int, error) {
 		return http.StatusInternalServerError, utils.ErrInternalServer
 	}
 
-	if status == models.SalesQuotationStatusSalesOrder || status == models.SalesQuotationStatusSalesCancelled {
+	if total != len(req.Ids) {
 		return http.StatusForbidden, utils.ErrUnableToDeleteQuotation
 	}
 
-	bqbQuery = bqb.New(`DELETE FROM "sales.order_item" WHERE sales_quotation_id = ?`, id)
+	bqbQuery = bqb.New(`DELETE FROM "sales.order_item" WHERE sales_quotation_id in (`)
+	for i, id := range req.Ids {
+		bqbQuery.Space(`?`, id)
+		if i != len(req.Ids)-1 {
+			bqbQuery.Comma("")
+		}
+	}
+	bqbQuery.Space(`)`)
+
 	query, params, err = bqbQuery.ToPgsql()
 	if err != nil {
 		slog.Error(fmt.Sprintf("%v", err))
@@ -518,7 +534,13 @@ func (service *SalesQuotationService) DeleteQuotation(id string) (int, error) {
 		return http.StatusInternalServerError, utils.ErrInternalServer
 	}
 
-	bqbQuery = bqb.New(`DELETE FROM "sales.quotation" WHERE id = ?`, id)
+	bqbQuery = bqb.New(`DELETE FROM "sales.quotation" WHERE id in (`)
+	for i, id := range req.Ids {
+		bqbQuery.Space(`?`, id)
+		if i != len(req.Ids)-1 {
+			bqbQuery.Comma("")
+		}
+	}
 	query, params, err = bqbQuery.ToPgsql()
 	if err != nil {
 		slog.Error(fmt.Sprintf("%v", err))

@@ -166,8 +166,17 @@ func (service *AccountingAccountService) UpdateAccount(ctx *utils.CtxValue, id s
 	return http.StatusOK, nil
 }
 
-func (service *AccountingAccountService) DeleteAccount(id string) (int, error) {
-	bqbQuery := bqb.New(`DELETE FROM "accounting.account" WHERE id = ?`, id)
+func (service *AccountingAccountService) DeleteAccounts(req *models.CommonDelete) (int, error) {
+	bqbQuery := bqb.New(`DELETE FROM "accounting.account" WHERE id in (`)
+	for i, id := range req.Ids {
+		bqbQuery.Space(`?`, id)
+
+		if i < len(req.Ids)-1 {
+			bqbQuery.Comma("")
+		}
+	}
+	bqbQuery.Space(`)`)
+
 	query, params, err := bqbQuery.ToPgsql()
 	if err != nil {
 		slog.Error(fmt.Sprintf("%v", err))

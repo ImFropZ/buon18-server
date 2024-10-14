@@ -7,6 +7,7 @@ import (
 	"net/http"
 
 	"github.com/gorilla/mux"
+	"system.buon18.com/m/models"
 	"system.buon18.com/m/models/setting"
 	"system.buon18.com/m/services"
 	"system.buon18.com/m/utils"
@@ -111,6 +112,36 @@ func (handler *SettingHandler) UpdateUser(w http.ResponseWriter, r *http.Request
 	json.NewEncoder(w).Encode(utils.NewResponse(statusCode, "updated", nil))
 }
 
+func (handler *SettingHandler) DeleteUsers(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	// -- Parse request
+	req, ok := utils.ValidateRequest[models.CommonDelete](r, w, false)
+	if !ok {
+		return
+	}
+
+	// Check if the system user is in the list
+	for _, id := range req.Ids {
+		if id == 1 {
+			w.WriteHeader(http.StatusForbidden)
+			json.NewEncoder(w).Encode(utils.NewErrorResponse(http.StatusForbidden, "unable to delete the system user", "Forbidden", nil))
+			return
+		}
+	}
+
+	statusCode, err := handler.ServiceFacade.SettingUserService.DeleteUsers(&req)
+	if err != nil {
+		msg, clientErr, code := utils.ServerToClientError(err)
+		w.WriteHeader(code)
+		json.NewEncoder(w).Encode(utils.NewErrorResponse(statusCode, msg, clientErr, nil))
+		return
+	}
+
+	w.WriteHeader(statusCode)
+	json.NewEncoder(w).Encode(utils.NewResponse(statusCode, "deleted", nil))
+}
+
 func (handler *SettingHandler) Customers(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
@@ -197,11 +228,16 @@ func (handler *SettingHandler) UpdateCustomer(w http.ResponseWriter, r *http.Req
 	json.NewEncoder(w).Encode(utils.NewResponse(statusCode, "updated", nil))
 }
 
-func (handler *SettingHandler) DeleteCustomer(w http.ResponseWriter, r *http.Request) {
+func (handler *SettingHandler) DeleteCustomers(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
-	id := mux.Vars(r)["id"]
-	statusCode, err := handler.ServiceFacade.SettingCustomerService.DeleteCustomer(id)
+	// -- Parse request
+	req, ok := utils.ValidateRequest[models.CommonDelete](r, w, false)
+	if !ok {
+		return
+	}
+
+	statusCode, err := handler.ServiceFacade.SettingCustomerService.DeleteCustomers(&req)
 	if err != nil {
 		msg, clientErr, code := utils.ServerToClientError(err)
 		w.WriteHeader(code)
@@ -358,17 +394,25 @@ func (handler *SettingHandler) UpdateRole(w http.ResponseWriter, r *http.Request
 	json.NewEncoder(w).Encode(utils.NewResponse(statusCode, "updated", nil))
 }
 
-func (handler *SettingHandler) DeleteRole(w http.ResponseWriter, r *http.Request) {
+func (handler *SettingHandler) DeleteRoles(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
-	id := mux.Vars(r)["id"]
-	if id == "1" {
-		w.WriteHeader(http.StatusForbidden)
-		json.NewEncoder(w).Encode(utils.NewErrorResponse(http.StatusForbidden, "unable to delete the system role", "Forbidden", nil))
+	// -- Parse request
+	req, ok := utils.ValidateRequest[models.CommonDelete](r, w, false)
+	if !ok {
 		return
 	}
 
-	statusCode, err := handler.ServiceFacade.SettingRoleService.DeleteRole(id)
+	// Check if the system role is in the list
+	for _, roleId := range req.Ids {
+		if roleId == 1 {
+			w.WriteHeader(http.StatusForbidden)
+			json.NewEncoder(w).Encode(utils.NewErrorResponse(http.StatusForbidden, "unable to delete the system role", "Forbidden", nil))
+			return
+		}
+	}
+
+	statusCode, err := handler.ServiceFacade.SettingRoleService.DeleteRoles(&req)
 	if err != nil {
 		msg, clientErr, code := utils.ServerToClientError(err)
 		w.WriteHeader(code)

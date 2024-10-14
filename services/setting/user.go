@@ -214,13 +214,13 @@ func (service *SettingUserService) UpdateUser(ctx *utils.CtxValue, id string, us
 	bqbQuery := bqb.New(`UPDATE "setting.user" SET mid = ?, mtime = ?`, commonModel.MId, commonModel.MTime)
 
 	if user.Name != nil {
-		bqbQuery.Space(`name = ?`, *user.Name)
+		bqbQuery.Comma(`name = ?`, *user.Name)
 	}
 	if user.Email != nil {
-		bqbQuery.Space(`email = ?`, *user.Email)
+		bqbQuery.Comma(`email = ?`, *user.Email)
 	}
 	if user.RoleId != nil {
-		bqbQuery.Space(`setting_role_id = ?`, *user.RoleId)
+		bqbQuery.Comma(`setting_role_id = ?`, *user.RoleId)
 	}
 
 	if user.Password != nil {
@@ -260,6 +260,39 @@ func (service *SettingUserService) UpdateUser(ctx *utils.CtxValue, id string, us
 			return http.StatusNotFound, utils.ErrRoleNotFound
 		}
 
+		slog.Error(fmt.Sprintf("%s", err))
+		return http.StatusInternalServerError, utils.ErrInternalServer
+	}
+
+	if n, err := result.RowsAffected(); err != nil || n == 0 {
+		if n == 0 {
+			return http.StatusNotFound, utils.ErrUserNotFound
+		}
+		return http.StatusInternalServerError, utils.ErrInternalServer
+	}
+
+	return http.StatusOK, nil
+}
+
+func (service *SettingUserService) DeleteUsers(req *models.CommonDelete) (int, error) {
+	bqbQuery := bqb.New(`DELETE FROM "setting.user" WHERE id IN (`)
+	for i, id := range req.Ids {
+		bqbQuery.Space(`?`, id)
+
+		if i < len(req.Ids)-1 {
+			bqbQuery.Comma("")
+		}
+	}
+	bqbQuery.Space(`)`)
+
+	query, params, err := bqbQuery.ToPgsql()
+	if err != nil {
+		slog.Error(fmt.Sprintf("%s", err))
+		return http.StatusInternalServerError, utils.ErrInternalServer
+	}
+
+	result, err := service.DB.Exec(query, params...)
+	if err != nil {
 		slog.Error(fmt.Sprintf("%s", err))
 		return http.StatusInternalServerError, utils.ErrInternalServer
 	}
