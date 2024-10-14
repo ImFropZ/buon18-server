@@ -261,10 +261,10 @@ func (service *SettingRoleService) UpdateRole(ctx *utils.CtxValue, id string, ro
 
 	bqbQuery := bqb.New(`UPDATE "setting.role" SET mid = ?, mtime = ?`, commonModel.MId, commonModel.MTime)
 	if role.Name != nil {
-		bqbQuery.Space(`name = ?`, *role.Name)
+		bqbQuery.Comma(`name = ?`, *role.Name)
 	}
 	if role.Description != nil {
-		bqbQuery.Space(`description = ?`, *role.Description)
+		bqbQuery.Comma(`description = ?`, *role.Description)
 	}
 	bqbQuery.Space(`WHERE id = ?`, id)
 

@@ -318,22 +318,22 @@ func (service *SalesQuotationService) UpdateQuotation(ctx *utils.CtxValue, id st
 
 	bqbQuery = bqb.New(`UPDATE "sales.quotation" SET mid = ?, mtime = ?`, commonModel.MId, commonModel.MTime)
 	if quotation.Name != nil {
-		bqbQuery.Space(`name = ?`, *quotation.Name)
+		bqbQuery.Comma(`name = ?`, *quotation.Name)
 	}
 	if quotation.CreationDate != nil {
-		bqbQuery.Space(`creation_date = ?`, *quotation.CreationDate)
+		bqbQuery.Comma(`creation_date = ?`, *quotation.CreationDate)
 	}
 	if quotation.ValidityDate != nil {
-		bqbQuery.Space(`validity_date = ?`, *quotation.ValidityDate)
+		bqbQuery.Comma(`validity_date = ?`, *quotation.ValidityDate)
 	}
 	if quotation.Discount != nil {
-		bqbQuery.Space(`discount = ?`, *quotation.Discount)
+		bqbQuery.Comma(`discount = ?`, *quotation.Discount)
 	}
 	if quotation.Status != nil {
-		bqbQuery.Space(`status = ?`, *quotation.Status)
+		bqbQuery.Comma(`status = ?`, *quotation.Status)
 	}
 	if quotation.CustomerId != nil {
-		bqbQuery.Space(`setting_customer_id = ?`, *quotation.CustomerId)
+		bqbQuery.Comma(`setting_customer_id = ?`, *quotation.CustomerId)
 	}
 	bqbQuery.Space(`WHERE id = ?`, id)
 

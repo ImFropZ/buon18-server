@@ -340,19 +340,19 @@ func (service *AccountingJournalEntryService) UpdateJournalEntry(ctx *utils.CtxV
 
 	bqbQuery = bqb.New(`UPDATE "accounting.journal_entry" SET mid = ?, mtime = ?`, commonModel.MId, commonModel.MTime)
 	if journalEntry.Name != nil {
-		bqbQuery.Space(`name = ?`, *journalEntry.Name)
+		bqbQuery.Comma(`name = ?`, *journalEntry.Name)
 	}
 	if journalEntry.Date != nil {
-		bqbQuery.Space(`date = ?`, *journalEntry.Date)
+		bqbQuery.Comma(`date = ?`, *journalEntry.Date)
 	}
 	if journalEntry.Note != nil {
-		bqbQuery.Space(`note = ?`, *journalEntry.Note)
+		bqbQuery.Comma(`note = ?`, *journalEntry.Note)
 	}
 	if journalEntry.Status != nil {
-		bqbQuery.Space(`status = ?`, *journalEntry.Status)
+		bqbQuery.Comma(`status = ?`, *journalEntry.Status)
 	}
 	if journalEntry.JournalId != nil {
-		bqbQuery.Space(`accounting_journal_id = ?`, *journalEntry.JournalId)
+		bqbQuery.Comma(`accounting_journal_id = ?`, *journalEntry.JournalId)
 	}
 	bqbQuery.Space(`WHERE id = ?`, id)
 
@@ -406,16 +406,16 @@ func (service *AccountingJournalEntryService) UpdateJournalEntry(ctx *utils.CtxV
 		for _, line := range *journalEntry.UpdateLines {
 			bqbQuery := bqb.New(`UPDATE "accounting.journal_entry_line" SET mid = ?, mtime = ?`, commonModel.MId, commonModel.MTime)
 			if line.Sequence != nil {
-				bqbQuery.Space(`SET sequence = ?`, *line.Sequence)
+				bqbQuery.Comma(`SET sequence = ?`, *line.Sequence)
 			}
 			if line.Name != nil {
-				bqbQuery.Space(`SET name = ?`, *line.Name)
+				bqbQuery.Comma(`SET name = ?`, *line.Name)
 			}
 			if line.AmountDebit != nil {
-				bqbQuery.Space(`SET amount_debit = ?`, *line.AmountDebit)
+				bqbQuery.Comma(`SET amount_debit = ?`, *line.AmountDebit)
 			}
 			if line.AmountCredit != nil {
-				bqbQuery.Space(`SET amount_credit = ?`, *line.AmountCredit)
+				bqbQuery.Comma(`SET amount_credit = ?`, *line.AmountCredit)
 			}
 			bqbQuery.Space(`WHERE id = ? AND accounting_journal_entry_id = ?`, line.Id, id)
 

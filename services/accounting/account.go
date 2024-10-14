@@ -132,13 +132,13 @@ func (service *AccountingAccountService) UpdateAccount(ctx *utils.CtxValue, id s
 
 	bqbQuery := bqb.New(`UPDATE "accounting.account" SET mid = ?, mtime = ?`, commonModel.MId, commonModel.MTime)
 	if account.Name != nil {
-		bqbQuery.Space(`SET name = ?`, *account.Name)
+		bqbQuery.Comma(`name = ?`, *account.Name)
 	}
 	if account.Code != nil {
-		bqbQuery.Space(`SET code = ?`, *account.Code)
+		bqbQuery.Comma(`code = ?`, *account.Code)
 	}
 	if account.Typ != nil {
-		bqbQuery.Space(`SET typ = ?`, *account.Typ)
+		bqbQuery.Comma(`typ = ?`, *account.Typ)
 	}
 	bqbQuery.Space(`WHERE id = ?`, id)
 

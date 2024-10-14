@@ -374,16 +374,16 @@ func (service *SalesOrderService) UpdateOrder(ctx *utils.CtxValue, id string, or
 
 	bqbQuery := bqb.New(`UPDATE "sales.order" SET mid = ?, mtime = ?`, commonModel.MId, commonModel.MTime)
 	if order.Name != nil {
-		bqbQuery.Space(`name = ?`, *order.Name)
+		bqbQuery.Comma(`name = ?`, *order.Name)
 	}
 	if order.CommitmentDate != nil {
-		bqbQuery.Space(`commitment_date = ?`, *order.CommitmentDate)
+		bqbQuery.Comma(`commitment_date = ?`, *order.CommitmentDate)
 	}
 	if order.Note != nil {
-		bqbQuery.Space(`note = ?`, *order.Note)
+		bqbQuery.Comma(`note = ?`, *order.Note)
 	}
 	if order.PaymentTermId != nil {
-		bqbQuery.Space(`accounting_payment_term_id = ?`, *order.PaymentTermId)
+		bqbQuery.Comma(`accounting_payment_term_id = ?`, *order.PaymentTermId)
 	}
 	bqbQuery.Space(`WHERE id = ?`, id)
 

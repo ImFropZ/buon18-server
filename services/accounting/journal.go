@@ -171,16 +171,16 @@ func (service *AccountingJournalService) UpdateJournal(ctx *utils.CtxValue, id s
 
 	bqbQuery := bqb.New(`UPDATE "accounting.journal" SET mid = ?, mtime = ?`, commonModel.MId, commonModel.MTime)
 	if journal.Code != nil {
-		bqbQuery.Space(`SET code = ?`, *journal.Code)
+		bqbQuery.Comma(`code = ?`, *journal.Code)
 	}
 	if journal.Name != nil {
-		bqbQuery.Space(`SET name = ?`, *journal.Name)
+		bqbQuery.Comma(`name = ?`, *journal.Name)
 	}
 	if journal.Typ != nil {
-		bqbQuery.Space(`SET typ = ?`, *journal.Typ)
+		bqbQuery.Comma(`typ = ?`, *journal.Typ)
 	}
 	if journal.AccountId != nil {
-		bqbQuery.Space(`SET accounting_account_id = ?`, *journal.AccountId)
+		bqbQuery.Comma(`accounting_account_id = ?`, *journal.AccountId)
 	}
 	bqbQuery.Space(`WHERE id = ?`, id)
 

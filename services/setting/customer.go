@@ -156,15 +156,15 @@ func (service *SettingCustomerService) UpdateCustomer(ctx *utils.CtxValue, id st
 
 	bqbQuery := bqb.New(`UPDATE "setting.customer" SET mid = ?, mtime = ?`, commonModel.MId, commonModel.MTime)
 	if customer.Email != nil {
-		bqbQuery.Space(`SET email = ?`, *customer.Email)
+		bqbQuery.Comma(`email = ?`, *customer.Email)
 	}
 	if customer.Phone != nil {
-		bqbQuery.Space(`SET phone = ?`, *customer.Phone)
+		bqbQuery.Comma(`phone = ?`, *customer.Phone)
 	}
 	if customer.AdditionalInformation != nil {
-		bqbQuery.Space(`SET additional_information = ?`, *customer.AdditionalInformation)
+		bqbQuery.Comma(`additional_information = ?`, *customer.AdditionalInformation)
 	}
-	bqbQuery.Space(` WHERE id = ?`, id)
+	bqbQuery.Space(`WHERE id = ?`, id)
 
 	query, params, err := bqbQuery.ToPgsql()
 	if err != nil {

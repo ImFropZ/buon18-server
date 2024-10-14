@@ -254,10 +254,10 @@ func (service *AccountingPaymentTermService) UpdatePaymentTerm(ctx *utils.CtxVal
 
 	bqbQuery := bqb.New(`UPDATE "accounting.payment_term" SET mid = ?, mtime = ?`, commonModel.MId, commonModel.MTime)
 	if paymentTerm.Name != nil {
-		bqbQuery.Space(`SET name = ?`, *paymentTerm.Name)
+		bqbQuery.Comma(`name = ?`, *paymentTerm.Name)
 	}
 	if paymentTerm.Description != nil {
-		bqbQuery.Space(`SET description = ?`, *paymentTerm.Description)
+		bqbQuery.Comma(`description = ?`, *paymentTerm.Description)
 	}
 	bqbQuery.Space(`WHERE id = ?`, id)
 
