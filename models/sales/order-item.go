@@ -41,7 +41,7 @@ func SalesOrderItemToResponse(item SalesOrderItem) SalesOrderItemResponse {
 type SalesOrderItemCreateRequest struct {
 	Name        string  `json:"name" validate:"required,max=63"`
 	Description string  `json:"description" validate:"required,max=255"`
-	Price       float64 `json:"price" validate:"numeric,min=0"`
+	Price       float64 `json:"price" validate:"numeric"`
 	Discount    float64 `json:"discount" validate:"numeric,min=0"`
 }
 
@@ -49,6 +49,6 @@ type SalesOrderItemUpdateRequest struct {
 	Id          *int     `json:"id" validate:"required"`
 	Name        *string  `json:"name" validate:"omitempty,max=63"`
 	Description *string  `json:"description" validate:"omitempty,max=255"`
-	Price       *float64 `json:"price" validate:"omitempty,numeric,min=0"`
+	Price       *float64 `json:"price" validate:"omitempty,numeric"`
 	Discount    *float64 `json:"discount" validate:"omitempty,numeric,min=0"`
 }
