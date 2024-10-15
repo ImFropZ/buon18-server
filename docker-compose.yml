@@ -22,7 +22,9 @@ services:
       - ./valkey/valkey.conf:/etc/valkey/valkey.conf
     command: ["valkey-server", "/etc/valkey/valkey.conf"]
   server:
-    image: buon18/system-server:2.0.0-a.5
+    build:
+      context: .
+      dockerfile: Dockerfile
     container_name: buon18-system-server
     restart: unless-stopped
     depends_on:
@@ -42,12 +44,12 @@ services:
       - VALKEY_PWD=valkey
       - CACHE_DURATION_SEC=600
       - LOGGING_DIR=/logs
-      - GIN_MODE=release
-      - ALLOW_ORIGINS=*
-      - ALLOW_METHODS=GET,POST,PATCH,DELETE,OPTIONS
-      - ALLOW_HEADERS=Content-Type,Authorization
-      - EXPOSE_HEADERS=Content-Length,X-Total-Count,X-Cache
-      - MAX_AGE=120
+      - ACCESS_CONTROL_ALLOW_ORIGIN=*
+      - ACCESS_CONTROL_ALLOW_CREDENTIALS=true
+      - ACCESS_CONTROL_ALLOW_METHODS=GET,POST,PATCH,DELETE,OPTIONS
+      - ACCESS_CONTROL_ALLOW_HEADERS=Content-Type,Authorization
+      - ACCESS_CONTROL_EXPOSE_HEADERS=Content-Length,X-Total-Count,X-Cache
+      - ACCESS_CONTROL_MAX_AGE=120
       - CERT_FILE=
       - KEY_FILE=
     volumes:
