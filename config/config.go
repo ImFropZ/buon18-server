@@ -87,7 +87,7 @@ func GetConfigInstance() *Config {
 			LOGGING_DIR: Env("LOGGING_DIR"),
 
 			// -- Database
-			DB_CONNECTION_STRING: validateEnvString("DB_CONNECTION_STRING"),
+			DB_CONNECTION_STRING: validateEnvString("DB_CONNECTION_STRING", "postgres://postgres:postgres@localhost:5432/postgres"),
 
 			// -- Valkey
 			VALKEY_ADDRESSES:   strings.Split(Env("VALKEY_ADDRESSES"), ","),
@@ -95,8 +95,8 @@ func GetConfigInstance() *Config {
 			CACHE_DURATION_SEC: cacheDuration,
 
 			// -- Auth
-			TOKEN_KEY:          validateEnvString("TOKEN_KEY"),
-			REFRESH_TOKEN_KEY:  validateEnvString("REFRESH_TOKEN_KEY"),
+			TOKEN_KEY:          validateEnvString("TOKEN_KEY", "my_secret_key"),
+			REFRESH_TOKEN_KEY:  validateEnvString("REFRESH_TOKEN_KEY", "my_secret_refresh_key"),
 			TOKEN_DURATION_SEC: tokenDuration,
 			REFRESH_TOKEN_SEC:  refreshDuration,
 
@@ -104,12 +104,12 @@ func GetConfigInstance() *Config {
 			TRUSTED_PROXIES: trustedProxies,
 
 			// -- CORS
-			ACCESS_CONTROL_ALLOW_ORIGIN:      Env("ACCESS_CONTROL_ALLOW_ORIGIN"),
-			ACCESS_CONTROL_ALLOW_CREDENTIALS: Env("ACCESS_CONTROL_ALLOW_CREDENTIALS"),
-			ACCESS_CONTROL_ALLOW_HEADERS:     Env("ACCESS_CONTROL_ALLOW_HEADERS"),
-			ACCESS_CONTROL_ALLOW_METHODS:     Env("ACCESS_CONTROL_ALLOW_METHODS"),
-			ACCESS_CONTROL_EXPOSE_HEADERS:    Env("ACCESS_CONTROL_EXPOSE_HEADERS"),
-			ACCESS_CONTROL_MAX_AGE:           Env("ACCESS_CONTROL_MAX_AGE"),
+			ACCESS_CONTROL_ALLOW_ORIGIN:      validateEnvString("ACCESS_CONTROL_ALLOW_ORIGIN", "*"),
+			ACCESS_CONTROL_ALLOW_CREDENTIALS: validateEnvString("ACCESS_CONTROL_ALLOW_CREDENTIALS", "true"),
+			ACCESS_CONTROL_ALLOW_HEADERS:     validateEnvString("ACCESS_CONTROL_ALLOW_HEADERS", "Authorization, Content-Type"),
+			ACCESS_CONTROL_ALLOW_METHODS:     validateEnvString("ACCESS_CONTROL_ALLOW_METHODS", "GET, POST, PUT, PATCH, DELETE, OPTIONS"),
+			ACCESS_CONTROL_EXPOSE_HEADERS:    validateEnvString("ACCESS_CONTROL_EXPOSE_HEADERS", "Content-Length, X-Total-Count, X-Cache"),
+			ACCESS_CONTROL_MAX_AGE:           validateEnvString("ACCESS_CONTROL_MAX_AGE", "120"),
 
 			// -- TLS
 			CERT_FILE: Env("CERT_FILE"),
@@ -120,10 +120,13 @@ func GetConfigInstance() *Config {
 	return configInstance
 }
 
-func validateEnvString(key string) (value string) {
+func validateEnvString(key string, defaultValue string) (value string) {
 	value = Env(key)
 	if value == "" {
-		panic(fmt.Sprintf("%s enviroment variable is required", key))
+		if defaultValue == "" {
+			panic(fmt.Sprintf("%s enviroment variable is required", key))
+		}
+		return defaultValue
 	}
 	return
 }

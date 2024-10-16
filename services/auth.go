@@ -129,6 +129,7 @@ func (service *AuthService) Login(loginRequest *LoginRequest) (models.TokenAndRe
 func (service *AuthService) RefreshToken(refreshTokenRequest *RefreshTokenRequest) (models.TokenAndRefreshToken, int, error) {
 	refreshClaims, refreshErr := utils.ValidateRefreshToken(refreshTokenRequest.RefreshToken)
 	if refreshErr != nil {
+		slog.Error(fmt.Sprintf("Error validating refresh token: %v\n", refreshErr))
 		return models.TokenAndRefreshToken{}, http.StatusBadRequest, utils.ErrInvalidRefreshToken
 	}
 
