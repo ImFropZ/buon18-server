@@ -21,7 +21,7 @@ type SalesQuotation struct {
 }
 
 func (SalesQuotation) AllowFilterFieldsAndOps() []string {
-	return []string{"name:like", "name:ilike", "status:eq", "creation-date:gte", "creation-date:lte", "validity-date:gte", "validity-date:lte"}
+	return []string{"id:eq", "name:like", "name:ilike", "status:eq", "creation-date:gte", "creation-date:lte", "validity-date:gte", "validity-date:lte"}
 }
 
 func (SalesQuotation) AllowSorts() []string {

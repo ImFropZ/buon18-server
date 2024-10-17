@@ -16,7 +16,7 @@ type SettingUser struct {
 }
 
 func (SettingUser) AllowFilterFieldsAndOps() []string {
-	return []string{"name:ilike", "email:ilike", "name:like", "email:like", "typ:in", "role-id:eq"}
+	return []string{"id:eq", "name:ilike", "email:ilike", "name:like", "email:like", "typ:in", "role-id:eq"}
 }
 
 func (SettingUser) AllowSorts() []string {

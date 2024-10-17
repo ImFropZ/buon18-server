@@ -11,7 +11,7 @@ type SettingPermission struct {
 }
 
 func (SettingPermission) AllowFilterFieldsAndOps() []string {
-	return []string{"name:like", "name:ilike"}
+	return []string{"id:eq", "name:like", "name:ilike"}
 }
 
 func (SettingPermission) AllowSorts() []string {

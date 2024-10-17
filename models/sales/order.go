@@ -19,7 +19,7 @@ type SalesOrder struct {
 }
 
 func (SalesOrder) AllowFilterFieldsAndOps() []string {
-	return []string{"name:like", "commitment-date:eq", "commitment-date:gt", "commitment-date:gte", "commitment-date:lt", "commitment-date:lte", "sales-quotation-id:eq", "accounting-payment-term-id:eq"}
+	return []string{"id:eq", "name:like", "commitment-date:eq", "commitment-date:gt", "commitment-date:gte", "commitment-date:lt", "commitment-date:lte", "sales-quotation-id:eq", "accounting-payment-term-id:eq"}
 }
 
 func (SalesOrder) AllowSorts() []string {

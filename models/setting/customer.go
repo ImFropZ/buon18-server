@@ -17,7 +17,7 @@ type SettingCustomer struct {
 }
 
 func (SettingCustomer) AllowFilterFieldsAndOps() []string {
-	return []string{"full-name:like", "full-name:ilike", "gender:in", "email:like", "phone:like"}
+	return []string{"id:eq", "full-name:like", "full-name:ilike", "gender:in", "email:like", "phone:like"}
 }
 
 func (SettingCustomer) AllowSorts() []string {

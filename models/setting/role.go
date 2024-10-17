@@ -12,7 +12,7 @@ type SettingRole struct {
 }
 
 func (SettingRole) AllowFilterFieldsAndOps() []string {
-	return []string{"name:like", "name:ilike", "description:like", "description:ilike"}
+	return []string{"id:eq", "name:like", "name:ilike", "description:like", "description:ilike"}
 }
 
 func (SettingRole) AllowSorts() []string {
