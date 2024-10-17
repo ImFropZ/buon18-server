@@ -485,7 +485,7 @@ func (service *SalesQuotationService) DeleteQuotations(req *models.CommonDelete)
 	}
 	defer tx.Rollback()
 
-	bqbQuery := bqb.New(fmt.Sprintf(`SELECT COUNT(*) FROM "sales.quotation" WHERE (status != '%s' OR status != '%s') AND id in (`, models.SalesQuotationStatusSalesOrder, models.SalesQuotationStatusSalesCancelled))
+	bqbQuery := bqb.New(fmt.Sprintf(`SELECT COUNT(*) FROM "sales.quotation" WHERE NOT (status = '%s' OR status = '%s') AND id in (`, models.SalesQuotationStatusSalesOrder, models.SalesQuotationStatusSalesCancelled))
 	for i, id := range req.Ids {
 		bqbQuery.Space(`?`, id)
 		if i != len(req.Ids)-1 {
@@ -541,6 +541,7 @@ func (service *SalesQuotationService) DeleteQuotations(req *models.CommonDelete)
 			bqbQuery.Comma("")
 		}
 	}
+	bqbQuery.Space(`)`)
 	query, params, err = bqbQuery.ToPgsql()
 	if err != nil {
 		slog.Error(fmt.Sprintf("%v", err))

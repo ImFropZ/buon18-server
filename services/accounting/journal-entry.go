@@ -481,7 +481,7 @@ func (service *AccountingJournalEntryService) DeleteJournalEntries(req *models.C
 	}
 	defer tx.Rollback()
 
-	bqbQuery := bqb.New(fmt.Sprintf(`SELECT COUNT(*) FROM "accounting.journal_entry" WHERE (status != '%s' OR status != '%s') AND id in (`, models.AccountingJournalEntryStatusPosted, models.AccountingJournalEntryStatusCancelled))
+	bqbQuery := bqb.New(fmt.Sprintf(`SELECT COUNT(*) FROM "accounting.journal_entry" WHERE NOT (status = '%s' OR status = '%s') AND id in (`, models.AccountingJournalEntryStatusPosted, models.AccountingJournalEntryStatusCancelled))
 	for i, id := range req.Ids {
 		bqbQuery.Space(`?`, id)
 
