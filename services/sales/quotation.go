@@ -2,7 +2,6 @@ package sales
 
 import (
 	"database/sql"
-	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -313,7 +312,7 @@ func (service *SalesQuotationService) UpdateQuotation(ctx *utils.CtxValue, id st
 	}
 
 	if status == models.SalesQuotationStatusSalesOrder || status == models.SalesQuotationStatusSalesCancelled {
-		return http.StatusBadRequest, errors.New("this quotation is not allowed to be updated")
+		return http.StatusForbidden, utils.ErrUnableToUpdateQuotation
 	}
 
 	bqbQuery = bqb.New(`UPDATE "sales.quotation" SET mid = ?, mtime = ?`, commonModel.MId, commonModel.MTime)

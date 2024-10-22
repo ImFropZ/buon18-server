@@ -37,6 +37,7 @@ var (
 
 	ErrQuotationNotFound       = errors.New("quotation not found")
 	ErrQuotationNameExists     = errors.New("quotation name already exists")
+	ErrUnableToUpdateQuotation = errors.New("quotation in sales order or cancelled status are not allowed to be updated")
 	ErrUnableToDeleteQuotation = errors.New("quotations in sales order or cancelled status are not allowed to be deleted")
 
 	ErrOrderNotFound   = errors.New("order not found")
@@ -80,7 +81,7 @@ func ServerToClientError(err error) (msg string, clientErr string, code int) {
 		return
 	case ErrForbidden, ErrUpdateUserPwd, ErrUnableToDeleteSystemRole,
 		ErrUnableToDeleteCustomer, ErrCreateRoleWithFullPermission, ErrUnableToDeleteQuotation,
-		ErrUnableToDeleteJournalEntry:
+		ErrUnableToDeleteJournalEntry, ErrUnableToUpdateQuotation:
 		clientErr = "Forbidden"
 		code = http.StatusForbidden
 		return
