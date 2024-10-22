@@ -386,31 +386,33 @@ func (service *SalesQuotationService) UpdateQuotation(ctx *utils.CtxValue, id st
 		query := `UPDATE "sales.order_item" SET mid = ?, mtime = ?`
 		params := []interface{}{commonModel.MId, commonModel.MTime}
 
-		queryName := `SET name = (CASE`
-		queryDescription := `SET description = (CASE`
-		queryPrice := `SET price = (CASE`
-		queryDiscount := `SET discount = (CASE`
+		queryName := ` name = (CASE`
+		queryDescription := ` description = (CASE`
+		queryPrice := ` price = (CASE`
+		queryDiscount := ` discount = (CASE`
 
 		queryWhere := `WHERE id in (`
 
 		for i, item := range *quotation.UpdateSalesOrderItems {
 			if item.Name != nil {
 				queryName += ` WHEN id = ? THEN ?`
-				params = append(params, item.Id, *item.Name)
+				params = append(params, *item.Id, *item.Name)
 			}
 			if item.Description != nil {
 				queryDescription += ` WHEN id = ? THEN ?`
-				params = append(params, item.Id, *item.Description)
+				params = append(params, *item.Id, *item.Description)
 			}
 			if item.Price != nil {
 				queryPrice += ` WHEN id = ? THEN ?`
-				params = append(params, item.Id, *item.Price)
+				params = append(params, *item.Id, *item.Price)
 			}
 			if item.Discount != nil {
 				queryDiscount += ` WHEN id = ? THEN ?`
-				params = append(params, item.Id, *item.Discount)
+				params = append(params, *item.Id, *item.Discount)
 			}
+
 			queryWhere += `?`
+			params = append(params, *item.Id)
 
 			if i != len(*quotation.UpdateSalesOrderItems)-1 {
 				queryWhere += `,`
@@ -436,28 +438,28 @@ func (service *SalesQuotationService) UpdateQuotation(ctx *utils.CtxValue, id st
 			}
 		}
 
-		if quotation.AddSalesOrderItems != nil {
-			bqbQuery := bqb.New(`INSERT INTO "sales.order_item" (name, description, price, discount, sales_quotation_id, cid, ctime, mid, mtime) VALUES`)
-			for index, item := range *quotation.AddSalesOrderItems {
-				bqbQuery.Space(`(?, ?, ?, ?, ?, ?, ?, ?, ?)`, item.Name, item.Description, item.Price, item.Discount, id, commonModel.CId, commonModel.CTime, commonModel.MId, commonModel.MTime)
-				if index != len(*quotation.AddSalesOrderItems)-1 {
-					bqbQuery.Space(",")
-				}
-			}
+		query, params, err := bqb.New(query, params...).ToPgsql()
+		if err != nil {
+			slog.Error(fmt.Sprintf("%v", err))
+			return http.StatusInternalServerError, utils.ErrInternalServer
+		}
 
-			query, params, err := bqbQuery.ToPgsql()
-			if err != nil {
-				slog.Error(fmt.Sprintf("%v", err))
-				return http.StatusInternalServerError, utils.ErrInternalServer
-			}
+		if _, err := tx.Exec(query, params...); err != nil {
+			slog.Error(fmt.Sprintf("%v", err))
+			return http.StatusInternalServerError, utils.ErrInternalServer
+		}
+	}
 
-			if _, err := tx.Exec(query, params...); err != nil {
-				slog.Error(fmt.Sprintf("%v", err))
-				return http.StatusInternalServerError, utils.ErrInternalServer
+	if quotation.AddSalesOrderItems != nil {
+		bqbQuery := bqb.New(`INSERT INTO "sales.order_item" (name, description, price, discount, sales_quotation_id, cid, ctime, mid, mtime) VALUES`)
+		for index, item := range *quotation.AddSalesOrderItems {
+			bqbQuery.Space(`(?, ?, ?, ?, ?, ?, ?, ?, ?)`, item.Name, item.Description, item.Price, item.Discount, id, commonModel.CId, commonModel.CTime, commonModel.MId, commonModel.MTime)
+			if index != len(*quotation.AddSalesOrderItems)-1 {
+				bqbQuery.Space(",")
 			}
 		}
 
-		query, params, err := bqb.New(query, params...).ToPgsql()
+		query, params, err := bqbQuery.ToPgsql()
 		if err != nil {
 			slog.Error(fmt.Sprintf("%v", err))
 			return http.StatusInternalServerError, utils.ErrInternalServer
