@@ -312,34 +312,67 @@ func (service *AccountingPaymentTermService) UpdatePaymentTerm(ctx *utils.CtxVal
 	}
 
 	if paymentTerm.UpdateLines != nil {
-		for _, line := range paymentTerm.UpdateLines {
-			bqbQuery := bqb.New(`UPDATE "accounting.payment_term_line" SET mid = ?, mtime = ?`, commonModel.MId, commonModel.MTime)
+		query := `UPDATE "accounting.payment_term_line" SET mid = ?, mtime = ?`
+		params := []interface{}{commonModel.MId, commonModel.MTime}
+
+		querySequence := ` sequence = (CASE`
+		queryValueAmountPercent := ` value_amount_percent = (CASE`
+		queryNumberOfDays := ` number_of_days = (CASE`
+
+		idIn := ` WHERE id in (`
+
+		for i, line := range paymentTerm.UpdateLines {
 			if line.Sequence != nil {
-				bqbQuery.Space(`SET sequence = ?`, *line.Sequence)
+				querySequence += ` WHEN id = ? THEN ?`
+				params = append(params, *line.Id, *line.Sequence)
 			}
 			if line.ValueAmountPercent != nil {
-				bqbQuery.Space(`SET value_amount_percent = ?`, *line.ValueAmountPercent)
+				queryValueAmountPercent += ` WHEN id = ? THEN ?`
+				params = append(params, *line.Id, *line.ValueAmountPercent)
 			}
 			if line.NumberOfDays != nil {
-				bqbQuery.Space(`SET number_of_days = ?`, *line.NumberOfDays)
-			}
-			bqbQuery.Space(`WHERE id = ? AND accounting_payment_term_id = ?`, line.Id, id)
-
-			query, params, err := bqbQuery.ToPgsql()
-			if err != nil {
-				slog.Error(fmt.Sprintf("%v", err))
-				return http.StatusInternalServerError, utils.ErrInternalServer
+				queryNumberOfDays += ` WHEN id = ? THEN ?`
+				params = append(params, *line.Id, *line.NumberOfDays)
 			}
 
-			if _, err := tx.Exec(query, params...); err != nil {
-				switch err.(*pq.Error).Constraint {
-				case database.FK_ACCOUNTING_PAYMENT_TERM_ID:
-					return http.StatusBadRequest, utils.ErrPaymentTermNotFound
+			idIn += `?`
+			params = append(params, *line.Id)
+
+			if i != len(paymentTerm.UpdateLines)-1 {
+				idIn += `,`
+			} else {
+				if querySequence != ` sequence = (CASE` {
+					querySequence += ` ELSE sequence END)`
+					query += `,` + querySequence
+				}
+				if queryValueAmountPercent != ` value_amount_percent = (CASE` {
+					queryValueAmountPercent += ` ELSE value_amount_percent END)`
+					query += `,` + queryValueAmountPercent
+				}
+				if queryNumberOfDays != ` number_of_days = (CASE` {
+					queryNumberOfDays += ` ELSE number_of_days END)`
+					query += `,` + queryNumberOfDays
 				}
 
-				slog.Error(fmt.Sprintf("%v", err))
-				return http.StatusInternalServerError, utils.ErrInternalServer
+				query += idIn + `) AND accounting_payment_term_id = ?`
+				params = append(params, id)
 			}
+		}
+
+		query, params, err := bqb.New(query, params...).ToPgsql()
+		if err != nil {
+			slog.Error(fmt.Sprintf("%v", err))
+			return http.StatusInternalServerError, utils.ErrInternalServer
+		}
+
+		if _, err := tx.Exec(query, params...); err != nil {
+			switch err.(*pq.Error).Constraint {
+			case database.FK_ACCOUNTING_PAYMENT_TERM_ID:
+				return http.StatusBadRequest, utils.ErrPaymentTermNotFound
+			}
+
+			slog.Error(fmt.Sprintf("%v", err))
+			return http.StatusInternalServerError, utils.ErrInternalServer
 		}
 	}
 

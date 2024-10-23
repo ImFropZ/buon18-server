@@ -403,37 +403,76 @@ func (service *AccountingJournalEntryService) UpdateJournalEntry(ctx *utils.CtxV
 	}
 
 	if journalEntry.UpdateLines != nil {
-		for _, line := range *journalEntry.UpdateLines {
-			bqbQuery := bqb.New(`UPDATE "accounting.journal_entry_line" SET mid = ?, mtime = ?`, commonModel.MId, commonModel.MTime)
+		query := `UPDATE "accounting.journal_entry_line" SET mid = ?, mtime = ?`
+		params := []interface{}{commonModel.MId, commonModel.MTime}
+
+		querySequence := ` sequence = (CASE`
+		queryName := ` name = (CASE`
+		queryAmountDebit := ` amount_debit = (CASE`
+		queryAmountCredit := ` amount_credit = (CASE`
+
+		idIn := ` WHERE id in (`
+
+		for i, line := range *journalEntry.UpdateLines {
 			if line.Sequence != nil {
-				bqbQuery.Comma(`SET sequence = ?`, *line.Sequence)
+				querySequence += ` WHEN id = ? THEN ?`
+				params = append(params, *line.Id, *line.Sequence)
 			}
 			if line.Name != nil {
-				bqbQuery.Comma(`SET name = ?`, *line.Name)
+				queryName += ` WHEN id = ? THEN ?`
+				params = append(params, *line.Id, *line.Name)
 			}
 			if line.AmountDebit != nil {
-				bqbQuery.Comma(`SET amount_debit = ?`, *line.AmountDebit)
+				queryAmountDebit += ` WHEN id = ? THEN ?`
+				params = append(params, *line.Id, *line.AmountDebit)
 			}
 			if line.AmountCredit != nil {
-				bqbQuery.Comma(`SET amount_credit = ?`, *line.AmountCredit)
-			}
-			bqbQuery.Space(`WHERE id = ? AND accounting_journal_entry_id = ?`, line.Id, id)
-
-			query, params, err := bqbQuery.ToPgsql()
-			if err != nil {
-				slog.Error(fmt.Sprintf("%v", err))
-				return http.StatusInternalServerError, utils.ErrInternalServer
+				queryAmountCredit += ` WHEN id = ? THEN ?`
+				params = append(params, *line.Id, *line.AmountCredit)
 			}
 
-			if _, err := tx.Exec(query, params...); err != nil {
-				switch err.(*pq.Error).Constraint {
-				case database.CHK_ACCOUNTING_JOURANL_ENTRY_LINE_AMOUNT:
-					return http.StatusBadRequest, utils.ErrBothDebitAndCreditZero
+			idIn += `?`
+			params = append(params, *line.Id)
+
+			if i != len(*journalEntry.UpdateLines)-1 {
+				idIn += `,`
+			} else {
+				if querySequence != ` sequence = (CASE` {
+					querySequence += ` ELSE sequence END)`
+					query += `,` + querySequence
+				}
+				if queryName != ` name = (CASE` {
+					queryName += ` ELSE name END)`
+					query += `,` + queryName
+				}
+				if queryAmountDebit != ` amount_debit = (CASE` {
+					queryAmountDebit += ` ELSE amount_debit END)`
+					query += `,` + queryAmountDebit
+				}
+				if queryAmountCredit != ` amount_credit = (CASE` {
+					queryAmountCredit += ` ELSE amount_credit END)`
+					query += `,` + queryAmountCredit
 				}
 
-				slog.Error(fmt.Sprintf("%v", err))
-				return http.StatusInternalServerError, utils.ErrInternalServer
+				query += idIn + `) AND accounting_journal_entry_id = ?`
+				params = append(params, id)
 			}
+		}
+
+		query, params, err := bqb.New(query, params...).ToPgsql()
+		if err != nil {
+			slog.Error(fmt.Sprintf("%v", err))
+			return http.StatusInternalServerError, utils.ErrInternalServer
+		}
+
+		if _, err := tx.Exec(query, params...); err != nil {
+			switch err.(*pq.Error).Constraint {
+			case database.CHK_ACCOUNTING_JOURANL_ENTRY_LINE_AMOUNT:
+				return http.StatusBadRequest, utils.ErrBothDebitAndCreditZero
+			}
+
+			slog.Error(fmt.Sprintf("%v", err))
+			return http.StatusInternalServerError, utils.ErrInternalServer
 		}
 	}
 

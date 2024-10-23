@@ -416,19 +416,19 @@ func (service *SalesQuotationService) UpdateQuotation(ctx *utils.CtxValue, id st
 			if i != len(*quotation.UpdateSalesOrderItems)-1 {
 				queryWhere += `,`
 			} else {
-				if queryName != `SET name = (CASE` {
+				if queryName != ` name = (CASE` {
 					queryName += ` ELSE name END)`
 					query += `,` + queryName
 				}
-				if queryDescription != `SET description = (CASE` {
+				if queryDescription != ` description = (CASE` {
 					queryDescription += ` ELSE description END)`
 					query += `,` + queryDescription
 				}
-				if queryPrice != `SET price = (CASE` {
+				if queryPrice != ` price = (CASE` {
 					queryPrice += ` ELSE price END)`
 					query += `,` + queryPrice
 				}
-				if queryDiscount != `SET discount = (CASE` {
+				if queryDiscount != ` discount = (CASE` {
 					queryDiscount += ` ELSE discount END)`
 					query += `,` + queryDiscount
 				}
