@@ -216,6 +216,7 @@ CREATE TABLE IF NOT EXISTS
         mid BIGINT NOT NULL,
         mtime TIMESTAMP WITH TIME ZONE NOT NULL,
         CONSTRAINT "sales.quotation_id_fkey" FOREIGN KEY (sales_quotation_id) REFERENCES "sales.quotation" (id) ON DELETE RESTRICT,
+        CONSTRAINT "sales.quotation_id_unique" UNIQUE (sales_quotation_id),
         CONSTRAINT "accounting.payment_term_id_fkey" FOREIGN KEY (accounting_payment_term_id) REFERENCES "accounting.payment_term" (id) ON DELETE RESTRICT
     );
 

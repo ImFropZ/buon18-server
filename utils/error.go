@@ -39,6 +39,9 @@ var (
 	ErrQuotationNameExists     = errors.New("quotation name already exists")
 	ErrUnableToUpdateQuotation = errors.New("quotation in sales order or cancelled status are not allowed to be updated")
 	ErrUnableToDeleteQuotation = errors.New("quotations in sales order or cancelled status are not allowed to be deleted")
+	ErrInvalidQoutationStatus  = errors.New("invalid quotation status")
+	ErrQuotationExists         = errors.New("quotation already exists")
+	ErrInvalidQuotationDate    = errors.New("invalid quotation date")
 
 	ErrOrderNotFound   = errors.New("order not found")
 	ErrOrderNameExists = errors.New("order name already exists")
@@ -64,7 +67,8 @@ func ServerToClientError(err error) (msg string, clientErr string, code int) {
 	msg = err.Error()
 	switch err {
 	case ErrBadRequest, ErrInvalidEmailOrPassword, ErrInvalidOldPassword,
-		ErrInvalidRefreshToken, ErrBothDebitAndCreditZero:
+		ErrInvalidRefreshToken, ErrBothDebitAndCreditZero, ErrInvalidQoutationStatus,
+		ErrInvalidQuotationDate:
 		clientErr = "Bad Request"
 		code = http.StatusBadRequest
 		return
@@ -87,7 +91,8 @@ func ServerToClientError(err error) (msg string, clientErr string, code int) {
 		return
 	case ErrConflict, ErrUserEmailExists, ErrCustomerEmailExists,
 		ErrQuotationNameExists, ErrOrderNameExists, ErrAccountCodeExists,
-		ErrPaymentTermNameExists, ErrJournalCodeExists, ErrJournalEntryNameExists:
+		ErrPaymentTermNameExists, ErrJournalCodeExists, ErrJournalEntryNameExists,
+		ErrQuotationExists:
 		clientErr = "Conflict"
 		code = http.StatusConflict
 		return

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"strings"
 
 	"github.com/lib/pq"
 	"github.com/nullism/bqb"
@@ -65,6 +66,10 @@ func (service *SalesQuotationService) Quotations(qp *utils.QueryParams) ([]sales
 
 	rows, err := service.DB.Query(query, params...)
 	if err != nil {
+		if strings.Contains(err.Error(), "sales_quotation_status_typ") {
+			return []sales.SalesQuotationResponse{}, 0, http.StatusBadRequest, utils.ErrInvalidQoutationStatus
+		}
+
 		slog.Error(fmt.Sprintf("%v", err))
 		return []sales.SalesQuotationResponse{}, 0, http.StatusInternalServerError, utils.ErrInternalServer
 	}
@@ -239,10 +244,14 @@ func (service *SalesQuotationService) CreateQuotation(ctx *utils.CtxValue, quota
 	var id int
 	if err := tx.QueryRow(query, params...).Scan(&id); err != nil {
 		switch err.(*pq.Error).Constraint {
+		case database.UNIQUE_SALES_QUOTATION_ID:
+			return http.StatusConflict, utils.ErrQuotationExists
 		case database.KEY_SALES_QUOTATION_NAME:
 			return http.StatusConflict, utils.ErrQuotationNameExists
 		case database.FK_SETTING_CUSTOMER_ID:
 			return http.StatusBadRequest, utils.ErrCustomerNotFound
+		case database.CHK_SALES_QUOTATION_DATE:
+			return http.StatusBadRequest, utils.ErrInvalidQuotationDate
 		}
 
 		slog.Error(fmt.Sprintf("%v", err))
@@ -349,6 +358,8 @@ func (service *SalesQuotationService) UpdateQuotation(ctx *utils.CtxValue, id st
 			return http.StatusConflict, utils.ErrQuotationNameExists
 		case database.FK_SETTING_CUSTOMER_ID:
 			return http.StatusBadRequest, utils.ErrCustomerNotFound
+		case database.CHK_SALES_QUOTATION_DATE:
+			return http.StatusBadRequest, utils.ErrInvalidQuotationDate
 		}
 
 		slog.Error(fmt.Sprintf("%v", err))
