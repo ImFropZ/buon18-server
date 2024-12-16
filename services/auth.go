@@ -318,13 +318,16 @@ func (service *AuthService) UpdateProfile(ctx *utils.CtxValue, updateData *Updat
 		return "", http.StatusNotFound, utils.ErrUserNotFound
 	}
 
+	commonModel := models.CommonModel{}
+	commonModel.PrepareForUpdate(*ctx.User.Id)
+
 	// -- Prepare sql query
-	bqbQuery := bqb.New(`UPDATE "setting.user" SET`)
+	bqbQuery := bqb.New(`UPDATE "setting.user" SET mid = ?, mtime = ?`, commonModel.MId, commonModel.MTime)
 	if updateData.Name != nil {
-		bqbQuery = bqbQuery.Space(`name = ?`, *updateData.Name)
+		bqbQuery = bqbQuery.Comma(`name = ?`, *updateData.Name)
 	}
 	if updateData.Email != nil {
-		bqbQuery = bqbQuery.Space(`email = ?`, *updateData.Email)
+		bqbQuery = bqbQuery.Comma(`email = ?`, *updateData.Email)
 	}
 	if updateData.RoleId != nil {
 		// -- Check if user is allowed to change role
@@ -339,7 +342,7 @@ func (service *AuthService) UpdateProfile(ctx *utils.CtxValue, updateData *Updat
 			return "", http.StatusForbidden, utils.ErrForbidden
 		}
 
-		bqbQuery = bqbQuery.Space(`setting_role_id = ?`, *updateData.RoleId)
+		bqbQuery = bqbQuery.Comma(`setting_role_id = ?`, *updateData.RoleId)
 	}
 
 	query, params, err = bqbQuery.Space(`WHERE id = ?`, ctx.User.Id).ToPgsql()
